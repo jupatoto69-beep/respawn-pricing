@@ -15,6 +15,11 @@ services based on costs, margins, variable materials and authorized discounts.
 - Provide employees with guidance for products and services.
 - Support future quotation workflows.
 
+## Documentation
+
+- [Product vision](docs/product-vision.md)
+- [Pricing model](docs/pricing-model.md)
+
 ## Project status
 
 Early development.
