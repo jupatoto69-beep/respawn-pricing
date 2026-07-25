@@ -20,6 +20,35 @@ services based on costs, margins, variable materials and authorized discounts.
 - [Product vision](docs/product-vision.md)
 - [Pricing model](docs/pricing-model.md)
 
+## Local development
+
+### Requirements
+
+- Node.js 20.9 or later
+- npm
+
+### Installation
+
+```bash
+cd web
+npm install
+```
+
+### Development server
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000` in a browser.
+
+### Quality checks
+
+```bash
+npm run lint
+npm run build
+```
+
 ## Project status
 
 Early development.
