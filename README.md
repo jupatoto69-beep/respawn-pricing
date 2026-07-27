@@ -24,7 +24,7 @@ services based on costs, margins, variable materials and authorized discounts.
 
 ### Requirements
 
-- Node.js 20.9 or later
+- Node.js 20.19 or later
 - npm
 
 ### Installation
