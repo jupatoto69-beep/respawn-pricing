@@ -19,15 +19,27 @@ controlled pricing calculations, employee guidance and quotation support.
 - Sales employee
 - Technical employee
 
+These are the intended user groups for the broader product. The first release
+has one conceptual employee role; administrators configure commercial rules
+and authorize exceptional prices outside the application.
+
 ## First release scope
 
 The first release will focus on:
 
-- Product and service cost input
-- Minimum profitable price calculation
-- List price calculation
+- Fixed-price products and services
+- Area-based products calculated from dimensions, quantity and a configured
+  rate
 - Authorized discount validation
-- Final sale price calculation
+- Optional additions and privately configured final minimum charges
+- Upward commercial rounding to COP 500
+- Temporary on-screen quotations
+
+Cost-and-margin pricing, including cost input and minimum profitable price
+calculation, belongs to a future release.
+
+The first release has no database, persistent quotation history,
+administration panel, authentication or authorization system.
 
 ## Out of scope for the first release
 
@@ -35,5 +47,7 @@ The first release will focus on:
 - Electronic invoicing
 - Inventory management
 - Employee authentication
+- Database persistence
+- Cost-and-margin pricing
 - Online payments
 - Multi-company support
