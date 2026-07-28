@@ -1,0 +1,172 @@
+.page {
+  min-height: 100vh;
+  border-top: 4px solid var(--color-blue);
+}
+
+.shell {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 92px;
+  border-bottom: 1px solid rgba(154, 164, 178, 0.18);
+}
+
+.brand,
+.brandContext,
+.internalLabel,
+.eyebrow,
+.lead,
+.sectionNumber,
+.sectionHeading h2,
+.sectionHeading p,
+.footer p {
+  margin: 0;
+}
+
+.brand {
+  color: var(--color-white);
+  font-size: 1rem;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+
+.brandContext {
+  margin-top: 2px;
+  color: var(--color-gray);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.internalLabel {
+  padding: 7px 11px;
+  border: 1px solid rgba(61, 139, 255, 0.45);
+  border-radius: 999px;
+  color: #b9d5ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero {
+  padding: 72px 0 32px;
+}
+
+.heroCopy {
+  max-width: 790px;
+}
+
+.eyebrow {
+  color: var(--color-blue-bright);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.heroCopy h1 {
+  max-width: 750px;
+  margin: 14px 0 18px;
+  font-size: clamp(3.25rem, 8vw, 6.75rem);
+  font-weight: 790;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+}
+
+.lead {
+  max-width: 650px;
+  color: #c2cad5;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+}
+
+.calculatorSection {
+  margin-top: 64px;
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-blue-dark);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+.sectionHeading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  max-width: 780px;
+  margin-bottom: 32px;
+}
+
+.sectionNumber {
+  padding-top: 5px;
+  color: var(--color-blue-bright);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.sectionHeading h2 {
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.sectionHeading p {
+  max-width: 650px;
+  margin-top: 10px;
+  color: #b7c1ce;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 0 36px;
+  color: var(--color-gray);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 700px) {
+  .shell {
+    width: min(100% - 28px, 1180px);
+  }
+
+  .header {
+    min-height: 82px;
+  }
+
+  .internalLabel {
+    padding: 6px 9px;
+    font-size: 0.65rem;
+  }
+
+  .hero {
+    padding-top: 52px;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(3rem, 16vw, 5rem);
+  }
+
+  .calculatorSection {
+    margin-top: 44px;
+    padding: 22px 16px 18px;
+    border-radius: 17px;
+  }
+
+  .sectionHeading {
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

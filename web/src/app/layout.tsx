@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
+import "./globals.css";
+
 export const metadata: Metadata = {
-  title: "Respawn Pricing",
+  title: "Respawn Pricing | Digital Respawn",
   description:
-    "Internal pricing and temporary quotation tool for Digital Respawn.",
+    "Herramienta interna de Digital Respawn para calcular precios por área de forma clara y consistente.",
 };
 
 export default function RootLayout({
@@ -12,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body>{children}</body>
     </html>
   );
