@@ -1,0 +1,354 @@
+.calculator {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 20px;
+}
+
+.form,
+.results {
+  min-width: 0;
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  border-radius: 16px;
+  background: var(--color-blue-deep);
+}
+
+.form {
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(20px, 3vw, 30px);
+  background: #08172b;
+}
+
+.formHeading,
+.resultHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.kicker,
+.formHeading h3,
+.resultHeading h3,
+.requiredNote,
+.fieldHelp,
+.error,
+.priceItemNote,
+.emptyResult p {
+  margin: 0;
+}
+
+.kicker {
+  color: var(--color-blue-bright);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.formHeading h3,
+.resultHeading h3 {
+  margin-top: 4px;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.requiredNote {
+  max-width: 150px;
+  color: var(--color-gray);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e5ebf2;
+  font-size: 0.84rem;
+  font-weight: 680;
+}
+
+.inputShell {
+  position: relative;
+}
+
+.inputShell input {
+  width: 100%;
+  min-height: 50px;
+  padding: 11px 90px 11px 13px;
+  border: 1px solid #31557d;
+  border-radius: 9px;
+  outline: none;
+  background: #080f1a;
+  color: var(--color-white);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.inputShell input::placeholder {
+  color: #687587;
+}
+
+.inputShell input:hover {
+  border-color: #4d76a8;
+  background: #0a1321;
+}
+
+.inputShell input:focus-visible {
+  border-color: #8bb8ff;
+  outline: 3px solid #8bb8ff;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.inputShell span {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  max-width: 72px;
+  overflow: hidden;
+  color: var(--color-gray);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.fieldHelp {
+  margin-top: 14px;
+  color: var(--color-gray);
+  font-size: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 46px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-size: 0.86rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.primaryButton {
+  border: 1px solid var(--color-blue);
+  background: var(--color-blue);
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgba(10, 102, 255, 0.2);
+}
+
+.primaryButton:hover {
+  border-color: var(--color-blue-bright);
+  background: #2377ff;
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  border: 1px solid #3b5879;
+  background: transparent;
+  color: #c9d3df;
+}
+
+.secondaryButton:hover {
+  border-color: #6285ac;
+  background: rgba(122, 170, 229, 0.08);
+  color: var(--color-white);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.primaryButton:active,
+.secondaryButton:active {
+  transform: translateY(0);
+}
+
+.errorRegion {
+  min-height: 0;
+}
+
+.error {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 18px;
+  padding: 11px 13px;
+  border: 1px solid rgba(229, 57, 53, 0.58);
+  border-radius: 9px;
+  background: rgba(229, 57, 53, 0.1);
+  color: #ff9b98;
+  font-size: 0.82rem;
+}
+
+.error span {
+  display: grid;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-red);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.priceList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.priceItem,
+.priceItemFeatured {
+  padding: 18px;
+  border: 1px solid rgba(122, 170, 229, 0.2);
+  border-radius: 12px;
+  background: rgba(5, 15, 28, 0.62);
+}
+
+.priceItemFeatured {
+  margin-top: auto;
+  border-color: rgba(61, 139, 255, 0.62);
+  box-shadow: inset 3px 0 0 var(--color-blue);
+}
+
+.priceItem dt,
+.priceItemFeatured dt {
+  color: #b6c1ce;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.priceItem dd,
+.priceItemFeatured dd {
+  margin: 7px 0 4px;
+  color: var(--color-white);
+  font-size: clamp(1.25rem, 2.8vw, 1.8rem);
+  font-weight: 790;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.priceItemFeatured dd {
+  color: #7aafff;
+}
+
+.priceItemNote {
+  margin: 0;
+  color: var(--color-gray);
+  font-size: 0.7rem;
+}
+
+.emptyResult {
+  display: grid;
+  flex: 1;
+  min-height: 230px;
+  padding: 24px;
+  place-content: center;
+  border: 1px dashed rgba(122, 170, 229, 0.35);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.emptyResult span {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border: 1px solid rgba(61, 139, 255, 0.55);
+  border-radius: 50%;
+  color: var(--color-blue-bright);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.emptyResult p {
+  max-width: 260px;
+  color: var(--color-gray);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 900px) {
+  .calculator {
+    grid-template-columns: 1fr;
+  }
+
+  .results {
+    min-height: 310px;
+  }
+}
+
+@media (max-width: 560px) {
+  .form,
+  .results {
+    padding: 19px 15px;
+    border-radius: 13px;
+  }
+
+  .formHeading {
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .requiredNote {
+    max-width: none;
+    text-align: left;
+  }
+
+  .fields {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+  }
+
+  .results {
+    min-height: 290px;
+  }
+}
