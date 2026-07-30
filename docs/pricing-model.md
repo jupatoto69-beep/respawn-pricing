@@ -13,6 +13,48 @@ The first release calculates consistent sale prices from configured commercial
 rules. Cost-and-margin pricing is documented below for future use but is not
 implemented in the first release.
 
+## Catalog terminology and information boundaries
+
+- A **product** is the item being sold, such as printed vinyl, cut vinyl,
+  banner or panaflex.
+- A **variant** is a sellable material or finish option within a product.
+- A **pricing strategy** is the calculation rule used to obtain a base price.
+- A **final sales rate** is the public, customer-facing configured rate used by
+  a pricing strategy. The rates below may be stored in this public repository.
+- **Internal private commercial information** includes actual costs, margins,
+  profitability, suppliers and the internal final minimum-charge configuration.
+  Actual Digital Respawn values and details must not be documented publicly or
+  exposed to employees. General future-model concepts and clearly identified
+  fictitious examples may be documented.
+
+Employees normally select a product and variant. The application resolves the
+corresponding final sales rate automatically; employees do not normally enter
+a rate.
+
+## Initial area-product catalog
+
+All rates in this catalog are final sales rates in Colombian pesos per square
+meter (COP/m²).
+
+| Product | Variant | Pricing strategy | Final sales rate |
+| --- | --- | --- | ---: |
+| Printed vinyl | Standard without lamination | Area-based | COP 80,000/m² |
+| Printed vinyl | Standard lamination | Area-based | COP 85,000/m² |
+| Printed vinyl | Floorgraphic lamination | Area-based | COP 95,000/m² |
+| Cut vinyl | Standard | Area-based | COP 80,000/m² |
+| Banner | Standard without lamination | Area-based | COP 80,000/m² |
+| Banner | Laminated | Area-based | COP 85,000/m² |
+| Panaflex | Standard material | Illuminated-sign strategies | COP 85,000/m² |
+
+Cut vinyl has no lamination variants in the first release.
+
+### Custom rate
+
+Custom rate is an exceptional pricing option, not a normal product variant.
+The employee must select it explicitly. Only after that selection may the
+application show a manual final-sales-rate field in COP/m²; otherwise the field
+must remain hidden.
+
 ## First-release pricing strategies
 
 ### Fixed-price products and services
@@ -45,6 +87,55 @@ base price = area in square meters × configured rate × quantity
 Compatible area-based items may be grouped before the discount and final
 minimum are applied. The grouping rules are defined in
 [First Release Requirements](first-release-requirements.md).
+
+## Confirmed future special pricing strategies
+
+These strategies are confirmed for future implementation and are not part of
+the first-release implementation scope.
+
+### General structures
+
+`areaBasePrice` is the area-based material price in COP, calculated from the
+applicable final sales rate in COP/m².
+
+```text
+single-face structure price = areaBasePrice × 4
+double-face structure price = (areaBasePrice × 4) + areaBasePrice
+```
+
+### Illuminated panaflex signs
+
+Dimensions are entered in centimeters (cm). Their product is an area in square
+centimeters (cm²):
+
+```text
+areaCm2 = lengthCm × widthCm
+```
+
+```text
+if areaCm2 < 10,000 cm²:
+  illuminated sign price = areaCm2 × 45
+
+if areaCm2 >= 10,000 cm²:
+  illuminated sign price = areaCm2 × 34
+```
+
+For a double-face sign, add one additional panaflex face:
+
+```text
+additional panaflex face = areaCm2 × 8.5
+```
+
+The threshold is measured in square centimeters, not centimeters or square
+meters.
+
+### Cut vinyl minimum
+
+Cut vinyl has a COP 15,000 commercial minimum per color group. Pieces of the
+same product and color may be grouped before evaluating the minimum. Different
+colors form separate groups and evaluate the minimum independently. This is a
+confirmed public product rule and is distinct from the private final minimum
+floor used for exceptional-price authorization.
 
 ## First-release commercial values
 
