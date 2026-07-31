@@ -11,6 +11,10 @@ describe("roundUpToCop500", () => {
       [25_499, 25_500],
       [25_500, 25_500],
       [25_501, 26_000],
+      [768_000, 768_000],
+      [768_000.01, 768_500],
+      [768_499.99, 768_500],
+      [768_500, 768_500],
     ])("rounds %i up to %i", (amount, expected) => {
       expect(roundUpToCop500(amount)).toBe(expected);
     });

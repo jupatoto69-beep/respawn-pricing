@@ -40,7 +40,7 @@ export function calculateAreaBasePrice(
     throw new RangeError("Quantity must be greater than zero.");
   }
 
-  const areaInSquareMeters = (lengthCm / 100) * (widthCm / 100);
+  const areaInSquareMeters = (lengthCm * widthCm) / 10_000;
 
   return areaInSquareMeters * ratePerSquareMeter * quantity;
 }
