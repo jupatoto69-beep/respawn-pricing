@@ -9,6 +9,15 @@ import {
 
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
 import {
+  BANNER_PRODUCT_ID,
+  BANNER_STRUCTURE_OPTIONS,
+  DEFAULT_BANNER_STRUCTURE_OPTION_ID,
+  getBannerStructureOption,
+  type BannerStructureOptionId,
+} from "@/lib/pricing/banner-structure-options";
+import { changeBannerStructureSelection } from "@/lib/pricing/banner-structure-selection";
+import { applyBannerStructurePrice } from "@/lib/pricing/calculate-banner-structure-price";
+import {
   changeAreaProduct,
   CUSTOM_RATE_VARIANT_ID,
   getAreaProducts,
@@ -26,11 +35,13 @@ type FormValues = {
   widthCm: string;
   customRate: string;
   quantity: string;
+  bannerStructureOptionId: BannerStructureOptionId | null;
 };
 
 type CalculationResult = {
-  basePrice: number;
+  priceBeforeRounding: number;
   roundedPrice: number;
+  bannerStructureName: string | null;
 };
 
 const EMPTY_FORM: FormValues = {
@@ -40,6 +51,7 @@ const EMPTY_FORM: FormValues = {
   widthCm: "",
   customRate: "",
   quantity: "1",
+  bannerStructureOptionId: null,
 };
 
 const products = getAreaProducts();
@@ -76,6 +88,11 @@ const RANGE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "Amount must be finite.": "El precio calculado no es válido.",
   "Amount must not be negative.":
     "El precio calculado no puede ser negativo.",
+  "Banner area must be finite.": "El área de Banner no es válida.",
+  "Banner area must not be negative.":
+    "El área de Banner no puede ser negativa.",
+  "Banner rate must be a finite non-negative number.":
+    "La tarifa de Banner no es válida.",
 };
 
 const UNKNOWN_RANGE_ERROR_MESSAGE =
@@ -122,6 +139,23 @@ export function AreaPricingCalculator() {
     setValues((currentValues) => ({
       ...currentValues,
       ...changeAreaProduct(currentValues, productId),
+      bannerStructureOptionId: changeBannerStructureSelection(
+        currentValues.productId,
+        productId,
+        currentValues.bannerStructureOptionId,
+      ),
+    }));
+    setResult(null);
+    setError(null);
+  }
+
+  function handleBannerStructureChange(event: ChangeEvent<HTMLInputElement>) {
+    const structureOptionId =
+      event.currentTarget.value as BannerStructureOptionId;
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      bannerStructureOptionId: structureOptionId,
     }));
     setResult(null);
     setError(null);
@@ -172,9 +206,37 @@ export function AreaPricingCalculator() {
         resolvedRate,
         toNumber(values.quantity),
       );
-      const roundedPrice = roundUpToCop500(basePrice);
+      const areaM2 =
+        values.productId === BANNER_PRODUCT_ID
+          ? calculateAreaBasePrice(
+              toNumber(values.lengthCm),
+              toNumber(values.widthCm),
+              1,
+              toNumber(values.quantity),
+            )
+          : 0;
+      const bannerStructureOptionId =
+        values.bannerStructureOptionId ??
+        DEFAULT_BANNER_STRUCTURE_OPTION_ID;
+      const priceBeforeRounding = applyBannerStructurePrice(
+        values.productId,
+        values.variantId,
+        areaM2,
+        basePrice,
+        resolvedRate,
+        bannerStructureOptionId,
+      );
+      const roundedPrice = roundUpToCop500(priceBeforeRounding);
+      const bannerStructureName =
+        values.productId === BANNER_PRODUCT_ID
+          ? getBannerStructureOption(bannerStructureOptionId).name
+          : null;
 
-      setResult({ basePrice, roundedPrice });
+      setResult({
+        priceBeforeRounding,
+        roundedPrice,
+        bannerStructureName,
+      });
       setError(null);
     } catch (caughtError: unknown) {
       if (caughtError instanceof RangeError) {
@@ -272,6 +334,24 @@ export function AreaPricingCalculator() {
                 <span aria-hidden="true">COP/m²</span>
               </div>
             </div>
+          ) : null}
+
+          {values.productId === BANNER_PRODUCT_ID ? (
+            <fieldset className={styles.structureOptions}>
+              <legend>Estructura</legend>
+              {BANNER_STRUCTURE_OPTIONS.map((option) => (
+                <label key={option.id}>
+                  <input
+                    type="radio"
+                    name="bannerStructureOptionId"
+                    value={option.id}
+                    checked={values.bannerStructureOptionId === option.id}
+                    onChange={handleBannerStructureChange}
+                  />
+                  <span>{option.name}</span>
+                </label>
+              ))}
+            </fieldset>
           ) : null}
 
           <div className={styles.field}>
@@ -382,11 +462,19 @@ export function AreaPricingCalculator() {
 
         {result ? (
           <dl className={styles.priceList}>
+            {result.bannerStructureName ? (
+              <div className={styles.priceItem}>
+                <dt>Opción de Banner</dt>
+                <dd className={styles.structureResult}>
+                  {result.bannerStructureName}
+                </dd>
+              </div>
+            ) : null}
             <div className={styles.priceItem}>
-              <dt>Precio base</dt>
+              <dt>Precio antes de redondeo</dt>
               <dd>
-                <data value={result.basePrice}>
-                  {basePriceFormatter.format(result.basePrice)}
+                <data value={result.priceBeforeRounding}>
+                  {basePriceFormatter.format(result.priceBeforeRounding)}
                 </data>
               </dd>
               <dd className={styles.priceItemNote}>

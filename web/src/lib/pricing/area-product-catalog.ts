@@ -10,6 +10,11 @@ export type AreaProduct = Readonly<{
   variants: readonly AreaProductVariant[];
 }>;
 
+export const BANNER_STANDARD_VARIANT_ID = "standard-without-lamination";
+export const BANNER_LAMINATED_VARIANT_ID = "laminated";
+export const BANNER_STANDARD_MATERIAL_RATE_PER_M2 = 80_000;
+export const BANNER_LAMINATION_RATE_PER_FACE_M2 = 5_000;
+
 export const AREA_PRODUCT_CATALOG: readonly AreaProduct[] = [
   {
     id: "printed-vinyl",
@@ -48,14 +53,16 @@ export const AREA_PRODUCT_CATALOG: readonly AreaProduct[] = [
     name: "Banner",
     variants: [
       {
-        id: "standard-without-lamination",
+        id: BANNER_STANDARD_VARIANT_ID,
         name: "Estándar sin laminado",
-        ratePerSquareMeter: 80_000,
+        ratePerSquareMeter: BANNER_STANDARD_MATERIAL_RATE_PER_M2,
       },
       {
-        id: "laminated",
+        id: BANNER_LAMINATED_VARIANT_ID,
         name: "Laminado",
-        ratePerSquareMeter: 85_000,
+        ratePerSquareMeter:
+          BANNER_STANDARD_MATERIAL_RATE_PER_M2 +
+          BANNER_LAMINATION_RATE_PER_FACE_M2,
       },
     ],
   },
