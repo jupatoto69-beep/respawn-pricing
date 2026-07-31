@@ -8,14 +8,23 @@ import {
 } from "react";
 
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
+import {
+  changeAreaProduct,
+  CUSTOM_RATE_VARIANT_ID,
+  getAreaProducts,
+  getAreaProductVariants,
+  resolveAreaProductRate,
+} from "@/lib/pricing/resolve-area-product-rate";
 import { roundUpToCop500 } from "@/lib/pricing/round-up-to-cop-500";
 
 import styles from "./area-pricing-calculator.module.css";
 
 type FormValues = {
+  productId: string;
+  variantId: string;
   lengthCm: string;
   widthCm: string;
-  ratePerSquareMeter: string;
+  customRate: string;
   quantity: string;
 };
 
@@ -25,11 +34,15 @@ type CalculationResult = {
 };
 
 const EMPTY_FORM: FormValues = {
+  productId: "",
+  variantId: "",
   lengthCm: "",
   widthCm: "",
-  ratePerSquareMeter: "",
-  quantity: "",
+  customRate: "",
+  quantity: "1",
 };
+
+const products = getAreaProducts();
 
 const basePriceFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -82,7 +95,16 @@ export function AreaPricingCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+  const variants = getAreaProductVariants(values.productId);
+  const customRate =
+    values.customRate.trim() === "" ? undefined : Number(values.customRate);
+  const resolvedRate = resolveAreaProductRate(
+    values.productId,
+    values.variantId,
+    customRate,
+  );
+
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const field = event.currentTarget.name as keyof FormValues;
     const value = event.currentTarget.value;
 
@@ -90,16 +112,64 @@ export function AreaPricingCalculator() {
       ...currentValues,
       [field]: value,
     }));
+    setResult(null);
+    setError(null);
+  }
+
+  function handleProductChange(event: ChangeEvent<HTMLSelectElement>) {
+    const productId = event.currentTarget.value;
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      ...changeAreaProduct(currentValues, productId),
+    }));
+    setResult(null);
+    setError(null);
+  }
+
+  function handleVariantChange(event: ChangeEvent<HTMLSelectElement>) {
+    const variantId = event.currentTarget.value;
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      variantId,
+      customRate:
+        variantId === CUSTOM_RATE_VARIANT_ID ? currentValues.customRate : "",
+    }));
+    setResult(null);
+    setError(null);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!values.productId) {
+      setResult(null);
+      setError("Selecciona un producto.");
+      return;
+    }
+
+    if (!values.variantId) {
+      setResult(null);
+      setError("Selecciona una variante.");
+      return;
+    }
+
+    if (resolvedRate === null) {
+      setResult(null);
+      setError(
+        values.variantId === CUSTOM_RATE_VARIANT_ID
+          ? "Ingresa una tarifa personalizada válida."
+          : "La variante seleccionada no es válida para este producto.",
+      );
+      return;
+    }
+
     try {
       const basePrice = calculateAreaBasePrice(
         toNumber(values.lengthCm),
         toNumber(values.widthCm),
-        toNumber(values.ratePerSquareMeter),
+        resolvedRate,
         toNumber(values.quantity),
       );
       const roundedPrice = roundUpToCop500(basePrice);
@@ -133,12 +203,77 @@ export function AreaPricingCalculator() {
         <div className={styles.formHeading}>
           <div>
             <p className={styles.kicker}>Datos de entrada</p>
-            <h3>Medidas y tarifa</h3>
+            <h3>Producto, medidas y tarifa</h3>
           </div>
           <p className={styles.requiredNote}>Todos los campos son obligatorios</p>
         </div>
 
         <div className={styles.fields}>
+          <div className={styles.field}>
+            <label htmlFor={`${idPrefix}-product`}>Producto</label>
+            <select
+              id={`${idPrefix}-product`}
+              name="productId"
+              value={values.productId}
+              onChange={handleProductChange}
+              required
+            >
+              <option value="">Selecciona un producto</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor={`${idPrefix}-variant`}>Variante</label>
+            <select
+              id={`${idPrefix}-variant`}
+              name="variantId"
+              value={values.variantId}
+              onChange={handleVariantChange}
+              disabled={!values.productId}
+              required
+            >
+              <option value="">Selecciona una variante</option>
+              {variants.map((variant) => (
+                <option key={variant.id} value={variant.id}>
+                  {variant.name}
+                </option>
+              ))}
+              {values.productId ? (
+                <option value={CUSTOM_RATE_VARIANT_ID}>
+                  Tarifa personalizada (excepcional)
+                </option>
+              ) : null}
+            </select>
+          </div>
+
+          {values.variantId === CUSTOM_RATE_VARIANT_ID ? (
+            <div className={styles.field}>
+              <label htmlFor={`${idPrefix}-rate`}>
+                Tarifa personalizada por metro cuadrado
+              </label>
+              <div className={styles.inputShell}>
+                <input
+                  id={`${idPrefix}-rate`}
+                  name="customRate"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={values.customRate}
+                  onChange={handleInputChange}
+                  placeholder="0"
+                  required
+                />
+                <span aria-hidden="true">COP/m²</span>
+              </div>
+            </div>
+          ) : null}
+
           <div className={styles.field}>
             <label htmlFor={`${idPrefix}-length`}>Largo</label>
             <div className={styles.inputShell}>
@@ -150,7 +285,7 @@ export function AreaPricingCalculator() {
                 min="0.01"
                 step="any"
                 value={values.lengthCm}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="100"
                 required
               />
@@ -169,30 +304,11 @@ export function AreaPricingCalculator() {
                 min="0.01"
                 step="any"
                 value={values.widthCm}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="50"
                 required
               />
               <span aria-hidden="true">cm</span>
-            </div>
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor={`${idPrefix}-rate`}>Tarifa por metro cuadrado</label>
-            <div className={styles.inputShell}>
-              <input
-                id={`${idPrefix}-rate`}
-                name="ratePerSquareMeter"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="any"
-                value={values.ratePerSquareMeter}
-                onChange={handleChange}
-                placeholder="0"
-                required
-              />
-              <span aria-hidden="true">COP/m²</span>
             </div>
           </div>
 
@@ -207,13 +323,22 @@ export function AreaPricingCalculator() {
                 min="1"
                 step="1"
                 value={values.quantity}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="1"
                 required
               />
               <span aria-hidden="true">unidades</span>
             </div>
           </div>
+        </div>
+
+        <div className={styles.rateSummary} aria-live="polite">
+          <span>Tarifa seleccionada</span>
+          <strong>
+            {resolvedRate === null
+              ? "Pendiente"
+              : `${roundedPriceFormatter.format(resolvedRate)}/m²`}
+          </strong>
         </div>
 
         <p className={styles.fieldHelp}>
