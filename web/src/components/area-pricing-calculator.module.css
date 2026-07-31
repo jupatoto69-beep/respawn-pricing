@@ -87,7 +87,8 @@
   position: relative;
 }
 
-.inputShell input {
+.inputShell input,
+.field select {
   width: 100%;
   min-height: 50px;
   padding: 11px 90px 11px 13px;
@@ -102,20 +103,43 @@
     background-color 150ms ease;
 }
 
+.field select {
+  padding-right: 36px;
+}
+
+.inputShell input[type="number"]::-webkit-inner-spin-button,
+.inputShell input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.inputShell input[type="number"] {
+  appearance: textfield;
+}
+
 .inputShell input::placeholder {
   color: #687587;
 }
 
-.inputShell input:hover {
+.inputShell input:hover,
+.field select:hover {
   border-color: #4d76a8;
   background: #0a1321;
 }
 
-.inputShell input:focus-visible {
+.inputShell input:focus-visible,
+.field select:focus-visible {
   border-color: #8bb8ff;
   outline: 3px solid #8bb8ff;
   outline-offset: 2px;
   box-shadow: none;
+}
+
+.field select:disabled {
+  border-color: #263c55;
+  background: #0a111c;
+  color: #687587;
+  cursor: not-allowed;
 }
 
 .inputShell span {
@@ -137,6 +161,29 @@
   margin-top: 14px;
   color: var(--color-gray);
   font-size: 0.75rem;
+}
+
+.rateSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid rgba(61, 139, 255, 0.4);
+  border-radius: 9px;
+  background: rgba(61, 139, 255, 0.08);
+}
+
+.rateSummary span {
+  color: #b6c1ce;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.rateSummary strong {
+  color: #8bb8ff;
+  font-size: 0.92rem;
 }
 
 .actions {
