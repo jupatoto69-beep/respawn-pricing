@@ -65,6 +65,31 @@ Cost-and-margin pricing is documented conceptually in
 first release does not accept costs or margins as inputs and does not calculate
 prices from them.
 
+### Documented service and print catalog strategies
+
+The confirmed service and print catalog in
+[Pricing Model](pricing-model.md) records fixed prices, bundle prices, quantity
+tiers, duration pricing and optional add-ons. Generic fixed-price calculation
+and compatible additions are already supported first-release concepts. The
+catalog entries and their catalog-specific bundle, quantity-tier, duration and
+per-unit optional-add-on rules are documented inputs for future implementation
+and are not added to the application by this documentation change.
+
+This catalog documentation does not implement:
+
+- Service forms
+- Duration calculations
+- Quantity tiers
+- Optional add-ons
+- Employee-entered manual discounts
+- Temporary quotation lines
+- Database persistence
+- An administration panel
+- A 3D-printing calculator or calculations
+
+It also adds no application code, interface controls, configuration,
+dependencies or tests.
+
 ## Initial area-product catalog
 
 Employees normally select a product and variant. The application must resolve
@@ -86,11 +111,14 @@ Cut vinyl has no lamination variants in the first release.
 A product identifies the item sold; a variant identifies its material or
 finish option; a pricing strategy identifies the calculation rule; and a final
 sales rate is the public configured customer-facing rate used by that rule.
-Actual Digital Respawn costs, margins, profitability, suppliers and internal
-final minimum-charge configuration are private commercial information and must
-not be documented publicly or exposed to employees. This does not prevent
-documentation of general future-model concepts or clearly identified
-fictitious examples.
+Final customer-facing sales prices, thresholds, quantity-tier prices, bundle
+prices, optional-add-on prices and minimum employee-authorized sales prices may
+be documented publicly. Actual Digital Respawn costs, actual margins,
+profitability, suppliers, internal purchasing conditions and any additional
+internal floor that has not been publicly confirmed are private commercial
+information and must not be documented publicly or exposed to employees. This
+does not prevent documentation of general future-model concepts or clearly
+identified fictitious examples.
 
 ### Exceptional custom rate
 
@@ -215,11 +243,31 @@ in cm and from catalog rates expressed per square meter (m²).
 - A discount applies only to the base price.
 - Laminates and all other additions are not discounted.
 
+An automatic quantity-tier price is not a manual employee discount. It becomes
+the applicable unit price when quantity reaches the configured inclusive
+threshold, applies to every unit in the selection, and may be lower than the
+minimum price an employee is authorized to enter manually.
+
+## Commercial price levels
+
+- The normal price is the standard customer-facing unit price before an
+  applicable quantity tier.
+- The automatic quantity-tier price is selected by the configured quantity
+  rule, not entered as a manual employee discount.
+- The minimum employee-authorized price is the lowest price an employee may
+  authorize when a manual adjustment is available. A confirmed amount may be
+  documented publicly.
+- A private internal floor for exceptions is an additional internal control.
+  Its amount remains private unless it has been explicitly confirmed as public.
+
 ## Minimum charges and exceptions
 
-- Final minimum charges are private commercial configuration.
-- Real commercial minimum amounts must not be stored in public documentation
-  or committed public configuration.
+- Private internal final minimum floors for exceptions are private commercial
+  configuration.
+- Internal floor amounts that have not been publicly confirmed must not be
+  stored in public documentation or committed public configuration.
+- A publicly confirmed minimum employee-authorized sales price is distinct
+  from a private internal floor and may be documented publicly.
 - The employee-facing interface must not display or otherwise disclose an
   internal minimum-charge value.
 - The application must block any requested exception below the final minimum.
