@@ -1,4 +1,4 @@
-import { AreaPricingCalculator } from "@/components/area-pricing-calculator";
+import { PricingCalculator } from "@/components/pricing-calculator";
 
 import styles from "./page.module.css";
 
@@ -30,15 +30,16 @@ export default function Home() {
                 01
               </p>
               <div>
-                <h2>Calculadora por área</h2>
+                <h2>Calculadora de precios</h2>
                 <p>
-                  Ingresa las medidas en centímetros, la tarifa y la cantidad.
-                  El cálculo se ejecuta únicamente al enviar el formulario.
+                  Selecciona productos por área o servicios y completa los
+                  datos correspondientes. El cálculo se ejecuta únicamente al
+                  enviar el formulario.
                 </p>
               </div>
             </div>
 
-            <AreaPricingCalculator />
+            <PricingCalculator />
           </div>
         </section>
 
