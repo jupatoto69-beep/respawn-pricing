@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
+import { calculateIlluminatedPanaflexSignPrice } from "@/lib/pricing/calculate-illuminated-panaflex-sign-price";
 import {
   BANNER_PRODUCT_ID,
   BANNER_STRUCTURE_OPTIONS,
@@ -17,6 +18,15 @@ import {
 } from "@/lib/pricing/banner-structure-options";
 import { changeBannerStructureSelection } from "@/lib/pricing/banner-structure-selection";
 import { applyBannerStructurePrice } from "@/lib/pricing/calculate-banner-structure-price";
+import {
+  DEFAULT_PANAFLEX_PRICING_OPTION_ID,
+  getPanaflexPricingOption,
+  PANAFLEX_PRICING_OPTIONS,
+  PANAFLEX_PRODUCT_ID,
+  type PanaflexPricingOptionId,
+  usesIlluminatedPanaflexPricing,
+} from "@/lib/pricing/panaflex-pricing-options";
+import { changePanaflexPricingSelection } from "@/lib/pricing/panaflex-pricing-selection";
 import {
   changeAreaProduct,
   CUSTOM_RATE_VARIANT_ID,
@@ -36,12 +46,14 @@ type FormValues = {
   customRate: string;
   quantity: string;
   bannerStructureOptionId: BannerStructureOptionId | null;
+  panaflexPricingOptionId: PanaflexPricingOptionId | null;
 };
 
 type CalculationResult = {
   priceBeforeRounding: number;
   roundedPrice: number;
   bannerStructureName: string | null;
+  panaflexPricingOptionName: string | null;
 };
 
 const EMPTY_FORM: FormValues = {
@@ -52,6 +64,7 @@ const EMPTY_FORM: FormValues = {
   customRate: "",
   quantity: "1",
   bannerStructureOptionId: null,
+  panaflexPricingOptionId: null,
 };
 
 const products = getAreaProducts();
@@ -93,6 +106,10 @@ const RANGE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "El área de Banner no puede ser negativa.",
   "Banner rate must be a finite non-negative number.":
     "La tarifa de Banner no es válida.",
+  "Panaflex sign area must be finite.":
+    "El área del aviso luminoso no es válida.",
+  "Panaflex sign pricing option must be valid.":
+    "La opción de aviso luminoso no es válida.",
 };
 
 const UNKNOWN_RANGE_ERROR_MESSAGE =
@@ -120,6 +137,12 @@ export function AreaPricingCalculator() {
     values.variantId,
     customRate,
   );
+  const panaflexPricingOptionId =
+    values.panaflexPricingOptionId ?? DEFAULT_PANAFLEX_PRICING_OPTION_ID;
+  const usesIlluminatedSignPricing = usesIlluminatedPanaflexPricing(
+    values.productId,
+    panaflexPricingOptionId,
+  );
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const field = event.currentTarget.name as keyof FormValues;
@@ -144,6 +167,22 @@ export function AreaPricingCalculator() {
         productId,
         currentValues.bannerStructureOptionId,
       ),
+      panaflexPricingOptionId: changePanaflexPricingSelection(
+        currentValues.productId,
+        productId,
+        currentValues.panaflexPricingOptionId,
+      ),
+    }));
+    setResult(null);
+    setError(null);
+  }
+
+  function handlePanaflexPricingChange(event: ChangeEvent<HTMLInputElement>) {
+    const pricingOptionId = event.currentTarget.value as PanaflexPricingOptionId;
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      panaflexPricingOptionId: pricingOptionId,
     }));
     setResult(null);
     setError(null);
@@ -183,13 +222,13 @@ export function AreaPricingCalculator() {
       return;
     }
 
-    if (!values.variantId) {
+    if (!usesIlluminatedSignPricing && !values.variantId) {
       setResult(null);
       setError("Selecciona una variante.");
       return;
     }
 
-    if (resolvedRate === null) {
+    if (!usesIlluminatedSignPricing && resolvedRate === null) {
       setResult(null);
       setError(
         values.variantId === CUSTOM_RATE_VARIANT_ID
@@ -200,42 +239,62 @@ export function AreaPricingCalculator() {
     }
 
     try {
-      const basePrice = calculateAreaBasePrice(
-        toNumber(values.lengthCm),
-        toNumber(values.widthCm),
-        resolvedRate,
-        toNumber(values.quantity),
-      );
-      const areaM2 =
-        values.productId === BANNER_PRODUCT_ID
-          ? calculateAreaBasePrice(
-              toNumber(values.lengthCm),
-              toNumber(values.widthCm),
-              1,
-              toNumber(values.quantity),
-            )
-          : 0;
+      let priceBeforeRounding: number;
+
+      if (usesIlluminatedSignPricing) {
+        priceBeforeRounding = calculateIlluminatedPanaflexSignPrice(
+          toNumber(values.lengthCm),
+          toNumber(values.widthCm),
+          toNumber(values.quantity),
+          panaflexPricingOptionId,
+        );
+      } else {
+        const basePrice = calculateAreaBasePrice(
+          toNumber(values.lengthCm),
+          toNumber(values.widthCm),
+          resolvedRate!,
+          toNumber(values.quantity),
+        );
+        const areaM2 =
+          values.productId === BANNER_PRODUCT_ID
+            ? calculateAreaBasePrice(
+                toNumber(values.lengthCm),
+                toNumber(values.widthCm),
+                1,
+                toNumber(values.quantity),
+              )
+            : 0;
+        const bannerStructureOptionId =
+          values.bannerStructureOptionId ??
+          DEFAULT_BANNER_STRUCTURE_OPTION_ID;
+        priceBeforeRounding = applyBannerStructurePrice(
+          values.productId,
+          values.variantId,
+          areaM2,
+          basePrice,
+          resolvedRate!,
+          bannerStructureOptionId,
+        );
+      }
+
       const bannerStructureOptionId =
         values.bannerStructureOptionId ??
         DEFAULT_BANNER_STRUCTURE_OPTION_ID;
-      const priceBeforeRounding = applyBannerStructurePrice(
-        values.productId,
-        values.variantId,
-        areaM2,
-        basePrice,
-        resolvedRate,
-        bannerStructureOptionId,
-      );
       const roundedPrice = roundUpToCop500(priceBeforeRounding);
       const bannerStructureName =
         values.productId === BANNER_PRODUCT_ID
           ? getBannerStructureOption(bannerStructureOptionId).name
+          : null;
+      const panaflexPricingOptionName =
+        values.productId === PANAFLEX_PRODUCT_ID
+          ? getPanaflexPricingOption(panaflexPricingOptionId).name
           : null;
 
       setResult({
         priceBeforeRounding,
         roundedPrice,
         bannerStructureName,
+        panaflexPricingOptionName,
       });
       setError(null);
     } catch (caughtError: unknown) {
@@ -289,31 +348,52 @@ export function AreaPricingCalculator() {
             </select>
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor={`${idPrefix}-variant`}>Variante</label>
-            <select
-              id={`${idPrefix}-variant`}
-              name="variantId"
-              value={values.variantId}
-              onChange={handleVariantChange}
-              disabled={!values.productId}
-              required
-            >
-              <option value="">Selecciona una variante</option>
-              {variants.map((variant) => (
-                <option key={variant.id} value={variant.id}>
-                  {variant.name}
-                </option>
+          {values.productId === PANAFLEX_PRODUCT_ID ? (
+            <fieldset className={styles.structureOptions}>
+              <legend>Opción de Panaflex</legend>
+              {PANAFLEX_PRICING_OPTIONS.map((option) => (
+                <label key={option.id}>
+                  <input
+                    type="radio"
+                    name="panaflexPricingOptionId"
+                    value={option.id}
+                    checked={values.panaflexPricingOptionId === option.id}
+                    onChange={handlePanaflexPricingChange}
+                  />
+                  <span>{option.name}</span>
+                </label>
               ))}
-              {values.productId ? (
-                <option value={CUSTOM_RATE_VARIANT_ID}>
-                  Tarifa personalizada (excepcional)
-                </option>
-              ) : null}
-            </select>
-          </div>
+            </fieldset>
+          ) : null}
 
-          {values.variantId === CUSTOM_RATE_VARIANT_ID ? (
+          {!usesIlluminatedSignPricing ? (
+            <div className={styles.field}>
+              <label htmlFor={`${idPrefix}-variant`}>Variante</label>
+              <select
+                id={`${idPrefix}-variant`}
+                name="variantId"
+                value={values.variantId}
+                onChange={handleVariantChange}
+                disabled={!values.productId}
+                required
+              >
+                <option value="">Selecciona una variante</option>
+                {variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.name}
+                  </option>
+                ))}
+                {values.productId ? (
+                  <option value={CUSTOM_RATE_VARIANT_ID}>
+                    Tarifa personalizada (excepcional)
+                  </option>
+                ) : null}
+              </select>
+            </div>
+          ) : null}
+
+          {!usesIlluminatedSignPricing &&
+          values.variantId === CUSTOM_RATE_VARIANT_ID ? (
             <div className={styles.field}>
               <label htmlFor={`${idPrefix}-rate`}>
                 Tarifa personalizada por metro cuadrado
@@ -413,9 +493,15 @@ export function AreaPricingCalculator() {
         </div>
 
         <div className={styles.rateSummary} aria-live="polite">
-          <span>Tarifa seleccionada</span>
+          <span>
+            {usesIlluminatedSignPricing
+              ? "Estrategia seleccionada"
+              : "Tarifa seleccionada"}
+          </span>
           <strong>
-            {resolvedRate === null
+            {usesIlluminatedSignPricing
+              ? "Cálculo directo por cm²"
+              : resolvedRate === null
               ? "Pendiente"
               : `${roundedPriceFormatter.format(resolvedRate)}/m²`}
           </strong>
@@ -467,6 +553,14 @@ export function AreaPricingCalculator() {
                 <dt>Opción de Banner</dt>
                 <dd className={styles.structureResult}>
                   {result.bannerStructureName}
+                </dd>
+              </div>
+            ) : null}
+            {result.panaflexPricingOptionName ? (
+              <div className={styles.priceItem}>
+                <dt>Opción de Panaflex</dt>
+                <dd className={styles.structureResult}>
+                  {result.panaflexPricingOptionName}
                 </dd>
               </div>
             ) : null}
