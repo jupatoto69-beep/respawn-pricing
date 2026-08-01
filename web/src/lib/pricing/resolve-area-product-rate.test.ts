@@ -111,5 +111,20 @@ describe("area calculation with a resolved rate", () => {
     expect(basePrice).toBe(170_000);
     expect(roundUpToCop500(basePrice)).toBe(170_000);
   });
+
+  it.each([
+    ["standard-material", undefined, 85_000],
+    [CUSTOM_RATE_VARIANT_ID, 72_345, 72_345],
+  ] as const)(
+    "keeps Panaflex material-only pricing for %s",
+    (variantId, customRate, expectedRate) => {
+      const rate = resolveAreaProductRate("panaflex", variantId, customRate);
+
+      expect(rate).toBe(expectedRate);
+      expect(calculateAreaBasePrice(50, 50, rate!, 2)).toBe(
+        expectedRate * 0.5,
+      );
+    },
+  );
 });
 
