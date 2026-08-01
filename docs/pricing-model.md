@@ -1,5 +1,10 @@
-> Any example values in this document are entirely fictitious and do not
-> represent actual Digital Respawn costs, margins or commercial policies.
+> The confirmed catalog's final sales rates, thresholds, quantity-tier prices,
+> bundle prices, optional-add-on prices, minimum employee-authorized prices and
+> examples calculated from those values are real, public commercial sales
+> rules. Only numerical values used exclusively in the conceptual future
+> cost-and-margin example are fictitious. This document does not disclose actual
+> internal costs, actual margins, profitability, suppliers or internal
+> purchasing conditions.
 
 # Pricing Model
 
@@ -21,15 +26,36 @@ implemented in the first release.
 - A **pricing strategy** is the calculation rule used to obtain a base price.
 - A **final sales rate** is the public, customer-facing configured rate used by
   a pricing strategy. The rates below may be stored in this public repository.
-- **Internal private commercial information** includes actual costs, margins,
-  profitability, suppliers and the internal final minimum-charge configuration.
-  Actual Digital Respawn values and details must not be documented publicly or
-  exposed to employees. General future-model concepts and clearly identified
-  fictitious examples may be documented.
+- **Public commercial information** may include final customer-facing sales
+  prices, thresholds, quantity-tier prices, bundle prices, optional-add-on
+  prices and minimum employee-authorized sales prices.
+- **Internal private commercial information** includes actual costs, actual
+  margins, profitability, suppliers, internal purchasing conditions and any
+  additional internal floor that has not been publicly confirmed. Actual
+  Digital Respawn values and details in those categories must not be documented
+  publicly or exposed to employees. General future-model concepts and clearly
+  identified fictitious examples may be documented.
 
 Employees normally select a product and variant. The application resolves the
 corresponding final sales rate automatically; employees do not normally enter
 a rate.
+
+The following price levels are distinct:
+
+- The **normal price** is the standard customer-facing unit price before an
+  applicable quantity tier.
+- The **automatic quantity-tier price** is the configured unit price selected
+  automatically when quantity reaches its threshold. It applies to every unit
+  in the selection and is not a manual employee discount.
+- The **minimum employee-authorized price** is the lowest price that an
+  employee may authorize when a manual adjustment is available.
+- A **private internal floor for exceptions** is an additional internal control
+  for exceptional prices. Its amount remains private unless it has been
+  explicitly confirmed as public.
+
+A configured quantity-tier price is an authorized commercial price and may be
+lower than the minimum employee-authorized price. This does not give the
+employee permission to enter that lower price as a manual discount.
 
 ## Initial area-product catalog
 
@@ -54,6 +80,205 @@ Custom rate is an exceptional pricing option, not a normal product variant.
 The employee must select it explicitly. Only after that selection may the
 application show a manual final-sales-rate field in COP/m²; otherwise the field
 must remain hidden.
+
+## Confirmed initial service and print catalog
+
+The following final customer-facing sales prices and rules are confirmed and
+may be documented publicly. This catalog records rules for future strategy and
+interface work; documenting it does not add an implementation to the current
+release.
+
+### Strategy definitions
+
+- **Fixed price:** one configured price for one service.
+- **Bundle price:** a special price for a confirmed combination of services.
+- **Quantity tier:** the unit price changes automatically when quantity reaches
+  a threshold.
+- **Duration pricing:** a base price plus a charge for each additional started
+  minute.
+- **Optional add-on:** an additional configured amount added per unit.
+
+### Computer services
+
+#### Physical computer maintenance
+
+- Pricing strategy: Fixed price
+- Final sales price: COP 70,000
+
+#### System maintenance
+
+- Pricing strategy: Fixed price
+- Final sales price: COP 70,000
+- Includes system formatting and Office installation.
+
+#### Complete maintenance
+
+- Pricing strategy: Bundle price
+- Final sales price: COP 120,000
+- Includes physical computer maintenance and system maintenance.
+
+The bundle price replaces the COP 140,000 sum of the two individual services.
+
+#### Office installation only
+
+- Pricing strategy: Fixed price
+- Final sales price: COP 50,000
+
+#### Individual software installation
+
+- Pricing strategy: Quantity tier
+- One program: COP 70,000
+- From 2 programs: COP 50,000 per program
+
+The threshold includes quantity 2. Once quantity reaches 2, the COP 50,000
+unit price applies to every program in the selection.
+
+Examples:
+
+- 1 program: COP 70,000
+- 2 programs: 2 × COP 50,000 = COP 100,000
+- 3 programs: 3 × COP 50,000 = COP 150,000
+
+#### Hard-drive data recovery
+
+- Pricing strategy: Fixed price
+- Final sales price: COP 70,000
+
+#### Access to a password-protected system
+
+- Pricing strategy: Fixed price
+- Final sales price: COP 90,000
+- Applies when access is required because the system password was lost.
+
+### Basic video editing
+
+- Pricing strategy: Duration pricing
+- Up to one billable minute: COP 50,000
+- Each additional started minute or fraction: COP 30,000
+
+Billable minutes are always rounded upward to the next complete minute, with a
+minimum of one billable minute.
+
+```text
+billableMinutes = ceil(durationInSeconds / 60)
+
+price =
+  COP 50,000
+  + max(0, billableMinutes - 1) × COP 30,000
+```
+
+Examples:
+
+- 20 seconds: COP 50,000
+- 1 minute: COP 50,000
+- 1 minute and 1 second: COP 80,000
+- 2 minutes: COP 80,000
+- 2 minutes and 1 second: COP 110,000
+
+### Business cards
+
+Business-card quantities are expressed in thousands of cards.
+
+#### Standard glossy business cards
+
+- Pricing strategy: Quantity tier
+- Normal price: COP 85,000 per thousand
+- Minimum employee-authorized price: COP 80,000 per thousand
+- From 3 thousands: COP 75,000 per thousand
+
+The threshold includes exactly 3. Once quantity reaches 3, the COP 75,000 unit
+price applies automatically to every thousand in the selection.
+
+Examples:
+
+- 2 thousands: 2 × COP 85,000 = COP 170,000
+- 3 thousands: 3 × COP 75,000 = COP 225,000
+- 4 thousands: 4 × COP 75,000 = COP 300,000
+
+#### Matte UV-finished business cards
+
+- Pricing strategy: Quantity tier
+- Normal price: COP 120,000 per thousand
+- Minimum employee-authorized price: COP 115,000 per thousand
+- From 3 thousands: COP 100,000 per thousand
+
+The threshold includes exactly 3. Once quantity reaches 3, the COP 100,000
+unit price applies automatically to every thousand in the selection.
+
+Examples:
+
+- 2 thousands: 2 × COP 120,000 = COP 240,000
+- 3 thousands: 3 × COP 100,000 = COP 300,000
+
+### Printed tabloids
+
+#### Standard printed tabloid
+
+- Pricing strategies: Quantity tier with optional add-on
+- Normal price: COP 15,000 per unit
+- Minimum employee-authorized price: COP 10,000 per unit
+- From 15 units: COP 8,000 per unit
+- Optional lamination: COP 5,000 per unit
+
+The threshold includes exactly 15. Once quantity reaches 15, the COP 8,000
+unit price applies automatically to every unit. Lamination is added per unit
+after resolving the quantity-tier unit price.
+
+Examples:
+
+- 14 units without lamination: 14 × COP 15,000 = COP 210,000
+- 15 units without lamination: 15 × COP 8,000 = COP 120,000
+- 15 laminated units: 15 × (COP 8,000 + COP 5,000) = COP 195,000
+
+#### Printed adhesive tabloid
+
+- Pricing strategies: Quantity tier with optional add-on
+- Standard adhesive: COP 20,000 per unit
+- Pre-cut for stickers or custom shapes: COP 25,000 per unit
+- Standard adhesive from 5 units: COP 15,000 per unit
+- Pre-cut adhesive from 5 units: COP 20,000 per unit
+- Optional lamination: COP 5,000 per unit
+
+From 5 units, the quantity tier subtracts COP 5,000 from the unit price of
+either variant. The threshold includes exactly 5. Once quantity reaches 5, the
+applicable quantity-tier price applies automatically to every unit. Lamination
+is added per unit after resolving both the variant and its quantity-tier unit
+price.
+
+Examples from 5 units:
+
+- Standard adhesive without lamination: COP 15,000 per unit
+- Standard adhesive with lamination: COP 20,000 per unit
+- Pre-cut adhesive without lamination: COP 20,000 per unit
+- Pre-cut adhesive with lamination: COP 25,000 per unit
+
+### Confirmed threshold interpretation
+
+When a rule says "from X" or was originally described as "after X," the
+threshold includes X itself:
+
+- From 2 programs means `quantity >= 2`.
+- From 3 thousands means `quantity >= 3`.
+- From 15 tabloids means `quantity >= 15`.
+- From 5 adhesive tabloids means `quantity >= 5`.
+
+### Documentation-only implementation boundary
+
+This catalog prepares future pricing strategies, but this documentation change
+does not implement:
+
+- Service forms
+- Duration calculations
+- Quantity tiers
+- Optional add-ons
+- Employee-entered manual discounts
+- Temporary quotation lines
+- Database persistence
+- An administration panel
+- A 3D-printing calculator or calculations
+
+It also adds no application code, interface controls, configuration,
+dependencies or tests.
 
 ## First-release pricing strategies
 
@@ -317,7 +542,8 @@ The first release does not include:
 - Taxes
 - Payment processing fees
 - Customer-specific price lists
-- Volume discounts
+- The documented service and print catalog, including its bundle,
+  quantity-tier, duration and per-unit optional-add-on rules
 - Promotional campaigns
 - Cost-and-margin pricing
 - Database persistence
