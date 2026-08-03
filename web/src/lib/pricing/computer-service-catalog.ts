@@ -1,3 +1,5 @@
+import { SOFTWARE_INSTALLATION_PRICING_TIERS } from "./calculate-software-installation-price";
+
 export const COMPUTER_SERVICE_CATEGORY = {
   id: "computers",
   name: "Computadores",
@@ -6,6 +8,7 @@ export const COMPUTER_SERVICE_CATEGORY = {
 export const COMPUTER_SERVICE_IDS = {
   maintenance: "computer-maintenance",
   officeInstallation: "office-installation",
+  softwareInstallation: "individual-software-installation",
   hardDriveDataRecovery: "hard-drive-data-recovery",
   passwordProtectedSystemAccess: "password-protected-system-access",
 } as const;
@@ -13,14 +16,14 @@ export const COMPUTER_SERVICE_IDS = {
 export type ComputerServiceId =
   (typeof COMPUTER_SERVICE_IDS)[keyof typeof COMPUTER_SERVICE_IDS];
 
-export type FixedPriceComputerServiceId = Exclude<
-  ComputerServiceId,
-  typeof COMPUTER_SERVICE_IDS.maintenance
->;
+export type FixedPriceComputerServiceId =
+  | typeof COMPUTER_SERVICE_IDS.officeInstallation
+  | typeof COMPUTER_SERVICE_IDS.hardDriveDataRecovery
+  | typeof COMPUTER_SERVICE_IDS.passwordProtectedSystemAccess;
 
 export type ServiceUnit = Readonly<{
-  singular: "computador" | "disco";
-  plural: "computadores" | "discos";
+  singular: "computador" | "disco" | "programa";
+  plural: "computadores" | "discos" | "programas";
 }>;
 
 type ComputerServiceBase = Readonly<{
@@ -43,9 +46,21 @@ export type FixedPriceComputerService = ComputerServiceBase &
     unitPrice: number;
   }>;
 
+export type QuantityTierComputerService = ComputerServiceBase &
+  Readonly<{
+    id: typeof COMPUTER_SERVICE_IDS.softwareInstallation;
+    pricingStrategy: "quantity-tier";
+    computerScope: Readonly<{
+      id: "one-computer";
+      name: "Un computador";
+    }>;
+    pricingTiers: typeof SOFTWARE_INSTALLATION_PRICING_TIERS;
+  }>;
+
 export type ComputerService =
   | MaintenanceComputerService
-  | FixedPriceComputerService;
+  | FixedPriceComputerService
+  | QuantityTierComputerService;
 
 const COMPUTER_UNIT: ServiceUnit = {
   singular: "computador",
@@ -55,6 +70,11 @@ const COMPUTER_UNIT: ServiceUnit = {
 const DRIVE_UNIT: ServiceUnit = {
   singular: "disco",
   plural: "discos",
+};
+
+const PROGRAM_UNIT: ServiceUnit = {
+  singular: "programa",
+  plural: "programas",
 };
 
 export const COMPUTER_SERVICE_CATALOG: readonly ComputerService[] = [
@@ -73,6 +93,19 @@ export const COMPUTER_SERVICE_CATALOG: readonly ComputerService[] = [
     unit: COMPUTER_UNIT,
     pricingStrategy: "fixed-price",
     unitPrice: 50_000,
+  },
+  {
+    id: COMPUTER_SERVICE_IDS.softwareInstallation,
+    name: "Instalación individual de programas",
+    description:
+      "Este cálculo corresponde a la instalación de programas en un solo computador",
+    unit: PROGRAM_UNIT,
+    pricingStrategy: "quantity-tier",
+    computerScope: {
+      id: "one-computer",
+      name: "Un computador",
+    },
+    pricingTiers: SOFTWARE_INSTALLATION_PRICING_TIERS,
   },
   {
     id: COMPUTER_SERVICE_IDS.hardDriveDataRecovery,

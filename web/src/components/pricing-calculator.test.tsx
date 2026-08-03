@@ -33,6 +33,7 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Categoría");
     expect(markup).toContain("Computadores");
     expect(markup).toContain("Selecciona un servicio");
+    expect(markup).toContain("Instalación individual de programas");
     expect(markup).not.toContain("Producto, medidas y tarifa");
   });
 

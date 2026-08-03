@@ -36,6 +36,23 @@ describe("computer service selection", () => {
     });
   });
 
+  it("resets the program quantity when leaving software installation", () => {
+    expect(
+      changeComputerServiceSelection(
+        {
+          serviceId: COMPUTER_SERVICE_IDS.softwareInstallation,
+          quantity: "5",
+          maintenance: { physical: false, system: false },
+        },
+        COMPUTER_SERVICE_IDS.officeInstallation,
+      ),
+    ).toEqual({
+      serviceId: COMPUTER_SERVICE_IDS.officeInstallation,
+      quantity: "1",
+      maintenance: { physical: false, system: false },
+    });
+  });
+
   it("changes each maintenance checkbox independently", () => {
     const physicalSelection = changeMaintenanceSelection(
       { physical: false, system: false },

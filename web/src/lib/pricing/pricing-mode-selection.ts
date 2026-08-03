@@ -21,7 +21,7 @@ export const PRICING_MODE_OPTIONS: readonly PricingModeOption[] = [
   {
     id: PRICING_MODE_IDS.services,
     name: "Servicios",
-    description: "Cotiza servicios de precio fijo para computadores.",
+    description: "Cotiza servicios para computadores según su estrategia.",
   },
 ] as const;
 
