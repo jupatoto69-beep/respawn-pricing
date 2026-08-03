@@ -9,6 +9,11 @@ import {
 
 import { calculateFixedPriceService } from "@/lib/pricing/calculate-fixed-price-service";
 import {
+  calculateSoftwareInstallationPrice,
+  getSoftwareInstallationPricingTier,
+  type SoftwareInstallationPriceCalculation,
+} from "@/lib/pricing/calculate-software-installation-price";
+import {
   changeComputerServiceSelection,
   changeMaintenanceSelection,
   createInitialComputerServiceFormState,
@@ -42,6 +47,7 @@ type ServiceCalculationResult = Readonly<{
   unitPrice: number;
   totalPrice: number;
   maintenance: MaintenancePriceResolution | null;
+  softwareInstallation: SoftwareInstallationPriceCalculation | null;
 }>;
 
 const priceFormatter = new Intl.NumberFormat("es-CO", {
@@ -61,6 +67,8 @@ const QUANTITY_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "La cantidad debe ser mayor que cero.",
   "Fixed-price total must be finite.":
     "La cantidad ingresada produce un total fuera del rango permitido.",
+  "Software installation total must be finite.":
+    "La cantidad ingresada produce un total fuera del rango permitido.",
 };
 
 function translateServiceError(error: RangeError): string {
@@ -68,6 +76,22 @@ function translateServiceError(error: RangeError): string {
     QUANTITY_ERROR_MESSAGES[error.message] ??
     "Revisa los datos ingresados e inténtalo nuevamente."
   );
+}
+
+function resolveSoftwareInstallationPreview(
+  quantity: string,
+): SoftwareInstallationPriceCalculation | null {
+  try {
+    return calculateSoftwareInstallationPrice(
+      parsePositiveIntegerQuantity(quantity),
+    );
+  } catch (error: unknown) {
+    if (error instanceof RangeError) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export function ServicesPricingCalculator() {
@@ -80,10 +104,20 @@ export function ServicesPricingCalculator() {
 
   const selectedService = getComputerService(values.serviceId);
   const maintenanceResolution = resolveMaintenancePrice(values.maintenance);
+  const softwareInstallationPreview =
+    selectedService?.pricingStrategy === "quantity-tier"
+      ? resolveSoftwareInstallationPreview(values.quantity)
+      : null;
   const resolvedUnitPrice =
     selectedService?.pricingStrategy === "fixed-price"
       ? selectedService.unitPrice
-      : maintenanceResolution?.unitPrice ?? null;
+      : selectedService?.pricingStrategy === "quantity-tier"
+        ? softwareInstallationPreview?.unitPrice ?? null
+        : maintenanceResolution?.unitPrice ?? null;
+  const resolvedTierName = softwareInstallationPreview
+    ? getSoftwareInstallationPricingTier(softwareInstallationPreview.tierId)
+        .name
+    : null;
 
   function clearFeedback() {
     setResult(null);
@@ -152,8 +186,9 @@ export function ServicesPricingCalculator() {
           unitPrice: calculation.unitPrice,
           totalPrice: calculation.totalPrice,
           maintenance: calculation,
+          softwareInstallation: null,
         });
-      } else {
+      } else if (selectedService.pricingStrategy === "fixed-price") {
         const calculation = calculateFixedPriceService(
           selectedService.id,
           quantity,
@@ -165,6 +200,18 @@ export function ServicesPricingCalculator() {
           unitPrice: calculation.unitPrice,
           totalPrice: calculation.totalPrice,
           maintenance: null,
+          softwareInstallation: null,
+        });
+      } else {
+        const calculation = calculateSoftwareInstallationPrice(quantity);
+
+        setResult({
+          service: selectedService,
+          quantity: calculation.programCount,
+          unitPrice: calculation.unitPrice,
+          totalPrice: calculation.totalPrice,
+          maintenance: null,
+          softwareInstallation: calculation,
         });
       }
 
@@ -297,9 +344,18 @@ export function ServicesPricingCalculator() {
             <span>Precio unitario resuelto</span>
             <strong>
               {resolvedUnitPrice === null
-                ? "Selecciona el mantenimiento"
+                ? selectedService.pricingStrategy === "maintenance-selection"
+                  ? "Selecciona el mantenimiento"
+                  : "Ingresa una cantidad válida"
                 : priceFormatter.format(resolvedUnitPrice)}
             </strong>
+          </div>
+        ) : null}
+
+        {selectedService?.pricingStrategy === "quantity-tier" ? (
+          <div className={formStyles.rateSummary} aria-live="polite">
+            <span>Nivel de precio aplicado</span>
+            <strong>{resolvedTierName ?? "Ingresa una cantidad válida"}</strong>
           </div>
         ) : null}
 
@@ -350,7 +406,7 @@ export function ServicesPricingCalculator() {
               </dd>
             </div>
             <div className={formStyles.priceItem}>
-              <dt>Servicio seleccionado</dt>
+              <dt>Servicio</dt>
               <dd className={styles.textValue}>{result.service.name}</dd>
             </div>
             {result.maintenance ? (
@@ -392,24 +448,62 @@ export function ServicesPricingCalculator() {
                 ) : null}
               </>
             ) : null}
-            <div className={formStyles.priceItem}>
-              <dt>Cantidad</dt>
-              <dd>{result.quantity}</dd>
-              <dd className={formStyles.priceItemNote}>
-                Unidad: {result.service.unit.singular}
-              </dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Precio unitario</dt>
-              <dd>
-                <data value={result.unitPrice}>
-                  {priceFormatter.format(result.unitPrice)}
-                </data>
-              </dd>
-              <dd className={formStyles.priceItemNote}>
-                Por {result.service.unit.singular}
-              </dd>
-            </div>
+            {result.service.pricingStrategy === "quantity-tier" &&
+            result.softwareInstallation ? (
+              <>
+                <div className={formStyles.priceItem}>
+                  <dt>Alcance</dt>
+                  <dd className={styles.textValue}>
+                    {result.service.computerScope.name}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Cantidad de programas</dt>
+                  <dd>{result.softwareInstallation.programCount}</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Nivel aplicado</dt>
+                  <dd className={styles.textValue}>
+                    {
+                      getSoftwareInstallationPricingTier(
+                        result.softwareInstallation.tierId,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Precio unitario por programa</dt>
+                  <dd>
+                    <data value={result.softwareInstallation.unitPrice}>
+                      {priceFormatter.format(
+                        result.softwareInstallation.unitPrice,
+                      )}
+                    </data>
+                  </dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={formStyles.priceItem}>
+                  <dt>Cantidad</dt>
+                  <dd>{result.quantity}</dd>
+                  <dd className={formStyles.priceItemNote}>
+                    Unidad: {result.service.unit.singular}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Precio unitario</dt>
+                  <dd>
+                    <data value={result.unitPrice}>
+                      {priceFormatter.format(result.unitPrice)}
+                    </data>
+                  </dd>
+                  <dd className={formStyles.priceItemNote}>
+                    Por {result.service.unit.singular}
+                  </dd>
+                </div>
+              </>
+            )}
             <div className={formStyles.priceItemFeatured}>
               <dt>Precio total</dt>
               <dd>

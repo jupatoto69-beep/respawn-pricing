@@ -4,6 +4,7 @@ import {
   changePricingMode,
   createInitialPricingModeSelection,
   PRICING_MODE_IDS,
+  PRICING_MODE_OPTIONS,
 } from "./pricing-mode-selection";
 
 describe("pricing mode selection", () => {
@@ -49,5 +50,15 @@ describe("pricing mode selection", () => {
     );
 
     expect(secondServicesSelection.servicesRevision).toBe(2);
+  });
+
+  it("describes Services without presenting every strategy as fixed price", () => {
+    const servicesOption = PRICING_MODE_OPTIONS.find(
+      (option) => option.id === PRICING_MODE_IDS.services,
+    );
+
+    expect(servicesOption?.description).toBe(
+      "Cotiza servicios para computadores según su estrategia.",
+    );
   });
 });
