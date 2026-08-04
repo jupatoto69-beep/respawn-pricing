@@ -168,6 +168,88 @@ describe("service selection", () => {
     });
   });
 
+  it("starts tabloids at one unit with empty product-specific state", () => {
+    const printedSelection = createInitialServicesPricingFormState(
+      SERVICE_CATEGORY_IDS.printedProducts,
+    );
+
+    expect(
+      changeServiceSelection(printedSelection, PRINTED_SERVICE_IDS.tabloids),
+    ).toEqual({
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.tabloids,
+      specificValues: {
+        pricingStrategy: "tabloid-pricing",
+        tabloidType: "",
+        adhesiveFinish: "",
+        quantity: "1",
+        negotiatedBaseUnitPrice: "",
+        belowMinimumConfirmed: false,
+        isLaminated: false,
+      },
+    });
+  });
+
+  it("changing category clears all tabloid-specific state", () => {
+    const tabloidSelection = {
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.tabloids,
+      specificValues: {
+        pricingStrategy: "tabloid-pricing" as const,
+        tabloidType: "adhesive" as const,
+        adhesiveFinish: "pre-cut-adhesive" as const,
+        quantity: "5",
+        negotiatedBaseUnitPrice: "18000",
+        belowMinimumConfirmed: true,
+        isLaminated: true,
+      },
+    };
+
+    expect(
+      changeServiceCategorySelection(
+        tabloidSelection,
+        SERVICE_CATEGORY_IDS.audiovisual,
+      ),
+    ).toEqual({
+      categoryId: SERVICE_CATEGORY_IDS.audiovisual,
+      serviceId: "",
+      specificValues: { pricingStrategy: "none" },
+    });
+  });
+
+  it("changing service clears all tabloid-specific state", () => {
+    const tabloidSelection = {
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.tabloids,
+      specificValues: {
+        pricingStrategy: "tabloid-pricing" as const,
+        tabloidType: "standard" as const,
+        adhesiveFinish: "" as const,
+        quantity: "10",
+        negotiatedBaseUnitPrice: "9000",
+        belowMinimumConfirmed: true,
+        isLaminated: true,
+      },
+    };
+
+    expect(
+      changeServiceSelection(
+        tabloidSelection,
+        PRINTED_SERVICE_IDS.businessCards,
+      ),
+    ).toMatchObject({
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.businessCards,
+      specificValues: {
+        pricingStrategy: "business-card-pricing",
+        cardType: "",
+        quantityInThousands: "1",
+        negotiatedUnitPrice: "",
+        belowMinimumConfirmed: false,
+      },
+    });
+  });
+
   it("clearing the service clears all business-card-specific state", () => {
     const businessCardSelection = {
       categoryId: SERVICE_CATEGORY_IDS.printedProducts,

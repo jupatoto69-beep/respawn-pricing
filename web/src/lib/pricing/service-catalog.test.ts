@@ -87,4 +87,25 @@ describe("service category catalog", () => {
       ),
     ).toBeNull();
   });
+
+  it("exposes tabloids only under Printed products", () => {
+    expect(
+      getService(
+        SERVICE_CATEGORY_IDS.printedProducts,
+        PRINTED_SERVICE_IDS.tabloids,
+      ),
+    ).toMatchObject({
+      name: "Tabloides",
+      pricingStrategy: "tabloid-pricing",
+    });
+    expect(
+      getService(SERVICE_CATEGORY_IDS.computers, PRINTED_SERVICE_IDS.tabloids),
+    ).toBeNull();
+    expect(
+      getService(
+        SERVICE_CATEGORY_IDS.audiovisual,
+        PRINTED_SERVICE_IDS.tabloids,
+      ),
+    ).toBeNull();
+  });
 });

@@ -15,6 +15,10 @@ import {
   createInitialBusinessCardPricingFormValues,
   type BusinessCardPricingFormValues,
 } from "./business-card-selection";
+import {
+  createInitialTabloidPricingFormValues,
+  type TabloidPricingFormValues,
+} from "./tabloid-selection";
 
 export type ServiceSpecificValues =
   | Readonly<{
@@ -37,7 +41,8 @@ export type ServiceSpecificValues =
       pricingStrategy: "duration";
       duration: VideoDurationInput;
     }>
-  | BusinessCardPricingFormValues;
+  | BusinessCardPricingFormValues
+  | TabloidPricingFormValues;
 
 export type ServicesPricingFormState = Readonly<{
   categoryId: ServiceCategoryId | "";
@@ -115,6 +120,12 @@ export function changeServiceSelection(
         ...selection,
         serviceId: service.id,
         specificValues: createInitialBusinessCardPricingFormValues(),
+      };
+    case "tabloid-pricing":
+      return {
+        ...selection,
+        serviceId: service.id,
+        specificValues: createInitialTabloidPricingFormValues(),
       };
   }
 }
