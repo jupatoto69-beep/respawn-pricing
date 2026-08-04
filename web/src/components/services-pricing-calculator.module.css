@@ -3,7 +3,8 @@
 .serviceDescription,
 .inclusions,
 .durationNotice,
-.businessCardNotice {
+.businessCardNotice,
+.tabloidNotice {
   grid-column: 1 / -1;
 }
 
@@ -53,7 +54,8 @@
 }
 
 .durationNotice,
-.businessCardNotice {
+.businessCardNotice,
+.tabloidNotice {
   margin: 0;
   padding: 13px 15px;
   border: 1px solid rgba(61, 139, 255, 0.4);

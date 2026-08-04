@@ -41,6 +41,7 @@ describe("PricingCalculator", () => {
     expect(markup).not.toContain("Instalación individual de programas");
     expect(markup).not.toContain("Edición de video sencilla");
     expect(markup).not.toContain("Tarjetas de presentación");
+    expect(markup).not.toContain("Tabloides");
     expect(markup).not.toContain("Producto, medidas y tarifa");
   });
 
@@ -69,9 +70,10 @@ describe("PricingCalculator", () => {
     expect(markup).not.toContain("Mantenimiento de computador");
     expect(markup).not.toContain("Instalación individual de programas");
     expect(markup).not.toContain("Tarjetas de presentación");
+    expect(markup).not.toContain("Tabloides");
   });
 
-  it("shows business cards only when Printed products is selected", () => {
+  it("shows business cards and tabloids only when Printed products is selected", () => {
     const markup = renderToStaticMarkup(
       <ServicesPricingCalculator
         initialCategoryId={SERVICE_CATEGORY_IDS.printedProducts}
@@ -80,8 +82,30 @@ describe("PricingCalculator", () => {
 
     expect(markup).toContain("Impresos");
     expect(markup).toContain("Tarjetas de presentación");
+    expect(markup).toContain("Tabloides");
     expect(markup).not.toContain("Mantenimiento de computador");
     expect(markup).not.toContain("Edición de video sencilla");
+  });
+
+  it("renders only tabloid pricing fields for the tabloid strategy", () => {
+    const markup = renderToStaticMarkup(
+      <ServicesPricingCalculator
+        initialCategoryId={SERVICE_CATEGORY_IDS.printedProducts}
+        initialServiceId={PRINTED_SERVICE_IDS.tabloids}
+      />,
+    );
+
+    expect(markup).toContain("Tipo de tabloide");
+    expect(markup).toContain("Cantidad de unidades");
+    expect(markup).toContain(
+      "Precio base negociado por unidad (opcional)",
+    );
+    expect(markup).toContain("Sin laminado");
+    expect(markup).toContain("Laminado");
+    expect(markup).toContain("La cantidad representa tabloides individuales");
+    expect(markup).not.toContain("Acabado adhesivo");
+    expect(markup).not.toContain("Cantidad en millares");
+    expect(markup).not.toContain("Precio del primer minuto");
   });
 
   it("renders only business-card pricing fields for the business-card strategy", () => {
