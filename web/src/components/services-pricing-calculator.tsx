@@ -1,53 +1,100 @@
 "use client";
 
-import {
-  type ChangeEvent,
-  type FormEvent,
-  useId,
-  useState,
-} from "react";
+import { type ChangeEvent, type FormEvent, useId, useState } from "react";
 
-import { calculateFixedPriceService } from "@/lib/pricing/calculate-fixed-price-service";
+import {
+  calculateFixedPriceService,
+  type FixedPriceCalculation,
+} from "@/lib/pricing/calculate-fixed-price-service";
 import {
   calculateSoftwareInstallationPrice,
   getSoftwareInstallationPricingTier,
   type SoftwareInstallationPriceCalculation,
 } from "@/lib/pricing/calculate-software-installation-price";
 import {
-  changeComputerServiceSelection,
-  changeMaintenanceSelection,
-  createInitialComputerServiceFormState,
-  type ComputerServiceFormState,
-} from "@/lib/pricing/computer-service-selection";
+  calculateVideoEditingPrice,
+  type VideoEditingPriceCalculation,
+  VIDEO_EDITING_PRICING,
+} from "@/lib/pricing/calculate-video-editing-price";
+import { changeMaintenanceSelection } from "@/lib/pricing/computer-service-selection";
 import {
-  COMPUTER_SERVICE_CATEGORY,
-  COMPUTER_SERVICE_CATALOG,
-  COMPUTER_SERVICE_IDS,
-  getComputerService,
-  isComputerServiceId,
   MAINTENANCE_OPTION_IDS,
   MAINTENANCE_OPTIONS,
+  type FixedPriceComputerService,
+  type MaintenanceComputerService,
   type MaintenanceOptionId,
-  type ComputerService,
+  type QuantityTierComputerService,
   SYSTEM_MAINTENANCE_INCLUSIONS,
 } from "@/lib/pricing/computer-service-catalog";
 import {
   calculateMaintenancePrice,
   resolveMaintenancePrice,
-  type MaintenancePriceResolution,
+  type MaintenancePriceCalculation,
 } from "@/lib/pricing/resolve-maintenance-price";
+import {
+  AUDIOVISUAL_SERVICE_IDS,
+  getService,
+  getServiceCategory,
+  getServicesForCategory,
+  isServiceCategoryId,
+  isServiceIdForCategory,
+  SERVICE_CATEGORY_CATALOG,
+  type ServiceCategory,
+  type ServiceCategoryId,
+  type VideoEditingService,
+} from "@/lib/pricing/service-catalog";
+import {
+  changeServiceCategorySelection,
+  changeServiceSelection,
+  createInitialServicesPricingFormState,
+  type ServicesPricingFormState,
+} from "@/lib/pricing/service-selection";
 import { parsePositiveIntegerQuantity } from "@/lib/pricing/service-quantity";
+import { parseVideoDuration } from "@/lib/pricing/video-duration";
 
 import formStyles from "./area-pricing-calculator.module.css";
 import styles from "./services-pricing-calculator.module.css";
 
-type ServiceCalculationResult = Readonly<{
-  service: ComputerService;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  maintenance: MaintenancePriceResolution | null;
-  softwareInstallation: SoftwareInstallationPriceCalculation | null;
+type ResultBase = Readonly<{
+  category: ServiceCategory;
+}>;
+
+type MaintenanceServiceResult = ResultBase &
+  Readonly<{
+    pricingStrategy: "maintenance-selection";
+    service: MaintenanceComputerService;
+    calculation: MaintenancePriceCalculation;
+  }>;
+
+type FixedPriceServiceResult = ResultBase &
+  Readonly<{
+    pricingStrategy: "fixed-price";
+    service: FixedPriceComputerService;
+    calculation: FixedPriceCalculation;
+  }>;
+
+type QuantityTierServiceResult = ResultBase &
+  Readonly<{
+    pricingStrategy: "quantity-tier";
+    service: QuantityTierComputerService;
+    calculation: SoftwareInstallationPriceCalculation;
+  }>;
+
+type DurationServiceResult = ResultBase &
+  Readonly<{
+    pricingStrategy: "duration";
+    service: VideoEditingService;
+    calculation: VideoEditingPriceCalculation;
+  }>;
+
+type ServiceCalculationResult =
+  | MaintenanceServiceResult
+  | FixedPriceServiceResult
+  | QuantityTierServiceResult
+  | DurationServiceResult;
+
+type ServicesPricingCalculatorProps = Readonly<{
+  initialCategoryId?: ServiceCategoryId;
 }>;
 
 const priceFormatter = new Intl.NumberFormat("es-CO", {
@@ -58,7 +105,7 @@ const priceFormatter = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-const QUANTITY_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+const SERVICE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "Quantity is required.": "Ingresa la cantidad.",
   "Quantity must be a valid number.":
     "La cantidad debe ser un número válido.",
@@ -69,11 +116,31 @@ const QUANTITY_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "La cantidad ingresada produce un total fuera del rango permitido.",
   "Software installation total must be finite.":
     "La cantidad ingresada produce un total fuera del rango permitido.",
+  "Minutes are required.": "Ingresa los minutos.",
+  "Seconds are required.": "Ingresa los segundos.",
+  "Minutes must be a valid number.":
+    "Los minutos deben ser un número válido.",
+  "Seconds must be a valid number.":
+    "Los segundos deben ser un número válido.",
+  "Minutes must be non-negative.":
+    "Los minutos deben ser mayores o iguales que cero.",
+  "Seconds must be non-negative.":
+    "Los segundos deben ser mayores o iguales que cero.",
+  "Minutes must be an integer.": "Los minutos deben ser un número entero.",
+  "Seconds must be an integer.": "Los segundos deben ser un número entero.",
+  "Seconds must be between 0 and 59.":
+    "Los segundos deben estar entre 0 y 59.",
+  "Duration must be greater than zero.":
+    "La duración total debe ser mayor que 0:00.",
+  "Duration must be within the supported range.":
+    "La duración ingresada está fuera del rango permitido.",
+  "Video editing total must be a safe integer.":
+    "La duración ingresada produce un total fuera del rango permitido.",
 };
 
 function translateServiceError(error: RangeError): string {
   return (
-    QUANTITY_ERROR_MESSAGES[error.message] ??
+    SERVICE_ERROR_MESSAGES[error.message] ??
     "Revisa los datos ingresados e inténtalo nuevamente."
   );
 }
@@ -94,26 +161,49 @@ function resolveSoftwareInstallationPreview(
   }
 }
 
-export function ServicesPricingCalculator() {
+export function ServicesPricingCalculator({
+  initialCategoryId,
+}: ServicesPricingCalculatorProps = {}) {
   const idPrefix = useId();
-  const [values, setValues] = useState<ComputerServiceFormState>(
-    createInitialComputerServiceFormState,
+  const [values, setValues] = useState<ServicesPricingFormState>(() =>
+    createInitialServicesPricingFormState(initialCategoryId ?? ""),
   );
   const [result, setResult] = useState<ServiceCalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedService = getComputerService(values.serviceId);
-  const maintenanceResolution = resolveMaintenancePrice(values.maintenance);
+  const selectedCategory = getServiceCategory(values.categoryId);
+  const categoryServices = getServicesForCategory(values.categoryId);
+  const selectedService = getService(values.categoryId, values.serviceId);
+  const maintenanceValues =
+    values.specificValues.pricingStrategy === "maintenance-selection"
+      ? values.specificValues
+      : null;
+  const quantityValues =
+    values.specificValues.pricingStrategy === "maintenance-selection" ||
+    values.specificValues.pricingStrategy === "fixed-price" ||
+    values.specificValues.pricingStrategy === "quantity-tier"
+      ? values.specificValues
+      : null;
+  const durationValues =
+    values.specificValues.pricingStrategy === "duration"
+      ? values.specificValues
+      : null;
+  const maintenanceResolution =
+    maintenanceValues !== null
+      ? resolveMaintenancePrice(maintenanceValues.maintenance)
+      : null;
   const softwareInstallationPreview =
-    selectedService?.pricingStrategy === "quantity-tier"
-      ? resolveSoftwareInstallationPreview(values.quantity)
+    values.specificValues.pricingStrategy === "quantity-tier"
+      ? resolveSoftwareInstallationPreview(values.specificValues.quantity)
       : null;
   const resolvedUnitPrice =
     selectedService?.pricingStrategy === "fixed-price"
       ? selectedService.unitPrice
       : selectedService?.pricingStrategy === "quantity-tier"
         ? softwareInstallationPreview?.unitPrice ?? null
-        : maintenanceResolution?.unitPrice ?? null;
+        : selectedService?.pricingStrategy === "maintenance-selection"
+          ? maintenanceResolution?.unitPrice ?? null
+          : null;
   const resolvedTierName = softwareInstallationPreview
     ? getSoftwareInstallationPricingTier(softwareInstallationPreview.tierId)
         .name
@@ -124,12 +214,24 @@ export function ServicesPricingCalculator() {
     setError(null);
   }
 
-  function handleServiceChange(event: ChangeEvent<HTMLSelectElement>) {
+  function handleCategoryChange(event: ChangeEvent<HTMLSelectElement>) {
     const value = event.currentTarget.value;
-    const serviceId = isComputerServiceId(value) ? value : "";
+    const categoryId = isServiceCategoryId(value) ? value : "";
 
     setValues((currentValues) =>
-      changeComputerServiceSelection(currentValues, serviceId),
+      changeServiceCategorySelection(currentValues, categoryId),
+    );
+    clearFeedback();
+  }
+
+  function handleServiceChange(event: ChangeEvent<HTMLSelectElement>) {
+    const value = event.currentTarget.value;
+    const serviceId = isServiceIdForCategory(values.categoryId, value)
+      ? value
+      : "";
+
+    setValues((currentValues) =>
+      changeServiceSelection(currentValues, serviceId),
     );
     clearFeedback();
   }
@@ -137,7 +239,22 @@ export function ServicesPricingCalculator() {
   function handleQuantityChange(event: ChangeEvent<HTMLInputElement>) {
     const quantity = event.currentTarget.value;
 
-    setValues((currentValues) => ({ ...currentValues, quantity }));
+    setValues((currentValues) => {
+      const { specificValues } = currentValues;
+
+      if (
+        specificValues.pricingStrategy !== "maintenance-selection" &&
+        specificValues.pricingStrategy !== "fixed-price" &&
+        specificValues.pricingStrategy !== "quantity-tier"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: { ...specificValues, quantity },
+      };
+    });
     clearFeedback();
   }
 
@@ -145,19 +262,64 @@ export function ServicesPricingCalculator() {
     const optionId = event.currentTarget.value as MaintenanceOptionId;
     const selected = event.currentTarget.checked;
 
-    setValues((currentValues) => ({
-      ...currentValues,
-      maintenance: changeMaintenanceSelection(
-        currentValues.maintenance,
-        optionId,
-        selected,
-      ),
-    }));
+    setValues((currentValues) => {
+      if (
+        currentValues.specificValues.pricingStrategy !==
+        "maintenance-selection"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: {
+          ...currentValues.specificValues,
+          maintenance: changeMaintenanceSelection(
+            currentValues.specificValues.maintenance,
+            optionId,
+            selected,
+          ),
+        },
+      };
+    });
+    clearFeedback();
+  }
+
+  function handleDurationChange(event: ChangeEvent<HTMLInputElement>) {
+    const fieldName = event.currentTarget.name;
+    const value = event.currentTarget.value;
+
+    if (fieldName !== "minutes" && fieldName !== "seconds") {
+      return;
+    }
+
+    setValues((currentValues) => {
+      if (currentValues.specificValues.pricingStrategy !== "duration") {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: {
+          ...currentValues.specificValues,
+          duration: {
+            ...currentValues.specificValues.duration,
+            [fieldName]: value,
+          },
+        },
+      };
+    });
     clearFeedback();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (selectedCategory === null) {
+      setResult(null);
+      setError("Selecciona una categoría.");
+      return;
+    }
 
     if (selectedService === null) {
       setResult(null);
@@ -166,53 +328,79 @@ export function ServicesPricingCalculator() {
     }
 
     try {
-      const quantity = parsePositiveIntegerQuantity(values.quantity);
+      switch (selectedService.pricingStrategy) {
+        case "maintenance-selection": {
+          if (
+            values.specificValues.pricingStrategy !== "maintenance-selection"
+          ) {
+            throw new Error("Service state does not match its strategy.");
+          }
 
-      if (selectedService.pricingStrategy === "maintenance-selection") {
-        const calculation = calculateMaintenancePrice(
-          values.maintenance,
-          quantity,
-        );
+          const calculation = calculateMaintenancePrice(
+            values.specificValues.maintenance,
+            parsePositiveIntegerQuantity(values.specificValues.quantity),
+          );
 
-        if (calculation === null) {
-          setResult(null);
-          setError("Selecciona al menos una opción de mantenimiento.");
-          return;
+          if (calculation === null) {
+            setResult(null);
+            setError("Selecciona al menos una opción de mantenimiento.");
+            return;
+          }
+
+          setResult({
+            pricingStrategy: selectedService.pricingStrategy,
+            category: selectedCategory,
+            service: selectedService,
+            calculation,
+          });
+          break;
         }
+        case "fixed-price": {
+          if (values.specificValues.pricingStrategy !== "fixed-price") {
+            throw new Error("Service state does not match its strategy.");
+          }
 
-        setResult({
-          service: selectedService,
-          quantity: calculation.quantity,
-          unitPrice: calculation.unitPrice,
-          totalPrice: calculation.totalPrice,
-          maintenance: calculation,
-          softwareInstallation: null,
-        });
-      } else if (selectedService.pricingStrategy === "fixed-price") {
-        const calculation = calculateFixedPriceService(
-          selectedService.id,
-          quantity,
-        );
+          setResult({
+            pricingStrategy: selectedService.pricingStrategy,
+            category: selectedCategory,
+            service: selectedService,
+            calculation: calculateFixedPriceService(
+              selectedService.id,
+              parsePositiveIntegerQuantity(values.specificValues.quantity),
+            ),
+          });
+          break;
+        }
+        case "quantity-tier": {
+          if (values.specificValues.pricingStrategy !== "quantity-tier") {
+            throw new Error("Service state does not match its strategy.");
+          }
 
-        setResult({
-          service: selectedService,
-          quantity: calculation.quantity,
-          unitPrice: calculation.unitPrice,
-          totalPrice: calculation.totalPrice,
-          maintenance: null,
-          softwareInstallation: null,
-        });
-      } else {
-        const calculation = calculateSoftwareInstallationPrice(quantity);
+          setResult({
+            pricingStrategy: selectedService.pricingStrategy,
+            category: selectedCategory,
+            service: selectedService,
+            calculation: calculateSoftwareInstallationPrice(
+              parsePositiveIntegerQuantity(values.specificValues.quantity),
+            ),
+          });
+          break;
+        }
+        case "duration": {
+          if (values.specificValues.pricingStrategy !== "duration") {
+            throw new Error("Service state does not match its strategy.");
+          }
 
-        setResult({
-          service: selectedService,
-          quantity: calculation.programCount,
-          unitPrice: calculation.unitPrice,
-          totalPrice: calculation.totalPrice,
-          maintenance: null,
-          softwareInstallation: calculation,
-        });
+          setResult({
+            pricingStrategy: selectedService.pricingStrategy,
+            category: selectedCategory,
+            service: selectedService,
+            calculation: calculateVideoEditingPrice(
+              parseVideoDuration(values.specificValues.duration),
+            ),
+          });
+          break;
+        }
       }
 
       setError(null);
@@ -227,7 +415,7 @@ export function ServicesPricingCalculator() {
   }
 
   function handleReset() {
-    setValues(createInitialComputerServiceFormState());
+    setValues(createInitialServicesPricingFormState());
     clearFeedback();
   }
 
@@ -242,7 +430,7 @@ export function ServicesPricingCalculator() {
         <div className={formStyles.formHeading}>
           <div>
             <p className={formStyles.kicker}>Datos de entrada</p>
-            <h3>Servicio y cantidad</h3>
+            <h3>Categoría, servicio y datos</h3>
           </div>
           <p className={formStyles.requiredNote}>
             Los campos visibles son obligatorios
@@ -250,9 +438,22 @@ export function ServicesPricingCalculator() {
         </div>
 
         <div className={formStyles.fields}>
-          <div className={styles.categoryCard}>
-            <span>Categoría</span>
-            <strong>{COMPUTER_SERVICE_CATEGORY.name}</strong>
+          <div className={`${formStyles.field} ${styles.wideField}`}>
+            <label htmlFor={`${idPrefix}-category`}>Categoría</label>
+            <select
+              id={`${idPrefix}-category`}
+              name="categoryId"
+              value={values.categoryId}
+              onChange={handleCategoryChange}
+              required
+            >
+              <option value="">Selecciona una categoría</option>
+              {SERVICE_CATEGORY_CATALOG.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className={`${formStyles.field} ${styles.wideField}`}>
@@ -262,10 +463,11 @@ export function ServicesPricingCalculator() {
               name="serviceId"
               value={values.serviceId}
               onChange={handleServiceChange}
+              disabled={selectedCategory === null}
               required
             >
               <option value="">Selecciona un servicio</option>
-              {COMPUTER_SERVICE_CATALOG.map((service) => (
+              {categoryServices.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.name}
                 </option>
@@ -273,50 +475,60 @@ export function ServicesPricingCalculator() {
             </select>
           </div>
 
+          {selectedCategory ? (
+            <div className={styles.categoryCard} aria-live="polite">
+              <span>Categoría seleccionada</span>
+              <strong>{selectedCategory.name}</strong>
+            </div>
+          ) : null}
+
           {selectedService ? (
             <p className={styles.serviceDescription}>
               {selectedService.description}
             </p>
           ) : null}
 
-          {selectedService?.id === COMPUTER_SERVICE_IDS.maintenance ? (
-            <fieldset className={formStyles.structureOptions}>
-              <legend>Opciones de mantenimiento</legend>
-              {MAINTENANCE_OPTIONS.map((option) => (
-                <label key={option.id}>
-                  <input
-                    type="checkbox"
-                    name="maintenanceOptions"
-                    value={option.id}
-                    checked={
-                      option.id === MAINTENANCE_OPTION_IDS.physical
-                        ? values.maintenance.physical
-                        : values.maintenance.system
-                    }
-                    onChange={handleMaintenanceChange}
-                  />
-                  <span>{option.name}</span>
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-
-          {selectedService?.id === COMPUTER_SERVICE_IDS.maintenance &&
-          values.maintenance.system ? (
-            <div className={styles.inclusions}>
-              <strong>El mantenimiento de sistema incluye:</strong>
-              <ul>
-                {SYSTEM_MAINTENANCE_INCLUSIONS.map((inclusion) => (
-                  <li key={inclusion}>{inclusion}</li>
+          {selectedService?.pricingStrategy === "maintenance-selection" &&
+          maintenanceValues !== null ? (
+            <>
+              <fieldset className={formStyles.structureOptions}>
+                <legend>Opciones de mantenimiento</legend>
+                {MAINTENANCE_OPTIONS.map((option) => (
+                  <label key={option.id}>
+                    <input
+                      type="checkbox"
+                      name="maintenanceOptions"
+                      value={option.id}
+                      checked={
+                        option.id === MAINTENANCE_OPTION_IDS.physical
+                          ? maintenanceValues.maintenance.physical
+                          : maintenanceValues.maintenance.system
+                      }
+                      onChange={handleMaintenanceChange}
+                    />
+                    <span>{option.name}</span>
+                  </label>
                 ))}
-              </ul>
-            </div>
+              </fieldset>
+
+              {maintenanceValues.maintenance.system ? (
+                <div className={styles.inclusions}>
+                  <strong>El mantenimiento de sistema incluye:</strong>
+                  <ul>
+                    {SYSTEM_MAINTENANCE_INCLUSIONS.map((inclusion) => (
+                      <li key={inclusion}>{inclusion}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
           ) : null}
 
-          {selectedService ? (
+          {selectedService?.pricingStrategy !== "duration" &&
+          quantityValues !== null ? (
             <div className={`${formStyles.field} ${styles.wideField}`}>
               <label htmlFor={`${idPrefix}-service-quantity`}>
-                Cantidad de {selectedService.unit.plural}
+                Cantidad de {selectedService?.unit.plural}
               </label>
               <div
                 className={`${formStyles.inputShell} ${styles.quantityShell}`}
@@ -328,29 +540,99 @@ export function ServicesPricingCalculator() {
                   inputMode="numeric"
                   min="1"
                   step="1"
-                  value={values.quantity}
+                  value={quantityValues.quantity}
                   onChange={handleQuantityChange}
                   placeholder="1"
                   required
                 />
-                <span aria-hidden="true">{selectedService.unit.plural}</span>
+                <span aria-hidden="true">{selectedService?.unit.plural}</span>
               </div>
             </div>
           ) : null}
+
+          {selectedService?.id ===
+            AUDIOVISUAL_SERVICE_IDS.simpleVideoEditing &&
+          durationValues !== null ? (
+            <>
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-video-minutes`}>Minutos</label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-video-minutes`}
+                    name="minutes"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    step="1"
+                    value={durationValues.duration.minutes}
+                    onChange={handleDurationChange}
+                    placeholder="0"
+                    required
+                  />
+                  <span aria-hidden="true">min</span>
+                </div>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-video-seconds`}>Segundos</label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-video-seconds`}
+                    name="seconds"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="59"
+                    step="1"
+                    value={durationValues.duration.seconds}
+                    onChange={handleDurationChange}
+                    placeholder="0"
+                    required
+                  />
+                  <span aria-hidden="true">s</span>
+                </div>
+              </div>
+
+              <p className={styles.durationNotice}>
+                Cada minuto iniciado o fracción se cobra como un minuto
+                completo. El cobro mínimo corresponde a un minuto.
+              </p>
+            </>
+          ) : null}
         </div>
 
-        {selectedService ? (
-          <div className={formStyles.rateSummary} aria-live="polite">
-            <span>Precio unitario resuelto</span>
-            <strong>
-              {resolvedUnitPrice === null
-                ? selectedService.pricingStrategy === "maintenance-selection"
-                  ? "Selecciona el mantenimiento"
-                  : "Ingresa una cantidad válida"
-                : priceFormatter.format(resolvedUnitPrice)}
-            </strong>
-          </div>
-        ) : null}
+        {selectedService?.pricingStrategy !== "duration" ? (
+          selectedService ? (
+            <div className={formStyles.rateSummary} aria-live="polite">
+              <span>Precio unitario resuelto</span>
+              <strong>
+                {resolvedUnitPrice === null
+                  ? selectedService.pricingStrategy ===
+                    "maintenance-selection"
+                    ? "Selecciona el mantenimiento"
+                    : "Ingresa una cantidad válida"
+                  : priceFormatter.format(resolvedUnitPrice)}
+              </strong>
+            </div>
+          ) : null
+        ) : (
+          <>
+            <div className={formStyles.rateSummary}>
+              <span>Precio del primer minuto</span>
+              <strong>
+                {priceFormatter.format(VIDEO_EDITING_PRICING.basePrice)}
+              </strong>
+            </div>
+            <div className={formStyles.rateSummary}>
+              <span>Precio por minuto adicional iniciado</span>
+              <strong>
+                {priceFormatter.format(
+                  VIDEO_EDITING_PRICING.additionalMinutePrice,
+                )}
+              </strong>
+            </div>
+          </>
+        )}
 
         {selectedService?.pricingStrategy === "quantity-tier" ? (
           <div className={formStyles.rateSummary} aria-live="polite">
@@ -359,9 +641,13 @@ export function ServicesPricingCalculator() {
           </div>
         ) : null}
 
-        <p className={formStyles.fieldHelp}>
-          La cantidad debe ser un número entero mayor que cero.
-        </p>
+        {selectedService ? (
+          selectedService.pricingStrategy === "duration" ? null : (
+            <p className={formStyles.fieldHelp}>
+              La cantidad debe ser un número entero mayor que cero.
+            </p>
+          )
+        ) : null}
 
         <div className={formStyles.actions}>
           <button className={formStyles.primaryButton} type="submit">
@@ -401,82 +687,46 @@ export function ServicesPricingCalculator() {
           <dl className={formStyles.priceList}>
             <div className={formStyles.priceItem}>
               <dt>Categoría</dt>
-              <dd className={styles.textValue}>
-                {COMPUTER_SERVICE_CATEGORY.name}
-              </dd>
+              <dd className={styles.textValue}>{result.category.name}</dd>
             </div>
             <div className={formStyles.priceItem}>
               <dt>Servicio</dt>
               <dd className={styles.textValue}>{result.service.name}</dd>
             </div>
-            {result.maintenance ? (
+
+            {result.pricingStrategy === "duration" ? (
               <>
                 <div className={formStyles.priceItem}>
-                  <dt>Opciones seleccionadas</dt>
+                  <dt>Duración real</dt>
                   <dd className={styles.textValue}>
-                    {result.maintenance.selectedOptionIds
-                      .map(
-                        (optionId) =>
-                          MAINTENANCE_OPTIONS.find(
-                            (option) => option.id === optionId,
-                          )!.name,
-                      )
-                      .join(" y ")}
-                  </dd>
-                </div>
-                {result.maintenance.selectedOptionIds.includes(
-                  MAINTENANCE_OPTION_IDS.system,
-                ) ? (
-                  <div className={formStyles.priceItem}>
-                    <dt>Inclusiones del mantenimiento de sistema</dt>
-                    <dd className={styles.textValue}>
-                      <ul className={styles.summaryList}>
-                        {SYSTEM_MAINTENANCE_INCLUSIONS.map((inclusion) => (
-                          <li key={inclusion}>{inclusion}</li>
-                        ))}
-                      </ul>
-                    </dd>
-                  </div>
-                ) : null}
-                {result.maintenance.packageName ? (
-                  <div className={formStyles.priceItem}>
-                    <dt>Paquete aplicado</dt>
-                    <dd className={styles.textValue}>
-                      {result.maintenance.packageName}
-                    </dd>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-            {result.service.pricingStrategy === "quantity-tier" &&
-            result.softwareInstallation ? (
-              <>
-                <div className={formStyles.priceItem}>
-                  <dt>Alcance</dt>
-                  <dd className={styles.textValue}>
-                    {result.service.computerScope.name}
+                    <data value={result.calculation.totalSeconds}>
+                      {result.calculation.enteredMinutes} min{" "}
+                      {result.calculation.enteredSeconds} s
+                    </data>
                   </dd>
                 </div>
                 <div className={formStyles.priceItem}>
-                  <dt>Cantidad de programas</dt>
-                  <dd>{result.softwareInstallation.programCount}</dd>
+                  <dt>Minutos cobrables</dt>
+                  <dd>{result.calculation.billableMinutes}</dd>
                 </div>
                 <div className={formStyles.priceItem}>
-                  <dt>Nivel aplicado</dt>
-                  <dd className={styles.textValue}>
-                    {
-                      getSoftwareInstallationPricingTier(
-                        result.softwareInstallation.tierId,
-                      ).name
-                    }
-                  </dd>
-                </div>
-                <div className={formStyles.priceItem}>
-                  <dt>Precio unitario por programa</dt>
+                  <dt>Precio del primer minuto</dt>
                   <dd>
-                    <data value={result.softwareInstallation.unitPrice}>
+                    <data value={result.calculation.basePrice}>
+                      {priceFormatter.format(result.calculation.basePrice)}
+                    </data>
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Minutos adicionales cobrables</dt>
+                  <dd>{result.calculation.additionalBillableMinutes}</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Subtotal adicional</dt>
+                  <dd>
+                    <data value={result.calculation.additionalSubtotal}>
                       {priceFormatter.format(
-                        result.softwareInstallation.unitPrice,
+                        result.calculation.additionalSubtotal,
                       )}
                     </data>
                   </dd>
@@ -484,31 +734,111 @@ export function ServicesPricingCalculator() {
               </>
             ) : (
               <>
-                <div className={formStyles.priceItem}>
-                  <dt>Cantidad</dt>
-                  <dd>{result.quantity}</dd>
-                  <dd className={formStyles.priceItemNote}>
-                    Unidad: {result.service.unit.singular}
-                  </dd>
-                </div>
-                <div className={formStyles.priceItem}>
-                  <dt>Precio unitario</dt>
-                  <dd>
-                    <data value={result.unitPrice}>
-                      {priceFormatter.format(result.unitPrice)}
-                    </data>
-                  </dd>
-                  <dd className={formStyles.priceItemNote}>
-                    Por {result.service.unit.singular}
-                  </dd>
-                </div>
+                {result.pricingStrategy === "maintenance-selection" ? (
+                  <>
+                    <div className={formStyles.priceItem}>
+                      <dt>Opciones seleccionadas</dt>
+                      <dd className={styles.textValue}>
+                        {result.calculation.selectedOptionIds
+                          .map(
+                            (optionId) =>
+                              MAINTENANCE_OPTIONS.find(
+                                (option) => option.id === optionId,
+                              )!.name,
+                          )
+                          .join(" y ")}
+                      </dd>
+                    </div>
+                    {result.calculation.selectedOptionIds.includes(
+                      MAINTENANCE_OPTION_IDS.system,
+                    ) ? (
+                      <div className={formStyles.priceItem}>
+                        <dt>Inclusiones del mantenimiento de sistema</dt>
+                        <dd className={styles.textValue}>
+                          <ul className={styles.summaryList}>
+                            {SYSTEM_MAINTENANCE_INCLUSIONS.map((inclusion) => (
+                              <li key={inclusion}>{inclusion}</li>
+                            ))}
+                          </ul>
+                        </dd>
+                      </div>
+                    ) : null}
+                    {result.calculation.packageName ? (
+                      <div className={formStyles.priceItem}>
+                        <dt>Paquete aplicado</dt>
+                        <dd className={styles.textValue}>
+                          {result.calculation.packageName}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {result.pricingStrategy === "quantity-tier" ? (
+                  <>
+                    <div className={formStyles.priceItem}>
+                      <dt>Alcance</dt>
+                      <dd className={styles.textValue}>
+                        {result.service.computerScope.name}
+                      </dd>
+                    </div>
+                    <div className={formStyles.priceItem}>
+                      <dt>Cantidad de programas</dt>
+                      <dd>{result.calculation.programCount}</dd>
+                    </div>
+                    <div className={formStyles.priceItem}>
+                      <dt>Nivel aplicado</dt>
+                      <dd className={styles.textValue}>
+                        {
+                          getSoftwareInstallationPricingTier(
+                            result.calculation.tierId,
+                          ).name
+                        }
+                      </dd>
+                    </div>
+                    <div className={formStyles.priceItem}>
+                      <dt>Precio unitario por programa</dt>
+                      <dd>
+                        <data value={result.calculation.unitPrice}>
+                          {priceFormatter.format(result.calculation.unitPrice)}
+                        </data>
+                      </dd>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={formStyles.priceItem}>
+                      <dt>Cantidad</dt>
+                      <dd>{result.calculation.quantity}</dd>
+                      <dd className={formStyles.priceItemNote}>
+                        Unidad: {result.service.unit.singular}
+                      </dd>
+                    </div>
+                    <div className={formStyles.priceItem}>
+                      <dt>Precio unitario</dt>
+                      <dd>
+                        <data value={result.calculation.unitPrice}>
+                          {priceFormatter.format(result.calculation.unitPrice)}
+                        </data>
+                      </dd>
+                      <dd className={formStyles.priceItemNote}>
+                        Por {result.service.unit.singular}
+                      </dd>
+                    </div>
+                  </>
+                )}
               </>
             )}
+
             <div className={formStyles.priceItemFeatured}>
-              <dt>Precio total</dt>
+              <dt>
+                {result.pricingStrategy === "duration"
+                  ? "Total final"
+                  : "Precio total"}
+              </dt>
               <dd>
-                <data value={result.totalPrice}>
-                  {priceFormatter.format(result.totalPrice)}
+                <data value={result.calculation.totalPrice}>
+                  {priceFormatter.format(result.calculation.totalPrice)}
                 </data>
               </dd>
               <dd className={formStyles.priceItemNote}>

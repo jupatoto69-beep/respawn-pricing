@@ -1,7 +1,8 @@
 .wideField,
 .categoryCard,
 .serviceDescription,
-.inclusions {
+.inclusions,
+.durationNotice {
   grid-column: 1 / -1;
 }
 
@@ -48,6 +49,17 @@
 .inclusions strong {
   display: block;
   margin-bottom: 7px;
+}
+
+.durationNotice {
+  margin: 0;
+  padding: 13px 15px;
+  border: 1px solid rgba(61, 139, 255, 0.4);
+  border-radius: 9px;
+  background: rgba(61, 139, 255, 0.08);
+  color: #cbd7e5;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .inclusions ul,
