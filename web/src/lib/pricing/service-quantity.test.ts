@@ -7,6 +7,7 @@ describe("parsePositiveIntegerQuantity", () => {
     ["0", "Quantity must be greater than zero."],
     ["-2", "Quantity must be greater than zero."],
     ["1.5", "Quantity must be an integer."],
+    ["1.0", "Quantity must be an integer."],
     ["", "Quantity is required."],
     ["   ", "Quantity is required."],
     ["not-a-number", "Quantity must be a valid number."],

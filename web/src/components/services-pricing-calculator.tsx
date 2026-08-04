@@ -3,6 +3,28 @@
 import { type ChangeEvent, type FormEvent, useId, useState } from "react";
 
 import {
+  calculateEquivalentCardQuantity,
+  getBusinessCardAutomaticTier,
+  getBusinessCardTypeDefinition,
+  isBusinessCardTypeId,
+  resolveBusinessCardAutomaticPricing,
+  type BusinessCardAutomaticPricingResolution,
+} from "@/lib/pricing/business-card-pricing";
+import {
+  changeBusinessCardBelowMinimumConfirmation,
+  changeBusinessCardNegotiatedUnitPrice,
+  changeBusinessCardQuantity,
+  changeBusinessCardTypeSelection,
+  type BusinessCardPricingFormValues,
+} from "@/lib/pricing/business-card-selection";
+import {
+  BUSINESS_CARD_CONFIRMATION_REQUIRED_ERROR,
+  calculateBusinessCardPrice,
+  resolveBusinessCardPricingDecision,
+  type BusinessCardPriceCalculation,
+  type BusinessCardPricingDecision,
+} from "@/lib/pricing/calculate-business-card-price";
+import {
   calculateFixedPriceService,
   type FixedPriceCalculation,
 } from "@/lib/pricing/calculate-fixed-price-service";
@@ -26,6 +48,8 @@ import {
   type QuantityTierComputerService,
   SYSTEM_MAINTENANCE_INCLUSIONS,
 } from "@/lib/pricing/computer-service-catalog";
+import { parseOptionalNegotiatedCopUnitPrice } from "@/lib/pricing/negotiated-cop-price";
+import type { BusinessCardService } from "@/lib/pricing/printed-service-catalog";
 import {
   calculateMaintenancePrice,
   resolveMaintenancePrice,
@@ -41,6 +65,7 @@ import {
   SERVICE_CATEGORY_CATALOG,
   type ServiceCategory,
   type ServiceCategoryId,
+  type ServiceId,
   type VideoEditingService,
 } from "@/lib/pricing/service-catalog";
 import {
@@ -87,14 +112,23 @@ type DurationServiceResult = ResultBase &
     calculation: VideoEditingPriceCalculation;
   }>;
 
+type BusinessCardServiceResult = ResultBase &
+  Readonly<{
+    pricingStrategy: "business-card-pricing";
+    service: BusinessCardService;
+    calculation: BusinessCardPriceCalculation;
+  }>;
+
 type ServiceCalculationResult =
   | MaintenanceServiceResult
   | FixedPriceServiceResult
   | QuantityTierServiceResult
-  | DurationServiceResult;
+  | DurationServiceResult
+  | BusinessCardServiceResult;
 
 type ServicesPricingCalculatorProps = Readonly<{
   initialCategoryId?: ServiceCategoryId;
+  initialServiceId?: ServiceId;
 }>;
 
 const priceFormatter = new Intl.NumberFormat("es-CO", {
@@ -104,6 +138,25 @@ const priceFormatter = new Intl.NumberFormat("es-CO", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+
+const quantityFormatter = new Intl.NumberFormat("es-CO", {
+  maximumFractionDigits: 0,
+});
+
+const BUSINESS_CARD_PRICE_SOURCE_LABELS = {
+  automatic: "Automático",
+  negotiated: "Negociado",
+} as const;
+
+const BUSINESS_CARD_MINIMUM_STATUS_LABELS = {
+  withinRange: "Dentro del rango autorizado",
+  belowMinimum: "Por debajo del mínimo autorizado",
+} as const;
+
+const BUSINESS_CARD_CONFIRMATION_STATUS_LABELS = {
+  "not-required": "No requerida",
+  confirmed: "Confirmada",
+} as const;
 
 const SERVICE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "Quantity is required.": "Ingresa la cantidad.",
@@ -136,6 +189,18 @@ const SERVICE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "La duración ingresada está fuera del rango permitido.",
   "Video editing total must be a safe integer.":
     "La duración ingresada produce un total fuera del rango permitido.",
+  "Negotiated unit price must be a valid number.":
+    "El precio negociado debe ser un número válido.",
+  "Negotiated unit price must be greater than zero.":
+    "El precio negociado debe ser mayor que cero.",
+  "Negotiated unit price must be an integer.":
+    "El precio negociado debe ser un valor COP entero.",
+  "Equivalent card quantity must be a safe integer.":
+    "La cantidad de millares está fuera del rango permitido.",
+  "Business-card total must be a safe integer.":
+    "Los datos ingresados producen un total fuera del rango permitido.",
+  [BUSINESS_CARD_CONFIRMATION_REQUIRED_ERROR]:
+    "Confirma que conoces la excepción bajo el mínimo antes de calcular.",
 };
 
 function translateServiceError(error: RangeError): string {
@@ -161,13 +226,76 @@ function resolveSoftwareInstallationPreview(
   }
 }
 
+type BusinessCardFormPreview = Readonly<{
+  equivalentCardQuantity: number;
+  automaticPricing: BusinessCardAutomaticPricingResolution | null;
+  pricingDecision: BusinessCardPricingDecision | null;
+}>;
+
+function resolveBusinessCardFormPreview(
+  values: BusinessCardPricingFormValues,
+): BusinessCardFormPreview | null {
+  try {
+    const quantityInThousands = parsePositiveIntegerQuantity(
+      values.quantityInThousands,
+    );
+    const equivalentCardQuantity =
+      calculateEquivalentCardQuantity(quantityInThousands);
+
+    if (values.cardType === "") {
+      return {
+        equivalentCardQuantity,
+        automaticPricing: null,
+        pricingDecision: null,
+      };
+    }
+
+    const automaticPricing = resolveBusinessCardAutomaticPricing(
+      values.cardType,
+      quantityInThousands,
+    );
+    let pricingDecision: BusinessCardPricingDecision | null = null;
+
+    try {
+      pricingDecision = resolveBusinessCardPricingDecision(
+        values.cardType,
+        quantityInThousands,
+        parseOptionalNegotiatedCopUnitPrice(values.negotiatedUnitPrice),
+      );
+    } catch (error: unknown) {
+      if (!(error instanceof RangeError)) {
+        throw error;
+      }
+    }
+
+    return {
+      equivalentCardQuantity,
+      automaticPricing,
+      pricingDecision,
+    };
+  } catch (error: unknown) {
+    if (error instanceof RangeError) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 export function ServicesPricingCalculator({
   initialCategoryId,
+  initialServiceId,
 }: ServicesPricingCalculatorProps = {}) {
   const idPrefix = useId();
-  const [values, setValues] = useState<ServicesPricingFormState>(() =>
-    createInitialServicesPricingFormState(initialCategoryId ?? ""),
-  );
+  const [values, setValues] = useState<ServicesPricingFormState>(() => {
+    const initialValues = createInitialServicesPricingFormState(
+      initialCategoryId ?? "",
+    );
+
+    return initialServiceId
+      ? changeServiceSelection(initialValues, initialServiceId)
+      : initialValues;
+  });
   const [result, setResult] = useState<ServiceCalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,6 +316,10 @@ export function ServicesPricingCalculator({
     values.specificValues.pricingStrategy === "duration"
       ? values.specificValues
       : null;
+  const businessCardValues =
+    values.specificValues.pricingStrategy === "business-card-pricing"
+      ? values.specificValues
+      : null;
   const maintenanceResolution =
     maintenanceValues !== null
       ? resolveMaintenancePrice(maintenanceValues.maintenance)
@@ -196,6 +328,18 @@ export function ServicesPricingCalculator({
     values.specificValues.pricingStrategy === "quantity-tier"
       ? resolveSoftwareInstallationPreview(values.specificValues.quantity)
       : null;
+  const businessCardPreview =
+    businessCardValues === null
+      ? null
+      : resolveBusinessCardFormPreview(businessCardValues);
+  const businessCardAutomaticTier = businessCardPreview?.automaticPricing
+    ? getBusinessCardAutomaticTier(
+        businessCardPreview.automaticPricing.cardType,
+        businessCardPreview.automaticPricing.automaticTierId,
+      )
+    : null;
+  const businessCardPricingDecision =
+    businessCardPreview?.pricingDecision ?? null;
   const resolvedUnitPrice =
     selectedService?.pricingStrategy === "fixed-price"
       ? selectedService.unitPrice
@@ -253,6 +397,103 @@ export function ServicesPricingCalculator({
       return {
         ...currentValues,
         specificValues: { ...specificValues, quantity },
+      };
+    });
+    clearFeedback();
+  }
+
+  function handleBusinessCardTypeChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    const value = event.currentTarget.value;
+    const cardType = isBusinessCardTypeId(value) ? value : "";
+
+    setValues((currentValues) => {
+      if (
+        currentValues.specificValues.pricingStrategy !==
+        "business-card-pricing"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: changeBusinessCardTypeSelection(
+          currentValues.specificValues,
+          cardType,
+        ),
+      };
+    });
+    clearFeedback();
+  }
+
+  function handleBusinessCardQuantityChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const quantityInThousands = event.currentTarget.value;
+
+    setValues((currentValues) => {
+      if (
+        currentValues.specificValues.pricingStrategy !==
+        "business-card-pricing"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: changeBusinessCardQuantity(
+          currentValues.specificValues,
+          quantityInThousands,
+        ),
+      };
+    });
+    clearFeedback();
+  }
+
+  function handleBusinessCardNegotiatedPriceChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const negotiatedUnitPrice = event.currentTarget.value;
+
+    setValues((currentValues) => {
+      if (
+        currentValues.specificValues.pricingStrategy !==
+        "business-card-pricing"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: changeBusinessCardNegotiatedUnitPrice(
+          currentValues.specificValues,
+          negotiatedUnitPrice,
+        ),
+      };
+    });
+    clearFeedback();
+  }
+
+  function handleBusinessCardConfirmationChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const belowMinimumConfirmed = event.currentTarget.checked;
+
+    setValues((currentValues) => {
+      if (
+        currentValues.specificValues.pricingStrategy !==
+        "business-card-pricing"
+      ) {
+        return currentValues;
+      }
+
+      return {
+        ...currentValues,
+        specificValues: changeBusinessCardBelowMinimumConfirmation(
+          currentValues.specificValues,
+          belowMinimumConfirmed,
+        ),
       };
     });
     clearFeedback();
@@ -386,6 +627,37 @@ export function ServicesPricingCalculator({
           });
           break;
         }
+        case "business-card-pricing": {
+          if (
+            values.specificValues.pricingStrategy !== "business-card-pricing"
+          ) {
+            throw new Error("Service state does not match its strategy.");
+          }
+
+          if (values.specificValues.cardType === "") {
+            setResult(null);
+            setError("Selecciona un tipo de tarjeta.");
+            return;
+          }
+
+          setResult({
+            pricingStrategy: selectedService.pricingStrategy,
+            category: selectedCategory,
+            service: selectedService,
+            calculation: calculateBusinessCardPrice({
+              cardType: values.specificValues.cardType,
+              quantityInThousands: parsePositiveIntegerQuantity(
+                values.specificValues.quantityInThousands,
+              ),
+              negotiatedUnitPrice: parseOptionalNegotiatedCopUnitPrice(
+                values.specificValues.negotiatedUnitPrice,
+              ),
+              belowMinimumConfirmed:
+                values.specificValues.belowMinimumConfirmed,
+            }),
+          });
+          break;
+        }
         case "duration": {
           if (values.specificValues.pricingStrategy !== "duration") {
             throw new Error("Service state does not match its strategy.");
@@ -433,7 +705,7 @@ export function ServicesPricingCalculator({
             <h3>Categoría, servicio y datos</h3>
           </div>
           <p className={formStyles.requiredNote}>
-            Los campos visibles son obligatorios
+            Completa los campos obligatorios
           </p>
         </div>
 
@@ -524,11 +796,87 @@ export function ServicesPricingCalculator({
             </>
           ) : null}
 
-          {selectedService?.pricingStrategy !== "duration" &&
+          {selectedService?.pricingStrategy === "business-card-pricing" &&
+          businessCardValues !== null ? (
+            <>
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-business-card-type`}>
+                  Tipo de tarjeta
+                </label>
+                <select
+                  id={`${idPrefix}-business-card-type`}
+                  name="cardType"
+                  value={businessCardValues.cardType}
+                  onChange={handleBusinessCardTypeChange}
+                  required
+                >
+                  <option value="">Selecciona un tipo de tarjeta</option>
+                  {selectedService.cardTypes.map((cardType) => (
+                    <option key={cardType.id} value={cardType.id}>
+                      {cardType.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-business-card-quantity`}>
+                  Cantidad en millares
+                </label>
+                <div
+                  className={`${formStyles.inputShell} ${styles.quantityShell}`}
+                >
+                  <input
+                    id={`${idPrefix}-business-card-quantity`}
+                    name="quantityInThousands"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={businessCardValues.quantityInThousands}
+                    onChange={handleBusinessCardQuantityChange}
+                    placeholder="1"
+                    required
+                  />
+                  <span aria-hidden="true">millares</span>
+                </div>
+              </div>
+
+              <div className={`${formStyles.field} ${styles.wideField}`}>
+                <label htmlFor={`${idPrefix}-business-card-negotiated-price`}>
+                  Precio negociado por millar (opcional)
+                </label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-business-card-negotiated-price`}
+                    name="negotiatedUnitPrice"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={businessCardValues.negotiatedUnitPrice}
+                    onChange={handleBusinessCardNegotiatedPriceChange}
+                    placeholder="Sin precio negociado"
+                  />
+                  <span aria-hidden="true">COP</span>
+                </div>
+              </div>
+
+              <p className={styles.businessCardNotice}>
+                Ingresa la cantidad en millares completos. 1 millar equivale a
+                1.000 tarjetas. El precio negociado reemplaza el precio
+                automático por millar.
+              </p>
+            </>
+          ) : null}
+
+          {selectedService !== null &&
+          selectedService.pricingStrategy !== "duration" &&
+          selectedService.pricingStrategy !== "business-card-pricing" &&
           quantityValues !== null ? (
             <div className={`${formStyles.field} ${styles.wideField}`}>
               <label htmlFor={`${idPrefix}-service-quantity`}>
-                Cantidad de {selectedService?.unit.plural}
+                Cantidad de {selectedService.unit.plural}
               </label>
               <div
                 className={`${formStyles.inputShell} ${styles.quantityShell}`}
@@ -545,7 +893,7 @@ export function ServicesPricingCalculator({
                   placeholder="1"
                   required
                 />
-                <span aria-hidden="true">{selectedService?.unit.plural}</span>
+                <span aria-hidden="true">{selectedService.unit.plural}</span>
               </div>
             </div>
           ) : null}
@@ -601,21 +949,96 @@ export function ServicesPricingCalculator({
           ) : null}
         </div>
 
-        {selectedService?.pricingStrategy !== "duration" ? (
-          selectedService ? (
+        {selectedService?.pricingStrategy === "business-card-pricing" &&
+        businessCardValues !== null ? (
+          <>
+            <div className={formStyles.rateSummary} aria-live="polite">
+              <span>Equivalencia aproximada en tarjetas</span>
+              <strong>
+                {businessCardPreview
+                  ? `${quantityFormatter.format(
+                      businessCardPreview.equivalentCardQuantity,
+                    )} tarjetas`
+                  : "Ingresa una cantidad válida"}
+              </strong>
+            </div>
+            <div className={formStyles.rateSummary} aria-live="polite">
+              <span>Nivel automático aplicado</span>
+              <strong>
+                {businessCardAutomaticTier?.name ??
+                  "Selecciona tipo y cantidad válidos"}
+              </strong>
+            </div>
+            <div className={formStyles.rateSummary} aria-live="polite">
+              <span>Precio automático por millar</span>
+              <strong>
+                {businessCardPreview?.automaticPricing
+                  ? priceFormatter.format(
+                      businessCardPreview.automaticPricing.automaticUnitPrice,
+                    )
+                  : "Selecciona tipo y cantidad válidos"}
+              </strong>
+            </div>
+            <div className={formStyles.rateSummary} aria-live="polite">
+              <span>Mínimo autorizado aplicable</span>
+              <strong>
+                {businessCardPreview?.automaticPricing
+                  ? priceFormatter.format(
+                      businessCardPreview.automaticPricing
+                        .applicableAuthorizedMinimum,
+                    )
+                  : "Selecciona tipo y cantidad válidos"}
+              </strong>
+            </div>
             <div className={formStyles.rateSummary} aria-live="polite">
               <span>Precio unitario resuelto</span>
               <strong>
-                {resolvedUnitPrice === null
-                  ? selectedService.pricingStrategy ===
-                    "maintenance-selection"
-                    ? "Selecciona el mantenimiento"
-                    : "Ingresa una cantidad válida"
-                  : priceFormatter.format(resolvedUnitPrice)}
+                {businessCardPricingDecision
+                  ? priceFormatter.format(
+                      businessCardPricingDecision.resolvedUnitPrice,
+                    )
+                  : businessCardPreview?.automaticPricing
+                    ? "Ingresa un precio negociado válido"
+                    : "Selecciona tipo y cantidad válidos"}
               </strong>
             </div>
-          ) : null
-        ) : (
+
+            {businessCardPricingDecision?.requiresConfirmation ? (
+              <div
+                className={styles.minimumWarning}
+                role="alert"
+                aria-live="assertive"
+              >
+                <strong>
+                  El precio negociado está por debajo del mínimo autorizado
+                  aplicable.
+                </strong>
+                <p>
+                  Confirma que conoces esta excepción antes de calcular. Mínimo
+                  autorizado aplicable: {" "}
+                  {priceFormatter.format(
+                    businessCardPricingDecision.applicableAuthorizedMinimum,
+                  )}
+                  .
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="belowMinimumConfirmed"
+                    checked={businessCardValues.belowMinimumConfirmed}
+                    onChange={handleBusinessCardConfirmationChange}
+                  />
+                  <span>
+                    Confirmo que conozco que este precio está por debajo del
+                    mínimo autorizado.
+                  </span>
+                </label>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
+        {selectedService?.pricingStrategy === "duration" ? (
           <>
             <div className={formStyles.rateSummary}>
               <span>Precio del primer minuto</span>
@@ -632,7 +1055,19 @@ export function ServicesPricingCalculator({
               </strong>
             </div>
           </>
-        )}
+        ) : selectedService?.pricingStrategy !== "business-card-pricing" &&
+          selectedService ? (
+          <div className={formStyles.rateSummary} aria-live="polite">
+            <span>Precio unitario resuelto</span>
+            <strong>
+              {resolvedUnitPrice === null
+                ? selectedService.pricingStrategy === "maintenance-selection"
+                  ? "Selecciona el mantenimiento"
+                  : "Ingresa una cantidad válida"
+                : priceFormatter.format(resolvedUnitPrice)}
+            </strong>
+          </div>
+        ) : null}
 
         {selectedService?.pricingStrategy === "quantity-tier" ? (
           <div className={formStyles.rateSummary} aria-live="polite">
@@ -642,7 +1077,8 @@ export function ServicesPricingCalculator({
         ) : null}
 
         {selectedService ? (
-          selectedService.pricingStrategy === "duration" ? null : (
+          selectedService.pricingStrategy === "duration" ||
+          selectedService.pricingStrategy === "business-card-pricing" ? null : (
             <p className={formStyles.fieldHelp}>
               La cantidad debe ser un número entero mayor que cero.
             </p>
@@ -729,6 +1165,113 @@ export function ServicesPricingCalculator({
                         result.calculation.additionalSubtotal,
                       )}
                     </data>
+                  </dd>
+                </div>
+              </>
+            ) : result.pricingStrategy === "business-card-pricing" ? (
+              <>
+                <div className={formStyles.priceItem}>
+                  <dt>Tipo de tarjeta</dt>
+                  <dd className={styles.textValue}>
+                    {
+                      getBusinessCardTypeDefinition(
+                        result.calculation.cardType,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Cantidad de millares</dt>
+                  <dd>{result.calculation.quantityInThousands}</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Cantidad equivalente de tarjetas</dt>
+                  <dd>
+                    <data value={result.calculation.equivalentCardQuantity}>
+                      {quantityFormatter.format(
+                        result.calculation.equivalentCardQuantity,
+                      )}
+                    </data>
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Nivel aplicado</dt>
+                  <dd className={styles.textValue}>
+                    {
+                      getBusinessCardAutomaticTier(
+                        result.calculation.cardType,
+                        result.calculation.automaticTierId,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Precio automático por millar</dt>
+                  <dd>
+                    <data value={result.calculation.automaticUnitPrice}>
+                      {priceFormatter.format(
+                        result.calculation.automaticUnitPrice,
+                      )}
+                    </data>
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Origen del precio</dt>
+                  <dd className={styles.textValue}>
+                    {
+                      BUSINESS_CARD_PRICE_SOURCE_LABELS[
+                        result.calculation.priceSource
+                      ]
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Precio unitario resuelto</dt>
+                  <dd>
+                    <data value={result.calculation.resolvedUnitPrice}>
+                      {priceFormatter.format(
+                        result.calculation.resolvedUnitPrice,
+                      )}
+                    </data>
+                  </dd>
+                  <dd className={formStyles.priceItemNote}>Por millar</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Mínimo autorizado aplicable</dt>
+                  <dd>
+                    <data
+                      value={
+                        result.calculation.applicableAuthorizedMinimum
+                      }
+                    >
+                      {priceFormatter.format(
+                        result.calculation.applicableAuthorizedMinimum,
+                      )}
+                    </data>
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Estado del mínimo</dt>
+                  <dd
+                    className={`${styles.textValue} ${
+                      result.calculation.isBelowAuthorizedMinimum
+                        ? styles.belowMinimumText
+                        : ""
+                    }`}
+                  >
+                    {result.calculation.isBelowAuthorizedMinimum
+                      ? BUSINESS_CARD_MINIMUM_STATUS_LABELS.belowMinimum
+                      : BUSINESS_CARD_MINIMUM_STATUS_LABELS.withinRange}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Confirmación</dt>
+                  <dd className={styles.textValue}>
+                    {
+                      BUSINESS_CARD_CONFIRMATION_STATUS_LABELS[
+                        result.calculation.confirmationStatus
+                      ]
+                    }
                   </dd>
                 </div>
               </>
@@ -832,7 +1375,8 @@ export function ServicesPricingCalculator({
 
             <div className={formStyles.priceItemFeatured}>
               <dt>
-                {result.pricingStrategy === "duration"
+                {result.pricingStrategy === "duration" ||
+                result.pricingStrategy === "business-card-pricing"
                   ? "Total final"
                   : "Precio total"}
               </dt>

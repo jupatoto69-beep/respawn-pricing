@@ -1,3 +1,5 @@
+const POSITIVE_INTEGER_PATTERN = /^\d+$/;
+
 export function validatePositiveIntegerQuantity(quantity: number): number {
   if (!Number.isFinite(quantity)) {
     throw new RangeError("Quantity must be a valid number.");
@@ -15,9 +17,17 @@ export function validatePositiveIntegerQuantity(quantity: number): number {
 }
 
 export function parsePositiveIntegerQuantity(value: string): number {
-  if (value.trim() === "") {
+  const normalizedValue = value.trim();
+
+  if (normalizedValue === "") {
     throw new RangeError("Quantity is required.");
   }
 
-  return validatePositiveIntegerQuantity(Number(value));
+  const quantity = validatePositiveIntegerQuantity(Number(normalizedValue));
+
+  if (!POSITIVE_INTEGER_PATTERN.test(normalizedValue)) {
+    throw new RangeError("Quantity must be an integer.");
+  }
+
+  return quantity;
 }

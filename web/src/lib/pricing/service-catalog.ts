@@ -4,10 +4,17 @@ import {
   type ComputerService,
   type ComputerServiceId,
 } from "./computer-service-catalog";
+import {
+  PRINTED_SERVICE_CATALOG,
+  PRINTED_SERVICE_CATEGORY,
+  type PrintedService,
+  type PrintedServiceId,
+} from "./printed-service-catalog";
 
 export const SERVICE_CATEGORY_IDS = {
   computers: COMPUTER_SERVICE_CATEGORY.id,
   audiovisual: "audiovisual",
+  printedProducts: PRINTED_SERVICE_CATEGORY.id,
 } as const;
 
 export type ServiceCategoryId =
@@ -27,8 +34,11 @@ export type VideoEditingService = Readonly<{
   pricingStrategy: "duration";
 }>;
 
-export type Service = ComputerService | VideoEditingService;
-export type ServiceId = ComputerServiceId | AudiovisualServiceId;
+export type Service = ComputerService | VideoEditingService | PrintedService;
+export type ServiceId =
+  | ComputerServiceId
+  | AudiovisualServiceId
+  | PrintedServiceId;
 
 export type ServiceCategory = Readonly<{
   id: ServiceCategoryId;
@@ -54,6 +64,11 @@ export const SERVICE_CATEGORY_CATALOG: readonly ServiceCategory[] = [
     id: SERVICE_CATEGORY_IDS.audiovisual,
     name: "Audiovisual",
     services: [SIMPLE_VIDEO_EDITING_SERVICE],
+  },
+  {
+    id: SERVICE_CATEGORY_IDS.printedProducts,
+    name: PRINTED_SERVICE_CATEGORY.name,
+    services: PRINTED_SERVICE_CATALOG,
   },
 ] as const;
 
