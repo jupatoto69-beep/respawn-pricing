@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COMPUTER_SERVICE_IDS } from "./computer-service-catalog";
+import { PRINTED_SERVICE_IDS } from "./printed-service-catalog";
 import {
   changeServiceCategorySelection,
   changeServiceSelection,
@@ -117,5 +118,73 @@ describe("service selection", () => {
         COMPUTER_SERVICE_IDS.officeInstallation,
       ),
     ).toEqual(audiovisualSelection);
+  });
+
+  it("starts business cards with one thousand and empty negotiated state", () => {
+    const printedSelection = createInitialServicesPricingFormState(
+      SERVICE_CATEGORY_IDS.printedProducts,
+    );
+
+    expect(
+      changeServiceSelection(
+        printedSelection,
+        PRINTED_SERVICE_IDS.businessCards,
+      ),
+    ).toEqual({
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.businessCards,
+      specificValues: {
+        pricingStrategy: "business-card-pricing",
+        cardType: "",
+        quantityInThousands: "1",
+        negotiatedUnitPrice: "",
+        belowMinimumConfirmed: false,
+      },
+    });
+  });
+
+  it("changing category clears all business-card-specific state", () => {
+    const businessCardSelection = {
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.businessCards,
+      specificValues: {
+        pricingStrategy: "business-card-pricing" as const,
+        cardType: "glossy" as const,
+        quantityInThousands: "2",
+        negotiatedUnitPrice: "75000",
+        belowMinimumConfirmed: true,
+      },
+    };
+
+    expect(
+      changeServiceCategorySelection(
+        businessCardSelection,
+        SERVICE_CATEGORY_IDS.computers,
+      ),
+    ).toEqual({
+      categoryId: SERVICE_CATEGORY_IDS.computers,
+      serviceId: "",
+      specificValues: { pricingStrategy: "none" },
+    });
+  });
+
+  it("clearing the service clears all business-card-specific state", () => {
+    const businessCardSelection = {
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: PRINTED_SERVICE_IDS.businessCards,
+      specificValues: {
+        pricingStrategy: "business-card-pricing" as const,
+        cardType: "matte-uv" as const,
+        quantityInThousands: "3",
+        negotiatedUnitPrice: "95000",
+        belowMinimumConfirmed: true,
+      },
+    };
+
+    expect(changeServiceSelection(businessCardSelection, "")).toEqual({
+      categoryId: SERVICE_CATEGORY_IDS.printedProducts,
+      serviceId: "",
+      specificValues: { pricingStrategy: "none" },
+    });
   });
 });

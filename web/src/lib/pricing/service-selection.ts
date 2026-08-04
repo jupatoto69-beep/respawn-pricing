@@ -11,6 +11,10 @@ import {
   createInitialVideoDurationInput,
   type VideoDurationInput,
 } from "./video-duration";
+import {
+  createInitialBusinessCardPricingFormValues,
+  type BusinessCardPricingFormValues,
+} from "./business-card-selection";
 
 export type ServiceSpecificValues =
   | Readonly<{
@@ -32,7 +36,8 @@ export type ServiceSpecificValues =
   | Readonly<{
       pricingStrategy: "duration";
       duration: VideoDurationInput;
-    }>;
+    }>
+  | BusinessCardPricingFormValues;
 
 export type ServicesPricingFormState = Readonly<{
   categoryId: ServiceCategoryId | "";
@@ -104,6 +109,12 @@ export function changeServiceSelection(
           pricingStrategy: service.pricingStrategy,
           duration: createInitialVideoDurationInput(),
         },
+      };
+    case "business-card-pricing":
+      return {
+        ...selection,
+        serviceId: service.id,
+        specificValues: createInitialBusinessCardPricingFormValues(),
       };
   }
 }

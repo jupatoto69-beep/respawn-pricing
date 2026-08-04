@@ -8,6 +8,7 @@ import { calculateBannerStructurePrice } from "@/lib/pricing/calculate-banner-st
 import { calculateIlluminatedPanaflexSignPrice } from "@/lib/pricing/calculate-illuminated-panaflex-sign-price";
 import { PANAFLEX_PRICING_OPTION_IDS } from "@/lib/pricing/panaflex-pricing-options";
 import { PRICING_MODE_IDS } from "@/lib/pricing/pricing-mode-selection";
+import { PRINTED_SERVICE_IDS } from "@/lib/pricing/printed-service-catalog";
 import { roundUpToCop500 } from "@/lib/pricing/round-up-to-cop-500";
 import { SERVICE_CATEGORY_IDS } from "@/lib/pricing/service-catalog";
 
@@ -34,10 +35,12 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Categoría, servicio y datos");
     expect(markup).toContain("Computadores");
     expect(markup).toContain("Audiovisual");
+    expect(markup).toContain("Impresos");
     expect(markup).toContain("Selecciona una categoría");
     expect(markup).toContain("Selecciona un servicio");
     expect(markup).not.toContain("Instalación individual de programas");
     expect(markup).not.toContain("Edición de video sencilla");
+    expect(markup).not.toContain("Tarjetas de presentación");
     expect(markup).not.toContain("Producto, medidas y tarifa");
   });
 
@@ -65,6 +68,36 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Edición de video sencilla");
     expect(markup).not.toContain("Mantenimiento de computador");
     expect(markup).not.toContain("Instalación individual de programas");
+    expect(markup).not.toContain("Tarjetas de presentación");
+  });
+
+  it("shows business cards only when Printed products is selected", () => {
+    const markup = renderToStaticMarkup(
+      <ServicesPricingCalculator
+        initialCategoryId={SERVICE_CATEGORY_IDS.printedProducts}
+      />,
+    );
+
+    expect(markup).toContain("Impresos");
+    expect(markup).toContain("Tarjetas de presentación");
+    expect(markup).not.toContain("Mantenimiento de computador");
+    expect(markup).not.toContain("Edición de video sencilla");
+  });
+
+  it("renders only business-card pricing fields for the business-card strategy", () => {
+    const markup = renderToStaticMarkup(
+      <ServicesPricingCalculator
+        initialCategoryId={SERVICE_CATEGORY_IDS.printedProducts}
+        initialServiceId={PRINTED_SERVICE_IDS.businessCards}
+      />,
+    );
+
+    expect(markup).toContain("Tipo de tarjeta");
+    expect(markup).toContain("Cantidad en millares");
+    expect(markup).toContain("Precio negociado por millar (opcional)");
+    expect(markup).toContain("1 millar equivale a 1.000 tarjetas");
+    expect(markup).not.toContain("Precio del primer minuto");
+    expect(markup).not.toContain("Precio por minuto adicional iniciado");
   });
 
   it("preserves the Banner 80 x 300 cm regression result", () => {

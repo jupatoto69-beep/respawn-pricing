@@ -5,6 +5,10 @@ import {
   COMPUTER_SERVICE_IDS,
 } from "./computer-service-catalog";
 import {
+  PRINTED_SERVICE_CATALOG,
+  PRINTED_SERVICE_IDS,
+} from "./printed-service-catalog";
+import {
   AUDIOVISUAL_SERVICE_IDS,
   getService,
   getServicesForCategory,
@@ -13,11 +17,12 @@ import {
 } from "./service-catalog";
 
 describe("service category catalog", () => {
-  it("exposes Computers and Audiovisual as the initial categories", () => {
+  it("exposes Computers, Audiovisual and Printed products independently", () => {
     expect(SERVICE_CATEGORY_CATALOG.map(({ id, name }) => ({ id, name }))).toEqual(
       [
         { id: SERVICE_CATEGORY_IDS.computers, name: "Computadores" },
         { id: SERVICE_CATEGORY_IDS.audiovisual, name: "Audiovisual" },
+        { id: SERVICE_CATEGORY_IDS.printedProducts, name: "Impresos" },
       ],
     );
   });
@@ -52,6 +57,33 @@ describe("service category catalog", () => {
       getService(
         SERVICE_CATEGORY_IDS.computers,
         AUDIOVISUAL_SERVICE_IDS.simpleVideoEditing,
+      ),
+    ).toBeNull();
+  });
+
+  it("exposes business cards only under Printed products", () => {
+    expect(
+      getServicesForCategory(SERVICE_CATEGORY_IDS.printedProducts),
+    ).toEqual(PRINTED_SERVICE_CATALOG);
+    expect(
+      getService(
+        SERVICE_CATEGORY_IDS.printedProducts,
+        PRINTED_SERVICE_IDS.businessCards,
+      ),
+    ).toMatchObject({
+      name: "Tarjetas de presentación",
+      pricingStrategy: "business-card-pricing",
+    });
+    expect(
+      getService(
+        SERVICE_CATEGORY_IDS.computers,
+        PRINTED_SERVICE_IDS.businessCards,
+      ),
+    ).toBeNull();
+    expect(
+      getService(
+        SERVICE_CATEGORY_IDS.audiovisual,
+        PRINTED_SERVICE_IDS.businessCards,
       ),
     ).toBeNull();
   });
