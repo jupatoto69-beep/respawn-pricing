@@ -58,7 +58,7 @@ describe("pricing mode selection", () => {
     );
 
     expect(servicesOption?.description).toBe(
-      "Cotiza servicios para computadores según su estrategia.",
+      "Cotiza servicios por categoría según su estrategia.",
     );
   });
 });

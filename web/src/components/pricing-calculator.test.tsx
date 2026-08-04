@@ -9,8 +9,10 @@ import { calculateIlluminatedPanaflexSignPrice } from "@/lib/pricing/calculate-i
 import { PANAFLEX_PRICING_OPTION_IDS } from "@/lib/pricing/panaflex-pricing-options";
 import { PRICING_MODE_IDS } from "@/lib/pricing/pricing-mode-selection";
 import { roundUpToCop500 } from "@/lib/pricing/round-up-to-cop-500";
+import { SERVICE_CATEGORY_IDS } from "@/lib/pricing/service-catalog";
 
 import { PricingCalculator } from "./pricing-calculator";
+import { ServicesPricingCalculator } from "./services-pricing-calculator";
 
 describe("PricingCalculator", () => {
   it("renders the existing area-products calculator by default", () => {
@@ -21,20 +23,48 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Vinilo de corte");
     expect(markup).toContain("Banner");
     expect(markup).toContain("Panaflex");
-    expect(markup).not.toContain("Servicio y cantidad");
+    expect(markup).not.toContain("Categoría, servicio y datos");
   });
 
-  it("renders only the computer-services interface in Services mode", () => {
+  it("renders the category-first interface in Services mode", () => {
     const markup = renderToStaticMarkup(
       <PricingCalculator initialModeId={PRICING_MODE_IDS.services} />,
     );
 
-    expect(markup).toContain("Servicio y cantidad");
-    expect(markup).toContain("Categoría");
+    expect(markup).toContain("Categoría, servicio y datos");
     expect(markup).toContain("Computadores");
+    expect(markup).toContain("Audiovisual");
+    expect(markup).toContain("Selecciona una categoría");
     expect(markup).toContain("Selecciona un servicio");
-    expect(markup).toContain("Instalación individual de programas");
+    expect(markup).not.toContain("Instalación individual de programas");
+    expect(markup).not.toContain("Edición de video sencilla");
     expect(markup).not.toContain("Producto, medidas y tarifa");
+  });
+
+  it("shows only computer services when Computers is selected", () => {
+    const markup = renderToStaticMarkup(
+      <ServicesPricingCalculator
+        initialCategoryId={SERVICE_CATEGORY_IDS.computers}
+      />,
+    );
+
+    expect(markup).toContain("Mantenimiento de computador");
+    expect(markup).toContain("Instalación individual de programas");
+    expect(markup).toContain("Instalación de Office únicamente");
+    expect(markup).not.toContain("Edición de video sencilla");
+  });
+
+  it("shows only simple video editing when Audiovisual is selected", () => {
+    const markup = renderToStaticMarkup(
+      <ServicesPricingCalculator
+        initialCategoryId={SERVICE_CATEGORY_IDS.audiovisual}
+      />,
+    );
+
+    expect(markup).toContain("Audiovisual");
+    expect(markup).toContain("Edición de video sencilla");
+    expect(markup).not.toContain("Mantenimiento de computador");
+    expect(markup).not.toContain("Instalación individual de programas");
   });
 
   it("preserves the Banner 80 x 300 cm regression result", () => {
