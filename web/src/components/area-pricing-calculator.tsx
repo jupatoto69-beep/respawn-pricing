@@ -8,7 +8,12 @@ import {
 } from "react";
 
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
-import { calculateIlluminatedPanaflexSignPrice } from "@/lib/pricing/calculate-illuminated-panaflex-sign-price";
+import {
+  calculateIlluminatedPanaflexSignPrice,
+  type IlluminatedPanaflexSignPriceCalculation,
+  PANAFLEX_MEASURE_CLASSIFICATIONS,
+  type PanaflexMeasureClassification,
+} from "@/lib/pricing/calculate-illuminated-panaflex-sign-price";
 import {
   BANNER_PRODUCT_ID,
   BANNER_STRUCTURE_OPTIONS,
@@ -54,6 +59,7 @@ type CalculationResult = {
   roundedPrice: number;
   bannerStructureName: string | null;
   panaflexPricingOptionName: string | null;
+  panaflexCalculation: IlluminatedPanaflexSignPriceCalculation | null;
 };
 
 const EMPTY_FORM: FormValues = {
@@ -84,6 +90,18 @@ const roundedPriceFormatter = new Intl.NumberFormat("es-CO", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+
+const areaFormatter = new Intl.NumberFormat("es-CO", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
+});
+
+const PANAFLEX_MEASURE_CLASSIFICATION_LABELS: Readonly<
+  Record<PanaflexMeasureClassification, string>
+> = {
+  [PANAFLEX_MEASURE_CLASSIFICATIONS.small]: "Medida pequeña",
+  [PANAFLEX_MEASURE_CLASSIFICATIONS.standard]: "Medida estándar",
+};
 
 const RANGE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "Length must be finite.": "El largo debe ser un número válido.",
@@ -123,6 +141,151 @@ function toNumber(value: string): number {
   return value.trim() === "" ? Number.NaN : Number(value);
 }
 
+function tryCalculateIlluminatedPanaflexPreview(
+  values: FormValues,
+  optionId: Parameters<typeof calculateIlluminatedPanaflexSignPrice>[3],
+): IlluminatedPanaflexSignPriceCalculation | null {
+  try {
+    return calculateIlluminatedPanaflexSignPrice(
+      toNumber(values.lengthCm),
+      toNumber(values.widthCm),
+      toNumber(values.quantity),
+      optionId,
+    );
+  } catch (caughtError: unknown) {
+    if (caughtError instanceof RangeError) {
+      return null;
+    }
+
+    throw caughtError;
+  }
+}
+
+type PanaflexPricingBreakdownProps = Readonly<{
+  calculation: IlluminatedPanaflexSignPriceCalculation;
+  optionName: string;
+  showSmallMeasureNotice?: boolean;
+}>;
+
+export function PanaflexPricingBreakdown({
+  calculation,
+  optionName,
+  showSmallMeasureNotice = true,
+}: PanaflexPricingBreakdownProps) {
+  return (
+    <div className={styles.panaflexBreakdown}>
+      {calculation.isSmallMeasure && showSmallMeasureNotice ? (
+        <p className={styles.smallMeasureNotice}>
+          <strong>Medida pequeña detectada.</strong> Esta medida utiliza la tarifa
+          de COP 45 por cm². Debido al trabajo mínimo requerido para fabricar la
+          estructura, el precio calculado se multiplica por 2.
+        </p>
+      ) : null}
+
+      <dl className={styles.panaflexDetails}>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Opción de Panaflex</dt>
+          <dd>{optionName}</dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Clasificación de medida</dt>
+          <dd>
+            {
+              PANAFLEX_MEASURE_CLASSIFICATION_LABELS[
+                calculation.measureClassification
+              ]
+            }
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Área calculada</dt>
+          <dd>
+            <data value={calculation.areaCm2}>
+              {areaFormatter.format(calculation.areaCm2)} cm²
+            </data>
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Tarifa de estructura aplicada</dt>
+          <dd>
+            <data value={calculation.structureRate}>
+              {roundedPriceFormatter.format(calculation.structureRate)} por cm²
+            </data>
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Componente de una cara</dt>
+          <dd>
+            <data value={calculation.oneFaceComponent}>
+              {basePriceFormatter.format(calculation.oneFaceComponent)}
+            </data>
+          </dd>
+        </div>
+        {calculation.doubleFaceAdditionalComponent > 0 ? (
+          <div className={styles.panaflexDetailItem}>
+            <dt>Adicional de doble cara</dt>
+            <dd>
+              <data value={calculation.doubleFaceAdditionalComponent}>
+                {basePriceFormatter.format(
+                  calculation.doubleFaceAdditionalComponent,
+                )}
+              </data>
+            </dd>
+          </div>
+        ) : null}
+        <div className={styles.panaflexDetailItem}>
+          <dt>Precio normal antes del ajuste</dt>
+          <dd>
+            <data value={calculation.normalPriceBeforeSmallMeasureAdjustment}>
+              {basePriceFormatter.format(
+                calculation.normalPriceBeforeSmallMeasureAdjustment,
+              )}
+            </data>
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Multiplicador por medida pequeña</dt>
+          <dd>
+            {calculation.isSmallMeasure
+              ? `×${calculation.smallMeasureMultiplier}`
+              : "No aplica"}
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Precio después del ajuste</dt>
+          <dd>
+            <data value={calculation.priceAfterSmallMeasureAdjustment}>
+              {basePriceFormatter.format(
+                calculation.priceAfterSmallMeasureAdjustment,
+              )}
+            </data>
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailItem}>
+          <dt>Precio antes del redondeo comercial</dt>
+          <dd>
+            <data value={calculation.priceBeforeCommercialRounding}>
+              {basePriceFormatter.format(
+                calculation.priceBeforeCommercialRounding,
+              )}
+            </data>
+          </dd>
+        </div>
+        <div className={styles.panaflexDetailTotal}>
+          <dt>Precio comercial final</dt>
+          <dd>
+            <data value={calculation.commercialRoundedPrice}>
+              {roundedPriceFormatter.format(
+                calculation.commercialRoundedPrice,
+              )}
+            </data>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 export function AreaPricingCalculator() {
   const idPrefix = useId();
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
@@ -143,6 +306,16 @@ export function AreaPricingCalculator() {
     values.productId,
     panaflexPricingOptionId,
   );
+  const panaflexPricingOptionName =
+    values.productId === PANAFLEX_PRODUCT_ID
+      ? getPanaflexPricingOption(panaflexPricingOptionId).name
+      : null;
+  const panaflexPricingPreview = usesIlluminatedSignPricing
+    ? tryCalculateIlluminatedPanaflexPreview(
+        values,
+        panaflexPricingOptionId,
+      )
+    : null;
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const field = event.currentTarget.name as keyof FormValues;
@@ -240,14 +413,17 @@ export function AreaPricingCalculator() {
 
     try {
       let priceBeforeRounding: number;
+      let panaflexCalculation: IlluminatedPanaflexSignPriceCalculation | null =
+        null;
 
       if (usesIlluminatedSignPricing) {
-        priceBeforeRounding = calculateIlluminatedPanaflexSignPrice(
+        panaflexCalculation = calculateIlluminatedPanaflexSignPrice(
           toNumber(values.lengthCm),
           toNumber(values.widthCm),
           toNumber(values.quantity),
           panaflexPricingOptionId,
         );
+        priceBeforeRounding = panaflexCalculation.priceBeforeCommercialRounding;
       } else {
         const basePrice = calculateAreaBasePrice(
           toNumber(values.lengthCm),
@@ -280,14 +456,12 @@ export function AreaPricingCalculator() {
       const bannerStructureOptionId =
         values.bannerStructureOptionId ??
         DEFAULT_BANNER_STRUCTURE_OPTION_ID;
-      const roundedPrice = roundUpToCop500(priceBeforeRounding);
+      const roundedPrice =
+        panaflexCalculation?.commercialRoundedPrice ??
+        roundUpToCop500(priceBeforeRounding);
       const bannerStructureName =
         values.productId === BANNER_PRODUCT_ID
           ? getBannerStructureOption(bannerStructureOptionId).name
-          : null;
-      const panaflexPricingOptionName =
-        values.productId === PANAFLEX_PRODUCT_ID
-          ? getPanaflexPricingOption(panaflexPricingOptionId).name
           : null;
 
       setResult({
@@ -295,6 +469,7 @@ export function AreaPricingCalculator() {
         roundedPrice,
         bannerStructureName,
         panaflexPricingOptionName,
+        panaflexCalculation,
       });
       setError(null);
     } catch (caughtError: unknown) {
@@ -507,6 +682,23 @@ export function AreaPricingCalculator() {
           </strong>
         </div>
 
+        {panaflexPricingPreview && panaflexPricingOptionName ? (
+          <section
+            className={styles.panaflexPreview}
+            aria-label="Vista previa del precio de Panaflex"
+            aria-live="polite"
+          >
+            <div className={styles.panaflexPreviewHeading}>
+              <p className={styles.kicker}>Vista previa</p>
+              <h4>Detalle del aviso luminoso</h4>
+            </div>
+            <PanaflexPricingBreakdown
+              calculation={panaflexPricingPreview}
+              optionName={panaflexPricingOptionName}
+            />
+          </section>
+        ) : null}
+
         <p className={styles.fieldHelp}>
           Las dimensiones aceptan decimales y la cantidad debe ser un entero
           positivo.
@@ -546,7 +738,13 @@ export function AreaPricingCalculator() {
           <h3>Resumen del precio</h3>
         </div>
 
-        {result ? (
+        {result?.panaflexCalculation && result.panaflexPricingOptionName ? (
+          <PanaflexPricingBreakdown
+            calculation={result.panaflexCalculation}
+            optionName={result.panaflexPricingOptionName}
+            showSmallMeasureNotice={false}
+          />
+        ) : result ? (
           <dl className={styles.priceList}>
             {result.bannerStructureName ? (
               <div className={styles.priceItem}>

@@ -220,20 +220,31 @@ product is square centimeters (cm²):
 areaCm2 = lengthCm × widthCm
 
 if areaCm2 < 10,000 cm²:
-  illuminated sign price = areaCm2 × 45
+  structure rate per cm² = 45
+  small-measure multiplier = 2
 
 if areaCm2 >= 10,000 cm²:
-  illuminated sign price = areaCm2 × 34
+  structure rate per cm² = 34
+  small-measure multiplier = 1
 ```
 
-For a double-face illuminated sign, add one additional panaflex face:
+Quantity is included before applying the small-measure multiplier:
 
 ```text
-additional panaflex face = areaCm2 × 8.5
+one-face component = areaCm2 × structure rate per cm² × quantity
+additional double-face component = areaCm2 × 8.5 × quantity
+normal price = one-face component + additional double-face component
+adjusted price = normal price × small-measure multiplier
+commercial price = round adjusted price upward to a COP 500 multiple
 ```
 
+The additional double-face component is zero for a one-face sign. The
+small-measure multiplier applies to the complete normal price, including the
+additional face, and no intermediate value is rounded.
+
 The 10,000 threshold is measured in cm². It is distinct from input dimensions
-in cm and from catalog rates expressed per square meter (m²).
+in cm and from catalog rates expressed per square meter (m²). Exactly 10,000
+cm² is standard and does not receive the multiplier.
 
 ## Discounts
 
