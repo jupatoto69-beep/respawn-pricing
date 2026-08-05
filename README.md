@@ -18,6 +18,20 @@ discounts.
 
 Cost-and-margin pricing is planned for a future release.
 
+## Temporary quotation
+
+The current web application includes an in-memory temporary quotation that can
+hold multiple calculated area products and services. Each added line is a
+snapshot of the calculator's final price, and the quotation total is the exact
+sum of those stored final line totals. The quotation does not recalculate
+quantities, pricing tiers, additions, negotiated prices, minimums or commercial
+rounding.
+
+The quotation is intentionally temporary: refreshing or closing the page
+clears every line. It uses no browser or server persistence. Customer data,
+PDF generation, printing, WhatsApp or email sharing, and saved quotation
+history are not implemented.
+
 ## Documentation
 
 - [Product vision](docs/product-vision.md)

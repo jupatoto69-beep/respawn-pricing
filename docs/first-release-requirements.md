@@ -319,13 +319,25 @@ The employee interface must not expose:
 
 ## Temporary quotation
 
-An employee may add one or more valid, rounded pricing lines to an on-screen
-temporary quotation. The quotation may show the selected item details, line
-prices, and the sum of its lines. It is a working aid rather than a persisted
-commercial record.
+An employee may add one or more valid area-product or service results to an
+on-screen temporary quotation. Every stored line is an immutable snapshot of
+the customer-safe selections, quantity and final price returned by its
+calculator. Changing calculator mode, category, service or form values does not
+change lines that were already added.
 
-The first release does not save, retrieve, export, or generate a PDF from a
-quotation. Taxes are not calculated automatically.
+The quotation total is the exact sum of the stored final line totals. The
+quotation does not multiply quantity again, apply COP 500 rounding again,
+re-evaluate quantity tiers, recalculate additions, negotiated prices or
+minimums, or consult a catalog after a line is added.
+
+The quotation exists only in page memory. It remains available while switching
+between calculator modes, but refreshing or closing the page clears it. It uses
+no local storage, session storage, cookies, database, API route or backend
+persistence. It is a working aid rather than a persisted commercial record.
+
+The first release does not collect customer data and does not save, retrieve,
+export, generate a PDF, print, share by WhatsApp or email, or retain a quotation
+history. Taxes are not calculated automatically.
 
 ## Out of scope
 

@@ -25,6 +25,8 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Vinilo de corte");
     expect(markup).toContain("Banner");
     expect(markup).toContain("Panaflex");
+    expect(markup).toContain("Cotización temporal");
+    expect(markup).toContain("Aún no has agregado productos o servicios.");
     expect(markup).not.toContain("Categoría, servicio y datos");
   });
 
@@ -44,6 +46,8 @@ describe("PricingCalculator", () => {
     expect(markup).not.toContain("Tarjetas de presentación");
     expect(markup).not.toContain("Tabloides");
     expect(markup).not.toContain("Producto, medidas y tarifa");
+    expect(markup).toContain("Cotización temporal");
+    expect(markup).toContain("Aún no has agregado productos o servicios.");
   });
 
   it("shows only computer services when Computers is selected", () => {

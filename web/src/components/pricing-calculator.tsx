@@ -10,10 +10,19 @@ import {
   PRICING_MODE_OPTIONS,
   type PricingModeId,
 } from "@/lib/pricing/pricing-mode-selection";
+import {
+  addQuotationLine,
+  calculateQuotationTotal,
+  clearQuotation,
+  createEmptyQuotation,
+  removeQuotationLine,
+  type QuotationLineDraft,
+} from "@/lib/pricing/temporary-quotation";
 
 import { AreaPricingCalculator } from "./area-pricing-calculator";
 import styles from "./pricing-calculator.module.css";
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
+import { TemporaryQuotation } from "./temporary-quotation";
 
 type PricingCalculatorProps = Readonly<{
   initialModeId?: PricingModeId;
@@ -26,6 +35,8 @@ export function PricingCalculator({
   const [selection, setSelection] = useState(() =>
     createInitialPricingModeSelection(initialModeId),
   );
+  const [quotation, setQuotation] = useState(createEmptyQuotation);
+  const quotationTotal = calculateQuotationTotal(quotation);
 
   function handleModeChange(event: ChangeEvent<HTMLInputElement>) {
     const modeId = event.currentTarget.value;
@@ -37,6 +48,22 @@ export function PricingCalculator({
     setSelection((currentSelection) =>
       changePricingMode(currentSelection, modeId),
     );
+  }
+
+  function handleAddQuotationLine(line: QuotationLineDraft) {
+    setQuotation((currentQuotation) =>
+      addQuotationLine(currentQuotation, line),
+    );
+  }
+
+  function handleRemoveQuotationLine(lineId: string) {
+    setQuotation((currentQuotation) =>
+      removeQuotationLine(currentQuotation, lineId),
+    );
+  }
+
+  function handleClearQuotation() {
+    setQuotation((currentQuotation) => clearQuotation(currentQuotation));
   }
 
   const selectedOption = PRICING_MODE_OPTIONS.find(
@@ -75,12 +102,21 @@ export function PricingCalculator({
       {selection.modeId === PRICING_MODE_IDS.areaProducts ? (
         <AreaPricingCalculator
           key={`area-products-${selection.areaProductsRevision}`}
+          onAddQuotationLine={handleAddQuotationLine}
         />
       ) : (
         <ServicesPricingCalculator
           key={`services-${selection.servicesRevision}`}
+          onAddQuotationLine={handleAddQuotationLine}
         />
       )}
+
+      <TemporaryQuotation
+        quotation={quotation}
+        total={quotationTotal}
+        onRemoveLine={handleRemoveQuotationLine}
+        onClear={handleClearQuotation}
+      />
     </div>
   );
 }
