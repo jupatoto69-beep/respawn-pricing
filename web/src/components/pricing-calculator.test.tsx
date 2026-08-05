@@ -12,6 +12,7 @@ import { PRINTED_SERVICE_IDS } from "@/lib/pricing/printed-service-catalog";
 import { roundUpToCop500 } from "@/lib/pricing/round-up-to-cop-500";
 import { SERVICE_CATEGORY_IDS } from "@/lib/pricing/service-catalog";
 
+import { PanaflexPricingBreakdown } from "./area-pricing-calculator";
 import { PricingCalculator } from "./pricing-calculator";
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
 
@@ -137,15 +138,96 @@ describe("PricingCalculator", () => {
     expect(roundUpToCop500(price)).toBe(768_000);
   });
 
-  it("preserves the double-face illuminated Panaflex regression result", () => {
-    const price = calculateIlluminatedPanaflexSignPrice(
+  it("applies the corrected double-face illuminated Panaflex regression result", () => {
+    const calculation = calculateIlluminatedPanaflexSignPrice(
       50,
       50,
       1,
       PANAFLEX_PRICING_OPTION_IDS.illuminatedDoubleFace,
     );
 
-    expect(price).toBe(133_750);
-    expect(roundUpToCop500(price)).toBe(134_000);
+    expect(calculation.normalPriceBeforeSmallMeasureAdjustment).toBe(133_750);
+    expect(calculation.priceAfterSmallMeasureAdjustment).toBe(267_500);
+    expect(calculation.commercialRoundedPrice).toBe(267_500);
+  });
+
+  it.each([
+    [50, 50],
+    [99, 101],
+  ] as const)(
+    "renders the small-measure notice for %s x %s cm Panaflex",
+    (lengthCm, widthCm) => {
+      const calculation = calculateIlluminatedPanaflexSignPrice(
+        lengthCm,
+        widthCm,
+        1,
+        PANAFLEX_PRICING_OPTION_IDS.illuminatedDoubleFace,
+      );
+      const markup = renderToStaticMarkup(
+        <PanaflexPricingBreakdown
+          calculation={calculation}
+          optionName="Aviso luminoso doble cara"
+        />,
+      );
+
+      expect(markup).toContain("Medida pequeña detectada.");
+      expect(markup).toContain("Medida pequeña");
+      expect(markup).toContain("multiplica por 2");
+      expect(markup).toContain("×2");
+    },
+  );
+
+  it("renders the complete small double-face price breakdown", () => {
+    const calculation = calculateIlluminatedPanaflexSignPrice(
+      50,
+      50,
+      1,
+      PANAFLEX_PRICING_OPTION_IDS.illuminatedDoubleFace,
+    );
+    const markup = renderToStaticMarkup(
+      <PanaflexPricingBreakdown
+        calculation={calculation}
+        optionName="Aviso luminoso doble cara"
+      />,
+    );
+
+    expect(markup).toContain("Área calculada");
+    expect(markup).toContain("Tarifa de estructura aplicada");
+    expect(markup).toContain("Componente de una cara");
+    expect(markup).toContain("Adicional de doble cara");
+    expect(markup).toContain("Precio normal antes del ajuste");
+    expect(markup).toContain('value="133750"');
+    expect(markup).toContain("Precio después del ajuste");
+    expect(markup).toContain('value="267500"');
+    expect(markup).toContain("Precio antes del redondeo comercial");
+    expect(markup).toContain("Precio comercial final");
+  });
+
+  it("renders 100 x 100 cm as standard without the small-measure notice", () => {
+    const calculation = calculateIlluminatedPanaflexSignPrice(
+      100,
+      100,
+      1,
+      PANAFLEX_PRICING_OPTION_IDS.illuminatedSingleFace,
+    );
+    const markup = renderToStaticMarkup(
+      <PanaflexPricingBreakdown
+        calculation={calculation}
+        optionName="Aviso luminoso una cara"
+      />,
+    );
+
+    expect(markup).toContain("Medida estándar");
+    expect(markup).toContain("No aplica");
+    expect(markup).toContain('value="340000"');
+    expect(markup).not.toContain("Medida pequeña detectada.");
+    expect(markup).not.toContain("×2");
+  });
+
+  it("keeps other area products outside the small-measure multiplier", () => {
+    const price = calculateAreaBasePrice(50, 50, 80_000, 1);
+
+    expect(price).toBe(20_000);
+    expect(roundUpToCop500(price)).toBe(20_000);
   });
 });

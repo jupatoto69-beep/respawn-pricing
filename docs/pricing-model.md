@@ -339,20 +339,32 @@ areaCm2 = lengthCm × widthCm
 
 ```text
 if areaCm2 < 10,000 cm²:
-  illuminated sign price = areaCm2 × 45
+  structure rate per cm² = 45
+  small-measure multiplier = 2
 
 if areaCm2 >= 10,000 cm²:
-  illuminated sign price = areaCm2 × 34
+  structure rate per cm² = 34
+  small-measure multiplier = 1
 ```
 
-For a double-face sign, add one additional panaflex face:
+The quantity is included in both price components before the small-measure
+multiplier is applied:
 
 ```text
-additional panaflex face = areaCm2 × 8.5
+one-face component = areaCm2 × structure rate per cm² × quantity
+additional double-face component = areaCm2 × 8.5 × quantity
+normal price = one-face component + additional double-face component
+adjusted price = normal price × small-measure multiplier
+commercial price = round adjusted price upward to a COP 500 multiple
 ```
 
+The additional double-face component is zero for a one-face sign. For a small
+double-face sign, the multiplier therefore applies to both the structure and
+the additional face. No intermediate value is rounded.
+
 The threshold is measured in square centimeters, not centimeters or square
-meters.
+meters. Exactly 10,000 cm² is a standard measure and does not receive the
+small-measure multiplier.
 
 ### Cut vinyl minimum
 

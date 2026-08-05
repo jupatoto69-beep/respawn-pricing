@@ -35,9 +35,11 @@
 .kicker,
 .formHeading h3,
 .resultHeading h3,
+.panaflexPreviewHeading h4,
 .requiredNote,
 .fieldHelp,
 .error,
+.smallMeasureNotice,
 .priceItemNote,
 .emptyResult p {
   margin: 0;
@@ -56,6 +58,11 @@
   margin-top: 4px;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
+}
+
+.panaflexPreviewHeading h4 {
+  margin-top: 4px;
+  font-size: 1rem;
 }
 
 .requiredNote {
@@ -223,6 +230,88 @@
 .rateSummary strong {
   color: #8bb8ff;
   font-size: 0.92rem;
+}
+
+.panaflexPreview {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(122, 170, 229, 0.3);
+  border-radius: 12px;
+  background: rgba(5, 15, 28, 0.46);
+}
+
+.panaflexPreviewHeading {
+  margin-bottom: 14px;
+}
+
+.panaflexBreakdown {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.smallMeasureNotice {
+  padding: 13px 15px;
+  border: 1px solid rgba(61, 139, 255, 0.55);
+  border-left: 4px solid var(--color-blue-bright);
+  border-radius: 9px;
+  background: rgba(61, 139, 255, 0.11);
+  color: #d8e7fb;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.smallMeasureNotice strong {
+  color: #8bb8ff;
+}
+
+.panaflexDetails {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.panaflexDetailItem,
+.panaflexDetailTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(122, 170, 229, 0.18);
+  border-radius: 9px;
+  background: rgba(5, 15, 28, 0.48);
+}
+
+.panaflexDetailItem dt,
+.panaflexDetailTotal dt {
+  color: #b6c1ce;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.panaflexDetailItem dd,
+.panaflexDetailTotal dd {
+  margin: 0;
+  color: var(--color-white);
+  font-size: 0.82rem;
+  font-weight: 760;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.panaflexDetailTotal {
+  margin-top: auto;
+  border-color: rgba(61, 139, 255, 0.62);
+  box-shadow: inset 3px 0 0 var(--color-blue);
+}
+
+.panaflexDetailTotal dd {
+  color: #7aafff;
+  font-size: 1rem;
 }
 
 .actions {
@@ -432,6 +521,18 @@
 
   .actions {
     flex-direction: column;
+  }
+
+  .panaflexDetailItem,
+  .panaflexDetailTotal {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .panaflexDetailItem dd,
+  .panaflexDetailTotal dd {
+    text-align: left;
   }
 
   .primaryButton,
