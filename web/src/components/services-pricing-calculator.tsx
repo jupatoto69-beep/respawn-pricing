@@ -21,7 +21,6 @@ import {
   BUSINESS_CARD_CONFIRMATION_REQUIRED_ERROR,
   calculateBusinessCardPrice,
   resolveBusinessCardPricingDecision,
-  type BusinessCardPriceCalculation,
   type BusinessCardPricingDecision,
 } from "@/lib/pricing/calculate-business-card-price";
 import {
@@ -31,10 +30,7 @@ import {
   type TabloidPriceCalculation,
   type TabloidPricingDecision,
 } from "@/lib/pricing/calculate-tabloid-price";
-import {
-  calculateFixedPriceService,
-  type FixedPriceCalculation,
-} from "@/lib/pricing/calculate-fixed-price-service";
+import { calculateFixedPriceService } from "@/lib/pricing/calculate-fixed-price-service";
 import {
   calculateSoftwareInstallationPrice,
   getSoftwareInstallationPricingTier,
@@ -42,28 +38,19 @@ import {
 } from "@/lib/pricing/calculate-software-installation-price";
 import {
   calculateVideoEditingPrice,
-  type VideoEditingPriceCalculation,
   VIDEO_EDITING_PRICING,
 } from "@/lib/pricing/calculate-video-editing-price";
 import { changeMaintenanceSelection } from "@/lib/pricing/computer-service-selection";
 import {
   MAINTENANCE_OPTION_IDS,
   MAINTENANCE_OPTIONS,
-  type FixedPriceComputerService,
-  type MaintenanceComputerService,
   type MaintenanceOptionId,
-  type QuantityTierComputerService,
   SYSTEM_MAINTENANCE_INCLUSIONS,
 } from "@/lib/pricing/computer-service-catalog";
 import { parseOptionalNegotiatedCopUnitPrice } from "@/lib/pricing/negotiated-cop-price";
-import type {
-  BusinessCardService,
-  TabloidService,
-} from "@/lib/pricing/printed-service-catalog";
 import {
   calculateMaintenancePrice,
   resolveMaintenancePrice,
-  type MaintenancePriceCalculation,
 } from "@/lib/pricing/resolve-maintenance-price";
 import {
   AUDIOVISUAL_SERVICE_IDS,
@@ -73,11 +60,13 @@ import {
   isServiceCategoryId,
   isServiceIdForCategory,
   SERVICE_CATEGORY_CATALOG,
-  type ServiceCategory,
   type ServiceCategoryId,
   type ServiceId,
-  type VideoEditingService,
 } from "@/lib/pricing/service-catalog";
+import {
+  createServiceQuotationLineDraft,
+  type ServiceCalculationResult,
+} from "@/lib/pricing/service-quotation-line";
 import {
   changeServiceCategorySelection,
   changeServiceSelection,
@@ -105,68 +94,16 @@ import {
   type TabloidAdhesiveFinishId,
   type TabloidAutomaticPricingResolution,
 } from "@/lib/pricing/tabloid-pricing";
+import type { QuotationLineDraft } from "@/lib/pricing/temporary-quotation";
 import { parseVideoDuration } from "@/lib/pricing/video-duration";
 
 import formStyles from "./area-pricing-calculator.module.css";
 import styles from "./services-pricing-calculator.module.css";
 
-type ResultBase = Readonly<{
-  category: ServiceCategory;
-}>;
-
-type MaintenanceServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "maintenance-selection";
-    service: MaintenanceComputerService;
-    calculation: MaintenancePriceCalculation;
-  }>;
-
-type FixedPriceServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "fixed-price";
-    service: FixedPriceComputerService;
-    calculation: FixedPriceCalculation;
-  }>;
-
-type QuantityTierServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "quantity-tier";
-    service: QuantityTierComputerService;
-    calculation: SoftwareInstallationPriceCalculation;
-  }>;
-
-type DurationServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "duration";
-    service: VideoEditingService;
-    calculation: VideoEditingPriceCalculation;
-  }>;
-
-type BusinessCardServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "business-card-pricing";
-    service: BusinessCardService;
-    calculation: BusinessCardPriceCalculation;
-  }>;
-
-type TabloidServiceResult = ResultBase &
-  Readonly<{
-    pricingStrategy: "tabloid-pricing";
-    service: TabloidService;
-    calculation: TabloidPriceCalculation;
-  }>;
-
-type ServiceCalculationResult =
-  | MaintenanceServiceResult
-  | FixedPriceServiceResult
-  | QuantityTierServiceResult
-  | DurationServiceResult
-  | BusinessCardServiceResult
-  | TabloidServiceResult;
-
 type ServicesPricingCalculatorProps = Readonly<{
   initialCategoryId?: ServiceCategoryId;
   initialServiceId?: ServiceId;
+  onAddQuotationLine?: (line: QuotationLineDraft) => void;
 }>;
 
 const priceFormatter = new Intl.NumberFormat("es-CO", {
@@ -446,6 +383,7 @@ function resolveTabloidFormPreview(
 export function ServicesPricingCalculator({
   initialCategoryId,
   initialServiceId,
+  onAddQuotationLine,
 }: ServicesPricingCalculatorProps = {}) {
   const idPrefix = useId();
   const [values, setValues] = useState<ServicesPricingFormState>(() => {
@@ -459,6 +397,7 @@ export function ServicesPricingCalculator({
   });
   const [result, setResult] = useState<ServiceCalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addFeedbackSequence, setAddFeedbackSequence] = useState(0);
 
   const selectedCategory = getServiceCategory(values.categoryId);
   const categoryServices = getServicesForCategory(values.categoryId);
@@ -530,6 +469,7 @@ export function ServicesPricingCalculator({
   function clearFeedback() {
     setResult(null);
     setError(null);
+    setAddFeedbackSequence(0);
   }
 
   function handleCategoryChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -868,12 +808,14 @@ export function ServicesPricingCalculator({
 
     if (selectedCategory === null) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError("Selecciona una categoría.");
       return;
     }
 
     if (selectedService === null) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError("Selecciona un servicio.");
       return;
     }
@@ -894,6 +836,7 @@ export function ServicesPricingCalculator({
 
           if (calculation === null) {
             setResult(null);
+            setAddFeedbackSequence(0);
             setError("Selecciona al menos una opción de mantenimiento.");
             return;
           }
@@ -946,6 +889,7 @@ export function ServicesPricingCalculator({
 
           if (values.specificValues.cardType === "") {
             setResult(null);
+            setAddFeedbackSequence(0);
             setError("Selecciona un tipo de tarjeta.");
             return;
           }
@@ -975,6 +919,7 @@ export function ServicesPricingCalculator({
 
           if (values.specificValues.tabloidType === "") {
             setResult(null);
+            setAddFeedbackSequence(0);
             setError("Selecciona un tipo de tabloide.");
             return;
           }
@@ -985,6 +930,7 @@ export function ServicesPricingCalculator({
             values.specificValues.adhesiveFinish === ""
           ) {
             setResult(null);
+            setAddFeedbackSequence(0);
             setError("Selecciona un acabado adhesivo.");
             return;
           }
@@ -1029,8 +975,10 @@ export function ServicesPricingCalculator({
       }
 
       setError(null);
+      setAddFeedbackSequence(0);
     } catch (caughtError: unknown) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError(
         caughtError instanceof RangeError
           ? translateServiceError(caughtError)
@@ -1042,6 +990,15 @@ export function ServicesPricingCalculator({
   function handleReset() {
     setValues(createInitialServicesPricingFormState());
     clearFeedback();
+  }
+
+  function handleAddQuotationLine() {
+    if (result === null || onAddQuotationLine === undefined) {
+      return;
+    }
+
+    onAddQuotationLine(createServiceQuotationLineDraft(result));
+    setAddFeedbackSequence((sequence) => sequence + 1);
   }
 
   return (
@@ -2190,6 +2147,27 @@ export function ServicesPricingCalculator({
             <p>Selecciona un servicio y calcula para ver el resumen comercial.</p>
           </div>
         )}
+
+        {result && onAddQuotationLine ? (
+          <div className={formStyles.quotationAction}>
+            <button
+              className={formStyles.primaryButton}
+              type="button"
+              aria-label={`Agregar ${result.service.name} a la cotización`}
+              onClick={handleAddQuotationLine}
+            >
+              Agregar a la cotización
+            </button>
+            <p
+              key={addFeedbackSequence}
+              className={formStyles.quotationFeedback}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {addFeedbackSequence > 0 ? "Agregado a la cotización." : ""}
+            </p>
+          </div>
+        ) : null}
       </section>
     </div>
   );

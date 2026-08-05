@@ -7,6 +7,10 @@ import {
   useState,
 } from "react";
 
+import {
+  createAreaProductQuotationLineDraft,
+  type AreaProductQuotationLineInput,
+} from "@/lib/pricing/area-product-quotation-line";
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
 import {
   calculateIlluminatedPanaflexSignPrice,
@@ -40,6 +44,7 @@ import {
   resolveAreaProductRate,
 } from "@/lib/pricing/resolve-area-product-rate";
 import { roundUpToCop500 } from "@/lib/pricing/round-up-to-cop-500";
+import type { QuotationLineDraft } from "@/lib/pricing/temporary-quotation";
 
 import styles from "./area-pricing-calculator.module.css";
 
@@ -54,13 +59,18 @@ type FormValues = {
   panaflexPricingOptionId: PanaflexPricingOptionId | null;
 };
 
-type CalculationResult = {
+type CalculationResult = Readonly<{
   priceBeforeRounding: number;
   roundedPrice: number;
   bannerStructureName: string | null;
   panaflexPricingOptionName: string | null;
   panaflexCalculation: IlluminatedPanaflexSignPriceCalculation | null;
-};
+  quotationLineInput: AreaProductQuotationLineInput;
+}>;
+
+type AreaPricingCalculatorProps = Readonly<{
+  onAddQuotationLine?: (line: QuotationLineDraft) => void;
+}>;
 
 const EMPTY_FORM: FormValues = {
   productId: "",
@@ -286,11 +296,14 @@ export function PanaflexPricingBreakdown({
   );
 }
 
-export function AreaPricingCalculator() {
+export function AreaPricingCalculator({
+  onAddQuotationLine,
+}: AreaPricingCalculatorProps = {}) {
   const idPrefix = useId();
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addFeedbackSequence, setAddFeedbackSequence] = useState(0);
 
   const variants = getAreaProductVariants(values.productId);
   const customRate =
@@ -317,6 +330,12 @@ export function AreaPricingCalculator() {
       )
     : null;
 
+  function clearFeedback() {
+    setResult(null);
+    setError(null);
+    setAddFeedbackSequence(0);
+  }
+
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const field = event.currentTarget.name as keyof FormValues;
     const value = event.currentTarget.value;
@@ -325,8 +344,7 @@ export function AreaPricingCalculator() {
       ...currentValues,
       [field]: value,
     }));
-    setResult(null);
-    setError(null);
+    clearFeedback();
   }
 
   function handleProductChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -346,8 +364,7 @@ export function AreaPricingCalculator() {
         currentValues.panaflexPricingOptionId,
       ),
     }));
-    setResult(null);
-    setError(null);
+    clearFeedback();
   }
 
   function handlePanaflexPricingChange(event: ChangeEvent<HTMLInputElement>) {
@@ -357,8 +374,7 @@ export function AreaPricingCalculator() {
       ...currentValues,
       panaflexPricingOptionId: pricingOptionId,
     }));
-    setResult(null);
-    setError(null);
+    clearFeedback();
   }
 
   function handleBannerStructureChange(event: ChangeEvent<HTMLInputElement>) {
@@ -369,8 +385,7 @@ export function AreaPricingCalculator() {
       ...currentValues,
       bannerStructureOptionId: structureOptionId,
     }));
-    setResult(null);
-    setError(null);
+    clearFeedback();
   }
 
   function handleVariantChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -382,8 +397,7 @@ export function AreaPricingCalculator() {
       customRate:
         variantId === CUSTOM_RATE_VARIANT_ID ? currentValues.customRate : "",
     }));
-    setResult(null);
-    setError(null);
+    clearFeedback();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -391,18 +405,21 @@ export function AreaPricingCalculator() {
 
     if (!values.productId) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError("Selecciona un producto.");
       return;
     }
 
     if (!usesIlluminatedSignPricing && !values.variantId) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError("Selecciona una variante.");
       return;
     }
 
     if (!usesIlluminatedSignPricing && resolvedRate === null) {
       setResult(null);
+      setAddFeedbackSequence(0);
       setError(
         values.variantId === CUSTOM_RATE_VARIANT_ID
           ? "Ingresa una tarifa personalizada válida."
@@ -412,32 +429,36 @@ export function AreaPricingCalculator() {
     }
 
     try {
+      const lengthCm = toNumber(values.lengthCm);
+      const widthCm = toNumber(values.widthCm);
+      const quantity = toNumber(values.quantity);
+      const areaM2 = calculateAreaBasePrice(lengthCm, widthCm, 1, 1);
       let priceBeforeRounding: number;
       let panaflexCalculation: IlluminatedPanaflexSignPriceCalculation | null =
         null;
 
       if (usesIlluminatedSignPricing) {
         panaflexCalculation = calculateIlluminatedPanaflexSignPrice(
-          toNumber(values.lengthCm),
-          toNumber(values.widthCm),
-          toNumber(values.quantity),
+          lengthCm,
+          widthCm,
+          quantity,
           panaflexPricingOptionId,
         );
         priceBeforeRounding = panaflexCalculation.priceBeforeCommercialRounding;
       } else {
         const basePrice = calculateAreaBasePrice(
-          toNumber(values.lengthCm),
-          toNumber(values.widthCm),
+          lengthCm,
+          widthCm,
           resolvedRate!,
-          toNumber(values.quantity),
+          quantity,
         );
-        const areaM2 =
+        const totalAreaM2 =
           values.productId === BANNER_PRODUCT_ID
             ? calculateAreaBasePrice(
-                toNumber(values.lengthCm),
-                toNumber(values.widthCm),
+                lengthCm,
+                widthCm,
                 1,
-                toNumber(values.quantity),
+                quantity,
               )
             : 0;
         const bannerStructureOptionId =
@@ -446,7 +467,7 @@ export function AreaPricingCalculator() {
         priceBeforeRounding = applyBannerStructurePrice(
           values.productId,
           values.variantId,
-          areaM2,
+          totalAreaM2,
           basePrice,
           resolvedRate!,
           bannerStructureOptionId,
@@ -463,6 +484,14 @@ export function AreaPricingCalculator() {
         values.productId === BANNER_PRODUCT_ID
           ? getBannerStructureOption(bannerStructureOptionId).name
           : null;
+      const productName = products.find(
+        (product) => product.id === values.productId,
+      )!.name;
+      const variantName = usesIlluminatedSignPricing
+        ? null
+        : values.variantId === CUSTOM_RATE_VARIANT_ID
+          ? "Tarifa personalizada (excepcional)"
+          : variants.find((variant) => variant.id === values.variantId)!.name;
 
       setResult({
         priceBeforeRounding,
@@ -470,22 +499,56 @@ export function AreaPricingCalculator() {
         bannerStructureName,
         panaflexPricingOptionName,
         panaflexCalculation,
+        quotationLineInput: {
+          productName,
+          variantName,
+          lengthCm,
+          widthCm,
+          areaM2,
+          quantity,
+          customerFacingRatePerM2: usesIlluminatedSignPricing
+            ? null
+            : resolvedRate,
+          usesCustomRate: values.variantId === CUSTOM_RATE_VARIANT_ID,
+          bannerStructureName,
+          panaflexPricingOptionName,
+          panaflexMeasureClassification:
+            panaflexCalculation?.measureClassification ?? null,
+          panaflexStructureRatePerCm2:
+            panaflexCalculation?.structureRate ?? null,
+          finalPrice: roundedPrice,
+        },
       });
       setError(null);
+      setAddFeedbackSequence(0);
     } catch (caughtError: unknown) {
       if (caughtError instanceof RangeError) {
+        setResult(null);
+        setAddFeedbackSequence(0);
         setError(translateRangeErrorMessage(caughtError.message));
         return;
       }
 
+      setResult(null);
+      setAddFeedbackSequence(0);
       setError("No fue posible calcular el precio. Inténtalo de nuevo.");
     }
   }
 
   function handleReset() {
     setValues(EMPTY_FORM);
-    setResult(null);
-    setError(null);
+    clearFeedback();
+  }
+
+  function handleAddQuotationLine() {
+    if (result === null || onAddQuotationLine === undefined) {
+      return;
+    }
+
+    onAddQuotationLine(
+      createAreaProductQuotationLineDraft(result.quotationLineInput),
+    );
+    setAddFeedbackSequence((sequence) => sequence + 1);
   }
 
   return (
@@ -791,6 +854,27 @@ export function AreaPricingCalculator() {
             <p>Completa los datos y calcula el precio para ver el resultado.</p>
           </div>
         )}
+
+        {result && onAddQuotationLine ? (
+          <div className={styles.quotationAction}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              aria-label={`Agregar ${result.quotationLineInput.productName} a la cotización`}
+              onClick={handleAddQuotationLine}
+            >
+              Agregar a la cotización
+            </button>
+            <p
+              key={addFeedbackSequence}
+              className={styles.quotationFeedback}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {addFeedbackSequence > 0 ? "Agregado a la cotización." : ""}
+            </p>
+          </div>
+        ) : null}
       </section>
     </div>
   );

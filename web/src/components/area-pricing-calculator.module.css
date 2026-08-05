@@ -45,6 +45,26 @@
   margin: 0;
 }
 
+.quotationAction {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(122, 170, 229, 0.24);
+}
+
+.quotationAction .primaryButton {
+  justify-self: stretch;
+}
+
+.quotationFeedback {
+  min-height: 1px;
+  margin: 0;
+  color: #a8d6b6;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .kicker {
   color: var(--color-blue-bright);
   font-size: 0.68rem;
