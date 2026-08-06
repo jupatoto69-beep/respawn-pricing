@@ -275,6 +275,49 @@
   background: rgba(61, 139, 255, 0.1);
 }
 
+.previewAction {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.previewAction p {
+  margin: 0;
+  color: #aeb9c7;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.previewButton {
+  min-height: 46px;
+  justify-self: start;
+  padding: 10px 17px;
+  border: 1px solid #8bb8ff;
+  border-radius: 8px;
+  background: #2d75d5;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.previewButton:hover:not(:disabled) {
+  border-color: #b9d5f7;
+  background: #3b84e3;
+}
+
+.previewButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.previewButton:disabled {
+  border-color: #405875;
+  background: #26384e;
+  color: #98a7b8;
+  cursor: not-allowed;
+}
+
 .grandTotal span {
   color: #e2eaf4;
   font-size: 0.9rem;
@@ -417,6 +460,7 @@
   }
 
   .removeButton,
+  .previewButton,
   .clearButton,
   .confirmClearButton,
   .cancelButton {
@@ -425,6 +469,10 @@
 
   .removeButton {
     align-self: stretch;
+  }
+
+  .previewButton {
+    justify-self: stretch;
   }
 
   .clearButton {

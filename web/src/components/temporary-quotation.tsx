@@ -4,9 +4,12 @@ import {
   type ChangeEvent,
   type FocusEvent,
   useId,
+  useRef,
   useState,
 } from "react";
 
+import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "@/lib/quotation/business-profile";
+import { evaluateQuotationPreviewOpening } from "@/lib/quotation/quotation-preview-opening";
 import {
   isCustomerPhoneNumberInput,
   validateTemporaryQuotationDetails,
@@ -27,6 +30,7 @@ import {
 } from "@/lib/pricing/temporary-quotation";
 
 import styles from "./temporary-quotation.module.css";
+import { QuotationPreviewModal } from "./quotation-preview-modal";
 
 type TemporaryQuotationProps = Readonly<{
   quotation: TemporaryQuotationState;
@@ -303,6 +307,9 @@ export function TemporaryQuotation({
 }: TemporaryQuotationProps) {
   const titleId = useId();
   const detailsTitleId = useId();
+  const previewHintId = useId();
+  const detailsFormRef = useRef<HTMLDivElement>(null);
+  const previewTriggerRef = useRef<HTMLButtonElement>(null);
   const [confirmationLineIdentity, setConfirmationLineIdentity] = useState<
     string | null
   >(null);
@@ -310,6 +317,7 @@ export function TemporaryQuotation({
     useState<QuotationAnnouncement | null>(null);
   const [touchedDetailFields, setTouchedDetailFields] =
     useState<TouchedQuotationDetailFields>({});
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const currentLineIdentity = getLineIdentity(quotation.lines);
   const hasInformation = hasQuotationInformation(quotation);
   const detailErrors = validateTemporaryQuotationDetails(quotation.details);
@@ -391,6 +399,44 @@ export function TemporaryQuotation({
     );
   }
 
+  function handlePreviewRequest() {
+    const evaluation = evaluateQuotationPreviewOpening(quotation);
+
+    if (!evaluation.canOpen) {
+      const invalidFields = Object.keys(
+        evaluation.errors,
+      ) as TemporaryQuotationTextDetailField[];
+
+      if (invalidFields.length > 0) {
+        setTouchedDetailFields((currentFields) => {
+          const nextFields: Partial<
+            Record<TemporaryQuotationTextDetailField, true>
+          > = { ...currentFields };
+
+          for (const field of invalidFields) {
+            nextFields[field] = true;
+          }
+
+          return nextFields;
+        });
+      }
+
+      if (evaluation.firstInvalidField !== null) {
+        const firstInvalidField = evaluation.firstInvalidField;
+
+        requestAnimationFrame(() => {
+          detailsFormRef.current
+            ?.querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)
+            ?.focus();
+        });
+      }
+
+      return;
+    }
+
+    setIsPreviewOpen(true);
+  }
+
   return (
     <section className={styles.quotation} aria-labelledby={titleId}>
       <div className={styles.heading}>
@@ -416,14 +462,16 @@ export function TemporaryQuotation({
           </p>
         </div>
 
-        <TemporaryQuotationDetailsForm
-          details={quotation.details}
-          idPrefix={detailsTitleId}
-          errors={visibleDetailErrors}
-          onChange={handleDetailChange}
-          onPhoneCountryChange={handlePhoneCountryChange}
-          onBlur={handleDetailBlur}
-        />
+        <div ref={detailsFormRef}>
+          <TemporaryQuotationDetailsForm
+            details={quotation.details}
+            idPrefix={detailsTitleId}
+            errors={visibleDetailErrors}
+            onChange={handleDetailChange}
+            onPhoneCountryChange={handlePhoneCountryChange}
+            onBlur={handleDetailBlur}
+          />
+        </div>
       </section>
 
       {quotation.lines.length === 0 ? (
@@ -471,6 +519,26 @@ export function TemporaryQuotation({
           ))}
         </ol>
       )}
+
+      <div className={styles.previewAction}>
+        <button
+          ref={previewTriggerRef}
+          className={styles.previewButton}
+          type="button"
+          disabled={quotation.lines.length === 0}
+          aria-describedby={
+            quotation.lines.length === 0 ? previewHintId : undefined
+          }
+          onClick={handlePreviewRequest}
+        >
+          Vista previa de la cotización
+        </button>
+        {quotation.lines.length === 0 ? (
+          <p id={previewHintId}>
+            Agrega al menos una línea para abrir la vista previa.
+          </p>
+        ) : null}
+      </div>
 
       {hasInformation ? (
         <div className={styles.summary}>
@@ -529,6 +597,15 @@ export function TemporaryQuotation({
           ? announcement.message
           : ""}
       </p>
+
+      <QuotationPreviewModal
+        isOpen={isPreviewOpen}
+        quotation={quotation}
+        total={total}
+        businessProfile={DIGITAL_RESPAWN_BUSINESS_PROFILE}
+        returnFocusRef={previewTriggerRef}
+        onRequestClose={() => setIsPreviewOpen(false)}
+      />
     </section>
   );
 }

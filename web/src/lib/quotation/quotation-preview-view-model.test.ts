@@ -1,0 +1,241 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  addQuotationLine,
+  calculateQuotationTotal,
+  createEmptyQuotation,
+  removeQuotationLine,
+  updateQuotationDetails,
+  type QuotationLineDraft,
+  type TemporaryQuotationState,
+} from "@/lib/pricing/temporary-quotation";
+
+import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "./business-profile";
+import {
+  createQuotationPreviewViewModel,
+  formatQuotationCop,
+} from "./quotation-preview-view-model";
+
+function createDraft(
+  overrides: Partial<QuotationLineDraft> = {},
+): QuotationLineDraft {
+  return {
+    source: "area-product",
+    title: "Banner",
+    quantity: 1,
+    details: [
+      { label: "Producto", value: "Banner" },
+      { label: "Dimensiones", value: "80 × 300 cm" },
+    ],
+    lineTotal: 768_000,
+    ...overrides,
+  };
+}
+
+function createPreview(quotation: TemporaryQuotationState) {
+  return createQuotationPreviewViewModel({
+    quotation,
+    total: calculateQuotationTotal(quotation),
+    businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+  });
+}
+
+describe("quotation preview view-model", () => {
+  it("preserves stored line order and duplicate lines", () => {
+    const first = addQuotationLine(createEmptyQuotation(), createDraft());
+    const second = addQuotationLine(
+      first,
+      createDraft({ source: "service", title: "Servicio", lineTotal: 70_000 }),
+    );
+    const quotation = addQuotationLine(second, createDraft());
+
+    expect(createPreview(quotation).lines.map((line) => line.title)).toEqual([
+      "Banner",
+      "Servicio",
+      "Banner",
+    ]);
+  });
+
+  it("excludes removed lines and keeps remaining stored totals", () => {
+    const first = addQuotationLine(createEmptyQuotation(), createDraft());
+    const second = addQuotationLine(
+      first,
+      createDraft({ title: "Mantenimiento", lineTotal: 120_000 }),
+    );
+    const quotation = removeQuotationLine(second, "quotation-line-1");
+    const preview = createPreview(quotation);
+
+    expect(preview.lines).toHaveLength(1);
+    expect(preview.lines[0].title).toBe("Mantenimiento");
+    expect(preview.lines[0].lineTotal).toBe(120_000);
+  });
+
+  it("uses exact stored line totals and the exact existing quotation total", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft({ quantity: 9, lineTotal: 100_001 }),
+    );
+    const quotation = addQuotationLine(
+      first,
+      createDraft({
+        source: "service",
+        title: "Servicio",
+        quantity: 4,
+        lineTotal: 267_500,
+      }),
+    );
+    const preview = createPreview(quotation);
+
+    expect(preview.lines.map((line) => line.lineTotal)).toEqual([
+      100_001,
+      267_500,
+    ]);
+    expect(preview.total).toBe(367_501);
+    expect(preview.total).toBe(calculateQuotationTotal(quotation));
+  });
+
+  it("formats line and grand totals as COP consistently", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft({ lineTotal: 768_000 }),
+    );
+    const preview = createPreview(quotation);
+
+    expect(formatQuotationCop(768_000)).toBe("COP 768.000");
+    expect(preview.lines[0].formattedLineTotal).toBe("COP 768.000");
+    expect(preview.formattedTotal).toBe("COP 768.000");
+  });
+
+  it("formats a stored Colombian phone and omits it when the number is empty", () => {
+    const withPhone = updateQuotationDetails(createEmptyQuotation(), {
+      customerPhoneCountryIso2: "CO",
+      customerPhoneNumber: "3229699093",
+    });
+    const withoutPhone = updateQuotationDetails(createEmptyQuotation(), {
+      customerPhoneCountryIso2: "ES",
+      customerPhoneNumber: "",
+    });
+
+    expect(createPreview(withPhone).customerFields).toContainEqual({
+      label: "Teléfono",
+      value: "+57 3229699093",
+    });
+    expect(
+      createPreview(withoutPhone).customerFields.some(
+        (field) => field.label === "Teléfono",
+      ),
+    ).toBe(false);
+  });
+
+  it("omits the whole customer block model when every field is empty", () => {
+    expect(createPreview(createEmptyQuotation()).customerFields).toEqual([]);
+  });
+
+  it("omits empty customer fields individually and preserves document formatting", () => {
+    const quotation = updateQuotationDetails(createEmptyQuotation(), {
+      customerName: "Empresa Ejemplo SAS",
+      customerDocument: "0900123456-7",
+      customerEmail: "",
+      customerCity: "   ",
+    });
+
+    expect(createPreview(quotation).customerFields).toEqual([
+      { label: "Nombre o empresa", value: "Empresa Ejemplo SAS" },
+      { label: "Documento o NIT", value: "0900123456-7" },
+    ]);
+  });
+
+  it("preserves multiline notes and omits whitespace-only notes", () => {
+    const multiline = updateQuotationDetails(createEmptyQuotation(), {
+      notes: "Primera línea\n\nÚltima línea",
+    });
+    const whitespace = updateQuotationDetails(createEmptyQuotation(), {
+      notes: " \n\t ",
+    });
+
+    expect(createPreview(multiline).notes).toBe(
+      "Primera línea\n\nÚltima línea",
+    );
+    expect(createPreview(whitespace).notes).toBeNull();
+  });
+
+  it("does not expose line IDs or internal commercial fields", () => {
+    const internalLine = {
+      id: "quotation-line-77",
+      source: "service" as const,
+      title: "Servicio de ejemplo",
+      quantity: 1,
+      details: [
+        { label: "Servicio", value: "Servicio de ejemplo" },
+        { label: "Costo interno", value: "COP 1" },
+        { label: "Margen", value: "99%" },
+        { label: "Proveedor", value: "Proveedor interno" },
+        { label: "Mínimo autorizado", value: "COP 2" },
+        { label: "Descuento máximo", value: "50%" },
+        { label: "Modalidad de precio", value: "Precio negociado autorizado" },
+      ],
+      lineTotal: 70_000,
+      internalCost: 1,
+      margin: 0.99,
+      supplier: "Proveedor interno",
+      authorizedMinimum: 2,
+      maximumDiscount: 0.5,
+    };
+    const quotation: TemporaryQuotationState = {
+      ...createEmptyQuotation(),
+      lines: [internalLine],
+      nextLineSequence: 78,
+    };
+    const serialized = JSON.stringify(createPreview(quotation));
+
+    expect(serialized).toContain("Servicio de ejemplo");
+    expect(serialized).not.toContain("quotation-line-77");
+    expect(serialized).not.toContain("internalCost");
+    expect(serialized).not.toContain("Costo interno");
+    expect(serialized).not.toContain("Margen");
+    expect(serialized).not.toContain("Proveedor");
+    expect(serialized).not.toContain("Mínimo autorizado");
+    expect(serialized).not.toContain("Descuento máximo");
+    expect(serialized).not.toContain("Precio negociado autorizado");
+  });
+
+  it("creates a deeply immutable presentation model without mutating the quotation", () => {
+    const quotation = addQuotationLine(
+      updateQuotationDetails(createEmptyQuotation(), {
+        customerName: "Empresa Ejemplo SAS",
+        notes: "Entregar la próxima semana.",
+      }),
+      createDraft(),
+    );
+    const before = JSON.stringify(quotation);
+    const preview = createPreview(quotation);
+
+    expect(JSON.stringify(quotation)).toBe(before);
+    expect(Object.isFrozen(preview)).toBe(true);
+    expect(Object.isFrozen(preview.customerFields)).toBe(true);
+    expect(Object.isFrozen(preview.customerFields[0])).toBe(true);
+    expect(Object.isFrozen(preview.lines)).toBe(true);
+    expect(Object.isFrozen(preview.lines[0])).toBe(true);
+    expect(Object.isFrozen(preview.lines[0].details)).toBe(true);
+    expect(quotation.lines[0].id).toBe("quotation-line-1");
+    expect(quotation.nextLineSequence).toBe(2);
+  });
+
+  it("keeps a product and a service at their exact combined stored total", () => {
+    const banner = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft({ lineTotal: 768_000 }),
+    );
+    const quotation = addQuotationLine(
+      banner,
+      createDraft({
+        source: "service",
+        title: "Mantenimiento completo",
+        details: [{ label: "Paquete", value: "Mantenimiento completo" }],
+        lineTotal: 120_000,
+      }),
+    );
+
+    expect(createPreview(quotation).total).toBe(888_000);
+  });
+});

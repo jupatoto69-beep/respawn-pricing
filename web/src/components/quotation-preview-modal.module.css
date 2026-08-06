@@ -1,0 +1,79 @@
+.dialog {
+  box-sizing: border-box;
+  width: min(960px, calc(100vw - 32px));
+  max-width: none;
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #6f87a5;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog::backdrop {
+  background: rgba(2, 8, 18, 0.82);
+  backdrop-filter: blur(3px);
+}
+
+.dialogHeader {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 12px 14px;
+  border-bottom: 1px solid #263a55;
+  background: #071426;
+}
+
+.closeButton {
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 1px solid #7899bd;
+  border-radius: 8px;
+  background: transparent;
+  color: #f1f5fa;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  border-color: #a8c8ed;
+  background: rgba(139, 184, 255, 0.12);
+}
+
+.closeButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.scrollArea {
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 430px) {
+  .dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+
+  .dialogHeader {
+    padding: 9px 10px;
+  }
+
+  .closeButton {
+    width: 100%;
+  }
+}

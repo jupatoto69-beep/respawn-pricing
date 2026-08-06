@@ -36,6 +36,12 @@ const VALIDATED_DETAIL_FIELDS = Object.freeze([
   "notes",
 ] as const satisfies readonly TemporaryQuotationTextDetailField[]);
 
+export function getFirstTemporaryQuotationDetailErrorField(
+  errors: TemporaryQuotationDetailErrors,
+): TemporaryQuotationTextDetailField | undefined {
+  return VALIDATED_DETAIL_FIELDS.find((field) => errors[field] !== undefined);
+}
+
 function isEmpty(value: string): boolean {
   return value.length === 0;
 }
