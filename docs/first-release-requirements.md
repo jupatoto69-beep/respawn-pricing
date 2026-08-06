@@ -342,9 +342,24 @@ calculator modes, categories and services, and do not affect any price or
 stored line. Confirming the complete quotation clearing removes every line,
 customer field and note; cancelling preserves them all.
 
+When the quotation contains at least one stored line, the employee may open a
+formal read-only preview for the customer. A calculated result that has not
+been added is not a quotation line and cannot enable the preview. Before
+opening, every non-empty customer field is validated with the same quotation
+validators used by the editable form. Validation errors block opening, all
+related accessible errors are shown and focus moves to the first invalid field.
+
+The preview presents the configured Digital Respawn business name, only useful
+non-empty customer fields, every current stored line in order, each stored line
+total, the exact quotation total and useful non-whitespace notes. It does not
+show technical line identifiers or internal commercial information, and it
+does not recalculate, round or otherwise change a price. Opening and closing
+the preview does not change the quotation or any calculator state.
+
 The first release has no customer database and does not persist, save, retrieve,
 export, generate a PDF, print, share by WhatsApp or email, send email, or retain
-a quotation history. Taxes are not calculated automatically.
+a quotation history. It has no quotation backend. Taxes are not calculated
+automatically.
 
 ## Out of scope
 
@@ -356,6 +371,8 @@ The following functionality is explicitly excluded from the first release:
 - Persistent catalog editing.
 - Persistent quotation history.
 - PDF generation.
+- Printing.
+- Quotation backend or API.
 - Inventory management.
 - Supplier management.
 - Cost-and-margin pricing.
@@ -376,3 +393,5 @@ The first release satisfies these requirements when it:
 - Blocks below-minimum exceptions and leaves their authorization outside the
   system.
 - Builds a temporary on-screen quotation without persisting it.
+- Presents a formal read-only preview of the current temporary quotation
+  without repricing it.

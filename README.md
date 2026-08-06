@@ -28,11 +28,16 @@ quantities, pricing tiers, additions, negotiated prices, minimums or commercial
 rounding.
 
 The quotation may include optional customer or company details and general
-notes. Lines, customer details and notes exist only in page memory: refreshing
-or closing the page clears them, and confirming `Vaciar cotización` clears them
-together. The application has no customer database or browser/server
-persistence. PDF generation, printing, WhatsApp or email sharing, and saved
-quotation history are not implemented.
+notes. Once at least one line has been added, the employee can open a formal,
+read-only customer-facing preview. The preview validates any non-empty customer
+fields, presents only the current stored snapshots and does not reprice the
+quotation.
+
+Lines, customer details, notes and the preview exist only in page memory:
+refreshing or closing the page clears them, and confirming `Vaciar cotización`
+clears them together. The application has no customer database, backend or
+browser/server persistence. PDF generation, printing, WhatsApp or email
+sharing, and saved quotation history are not implemented.
 
 ## Documentation
 
