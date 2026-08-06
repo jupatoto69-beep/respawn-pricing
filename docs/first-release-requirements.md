@@ -335,9 +335,16 @@ between calculator modes, but refreshing or closing the page clears it. It uses
 no local storage, session storage, cookies, database, API route or backend
 persistence. It is a working aid rather than a persisted commercial record.
 
-The first release does not collect customer data and does not save, retrieve,
-export, generate a PDF, print, share by WhatsApp or email, or retain a quotation
-history. Taxes are not calculated automatically.
+The quotation may include optional customer or company name, document or NIT,
+phone country and national number, email, city and general notes. These values
+share the quotation's in-memory lifetime, remain available while switching
+calculator modes, categories and services, and do not affect any price or
+stored line. Confirming the complete quotation clearing removes every line,
+customer field and note; cancelling preserves them all.
+
+The first release has no customer database and does not persist, save, retrieve,
+export, generate a PDF, print, share by WhatsApp or email, send email, or retain
+a quotation history. Taxes are not calculated automatically.
 
 ## Out of scope
 

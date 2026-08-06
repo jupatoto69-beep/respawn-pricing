@@ -16,8 +16,12 @@ import {
   clearQuotation,
   createEmptyQuotation,
   removeQuotationLine,
+  updateQuotationDetail,
+  updateQuotationPhoneCountry,
   type QuotationLineDraft,
+  type TemporaryQuotationTextDetailField,
 } from "@/lib/pricing/temporary-quotation";
+import type { PhoneCountryIso2 } from "@/lib/pricing/phone-country-catalog";
 
 import { AreaPricingCalculator } from "./area-pricing-calculator";
 import styles from "./pricing-calculator.module.css";
@@ -59,6 +63,21 @@ export function PricingCalculator({
   function handleRemoveQuotationLine(lineId: string) {
     setQuotation((currentQuotation) =>
       removeQuotationLine(currentQuotation, lineId),
+    );
+  }
+
+  function handleUpdateQuotationDetail(
+    field: TemporaryQuotationTextDetailField,
+    value: string,
+  ) {
+    setQuotation((currentQuotation) =>
+      updateQuotationDetail(currentQuotation, field, value),
+    );
+  }
+
+  function handleUpdateQuotationPhoneCountry(countryIso2: PhoneCountryIso2) {
+    setQuotation((currentQuotation) =>
+      updateQuotationPhoneCountry(currentQuotation, countryIso2),
     );
   }
 
@@ -114,6 +133,8 @@ export function PricingCalculator({
       <TemporaryQuotation
         quotation={quotation}
         total={quotationTotal}
+        onUpdateDetail={handleUpdateQuotationDetail}
+        onUpdatePhoneCountry={handleUpdateQuotationPhoneCountry}
         onRemoveLine={handleRemoveQuotationLine}
         onClear={handleClearQuotation}
       />

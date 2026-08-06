@@ -26,6 +26,10 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Banner");
     expect(markup).toContain("Panaflex");
     expect(markup).toContain("Cotización temporal");
+    expect(markup).toContain("Datos de la cotización");
+    expect(markup).toContain(
+      "Esta información es temporal y se perderá al recargar la página.",
+    );
     expect(markup).toContain("Aún no has agregado productos o servicios.");
     expect(markup).not.toContain("Categoría, servicio y datos");
   });
@@ -47,6 +51,7 @@ describe("PricingCalculator", () => {
     expect(markup).not.toContain("Tabloides");
     expect(markup).not.toContain("Producto, medidas y tarifa");
     expect(markup).toContain("Cotización temporal");
+    expect(markup).toContain("Datos de la cotización");
     expect(markup).toContain("Aún no has agregado productos o servicios.");
   });
 

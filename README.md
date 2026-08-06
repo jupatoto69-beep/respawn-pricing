@@ -27,10 +27,12 @@ sum of those stored final line totals. The quotation does not recalculate
 quantities, pricing tiers, additions, negotiated prices, minimums or commercial
 rounding.
 
-The quotation is intentionally temporary: refreshing or closing the page
-clears every line. It uses no browser or server persistence. Customer data,
-PDF generation, printing, WhatsApp or email sharing, and saved quotation
-history are not implemented.
+The quotation may include optional customer or company details and general
+notes. Lines, customer details and notes exist only in page memory: refreshing
+or closing the page clears them, and confirming `Vaciar cotización` clears them
+together. The application has no customer database or browser/server
+persistence. PDF generation, printing, WhatsApp or email sharing, and saved
+quotation history are not implemented.
 
 ## Documentation
 
