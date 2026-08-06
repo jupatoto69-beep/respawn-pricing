@@ -21,6 +21,8 @@ src/app/page.tsx
 
 The page includes a temporary in-memory quotation shared by the area-product
 and service calculators. It stores independent snapshots of final calculated
-line totals and sums them without repricing. A browser refresh clears the
-quotation; there is no persistence, customer data, PDF or print output,
-WhatsApp or email sharing, or saved history.
+line totals and sums them without repricing. Optional customer details and
+general notes remain available while switching calculators, but exist only in
+page memory. A browser refresh or confirmed complete quotation clearing removes
+the lines and those details. There is no customer database or other
+persistence, PDF or print output, WhatsApp or email sharing, or saved history.
