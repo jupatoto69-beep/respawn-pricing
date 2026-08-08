@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "@/lib/quotation/business-profile";
+import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
 import {
   addQuotationLine,
   calculateQuotationTotal,
@@ -10,8 +11,14 @@ import {
   updateQuotationDetails,
 } from "@/lib/pricing/temporary-quotation";
 
-import { QuotationPreview } from "./quotation-preview";
-import { QuotationPreviewModal } from "./quotation-preview-modal";
+import {
+  QuotationPreview,
+  showFailedQuotationPreviewLogoFallback,
+} from "./quotation-preview";
+import {
+  QuotationPdfDownloadButton,
+  QuotationPreviewModal,
+} from "./quotation-preview-modal";
 
 function createFictionalQuotation() {
   const withDetails = updateQuotationDetails(createEmptyQuotation(), {
@@ -46,11 +53,15 @@ function createFictionalQuotation() {
 function renderPreview(
   quotation = createFictionalQuotation(),
 ): string {
+  const preview = createQuotationPreviewViewModel({
+    quotation,
+    total: calculateQuotationTotal(quotation),
+    businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+  });
+
   return renderToStaticMarkup(
     <QuotationPreview
-      quotation={quotation}
-      total={calculateQuotationTotal(quotation)}
-      businessProfile={DIGITAL_RESPAWN_BUSINESS_PROFILE}
+      preview={preview}
       headingId="quotation-preview-title"
     />,
   );
@@ -73,6 +84,36 @@ describe("QuotationPreview", () => {
     expect(markup).toContain("COP 768.000");
     expect(markup).toContain("COP 888.000");
     expect(markup).toMatch(/<ol[^>]*>[\s\S]*<article>/);
+  });
+
+  it("uses the official white logo proportionally without a redundant visible business name", () => {
+    const markup = renderPreview();
+
+    expect(markup).toContain(
+      'src="/brand/digital-respawn-logo-white.png"',
+    );
+    expect(markup).toContain('alt="Logo de Digital Respawn"');
+    expect(markup).toMatch(
+      /<p[^>]*hidden="">Digital Respawn<\/p>/u,
+    );
+    const width = Number(markup.match(/width="(\d+)"/u)?.[1]);
+    const height = Number(markup.match(/height="(\d+)"/u)?.[1]);
+
+    expect(width).toBeGreaterThan(height);
+    expect(width / height).toBeGreaterThan(3);
+    expect(width).not.toBe(height);
+  });
+
+  it("reveals the business name fallback and hides an inaccessible failed logo", () => {
+    const image = { alt: "Logo de Digital Respawn", hidden: false };
+    const fallback = { hidden: true };
+
+    showFailedQuotationPreviewLogoFallback(image, fallback);
+
+    expect(image.hidden).toBe(true);
+    expect(image.alt).toBe("");
+    expect(fallback.hidden).toBe(false);
+    expect(renderPreview()).toContain(">Digital Respawn</p>");
   });
 
   it("omits the customer section and unconfigured business fields", () => {
@@ -172,6 +213,8 @@ describe("QuotationPreviewModal", () => {
       'aria-label="Cerrar vista previa de la cotización"',
     );
     expect(markup).toContain("Cerrar</button>");
+    expect(markup).toContain("Descargar PDF</button>");
+    expect(markup).toContain('aria-busy="false"');
   });
 
   it("does not render the dialog while closed", () => {
@@ -188,5 +231,21 @@ describe("QuotationPreviewModal", () => {
     );
 
     expect(markup).toBe("");
+    expect(markup).not.toContain("Descargar PDF");
+  });
+
+  it("renders an accessible disabled busy state without another action", () => {
+    const markup = renderToStaticMarkup(
+      <QuotationPdfDownloadButton
+        isGenerating
+        hasLines
+        onClick={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Generando PDF…");
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("Descargar PDF");
   });
 });

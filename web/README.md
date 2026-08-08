@@ -25,8 +25,13 @@ line totals and sums them without repricing. Optional customer details and
 general notes remain available while switching calculators. With at least one
 stored line, an employee can open a formal read-only preview that validates
 non-empty customer fields and presents those same snapshots without repricing.
+The open preview can export that same frozen customer-safe view-model as a
+selectable-text A4 PDF generated locally with `jsPDF`. The preview and document
+use the official local white-on-dark and black-on-light logo variants,
+respectively, and retain the `Digital Respawn` text fallback if a logo fails.
 
 The quotation and preview exist only in page memory. A browser refresh or
 confirmed complete quotation clearing removes the lines and details. There is
-no customer database, backend or other persistence, PDF or print output,
-WhatsApp or email sharing, or saved history.
+no customer database, backend, upload or other persistence. PDF generation
+does not transmit quotation data. Print output, WhatsApp or email sharing, and
+saved history remain out of scope.

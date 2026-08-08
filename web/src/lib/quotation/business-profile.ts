@@ -6,9 +6,12 @@ export type BusinessProfile = Readonly<{
   email?: string;
   address?: string;
   city?: string;
-  logoPath?: string;
+  logoOnDarkPath?: string;
+  logoOnLightPath?: string;
 }>;
 
 export const DIGITAL_RESPAWN_BUSINESS_PROFILE = Object.freeze({
   businessName: "Digital Respawn",
+  logoOnDarkPath: "/brand/digital-respawn-logo-white.png",
+  logoOnLightPath: "/brand/digital-respawn-logo-black.png",
 }) satisfies BusinessProfile;

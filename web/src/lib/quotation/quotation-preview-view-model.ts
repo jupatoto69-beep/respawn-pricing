@@ -21,6 +21,8 @@ export type QuotationPreviewLine = Readonly<{
 
 export type QuotationPreviewViewModel = Readonly<{
   businessName: string;
+  logoOnDarkPath: string | null;
+  logoOnLightPath: string | null;
   businessFields: readonly QuotationPreviewField[];
   customerFields: readonly QuotationPreviewField[];
   lines: readonly QuotationPreviewLine[];
@@ -147,6 +149,12 @@ export function createQuotationPreviewViewModel({
 
   return Object.freeze({
     businessName: businessProfile.businessName,
+    logoOnDarkPath: hasUsefulText(businessProfile.logoOnDarkPath)
+      ? businessProfile.logoOnDarkPath
+      : null,
+    logoOnLightPath: hasUsefulText(businessProfile.logoOnLightPath)
+      ? businessProfile.logoOnLightPath
+      : null,
     businessFields: createBusinessFields(businessProfile),
     customerFields: createCustomerFields(quotation),
     lines: Object.freeze(lines),

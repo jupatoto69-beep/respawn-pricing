@@ -356,10 +356,32 @@ show technical line identifiers or internal commercial information, and it
 does not recalculate, round or otherwise change a price. Opening and closing
 the preview does not change the quotation or any calculator state.
 
+While the formal preview is open, the employee may download that same frozen,
+customer-safe presentation model as an A4 PDF. The browser generates the PDF
+locally with `jsPDF`, native selectable text and the already stored line order,
+quantities, line totals and exact quotation total. It does not consult a
+calculator, reconstruct a line, recalculate, round or otherwise change a price.
+The action keeps the preview and the temporary quotation open and usable.
+
+The typed business profile configures two official local logo variants. The
+dark formal preview uses `/brand/digital-respawn-logo-white.png`; the PDF on a
+white page uses `/brand/digital-respawn-logo-black.png`. Both retain their
+horizontal proportion and bounded dimensions. The configured business name is
+always shown as text, so a missing preview logo does not block the preview and
+a missing PDF logo does not block document generation.
+
+`jsPDF` is the sole PDF-generation dependency. It was selected for maintained
+browser and TypeScript support, A4 pages, local PNG embedding and native PDF
+text without a screenshot or external conversion service. It is loaded only
+when export starts and does not transmit data. Standard built-in PDF fonts
+cover the required Spanish Latin characters and multiplication sign without a
+remote or repository font file.
+
 The first release has no customer database and does not persist, save, retrieve,
-export, generate a PDF, print, share by WhatsApp or email, send email, or retain
-a quotation history. It has no quotation backend. Taxes are not calculated
-automatically.
+upload, print, share by WhatsApp or email, send email, or retain a quotation
+history. It has no quotation backend. PDF bytes and the temporary download are
+created only in the browser; object URLs and temporary links are released after
+each attempt. Taxes are not calculated automatically.
 
 ## Out of scope
 
@@ -370,7 +392,6 @@ The following functionality is explicitly excluded from the first release:
 - An administration panel.
 - Persistent catalog editing.
 - Persistent quotation history.
-- PDF generation.
 - Printing.
 - Quotation backend or API.
 - Inventory management.
@@ -395,3 +416,5 @@ The first release satisfies these requirements when it:
 - Builds a temporary on-screen quotation without persisting it.
 - Presents a formal read-only preview of the current temporary quotation
   without repricing it.
+- Downloads that same safe preview model as a local PDF without repricing,
+  uploading or persisting quotation data.
