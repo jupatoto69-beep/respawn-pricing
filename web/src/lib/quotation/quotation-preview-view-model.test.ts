@@ -41,6 +41,19 @@ function createPreview(quotation: TemporaryQuotationState) {
 }
 
 describe("quotation preview view-model", () => {
+  it("selects both official logo variants without mutating the profile", () => {
+    const before = JSON.stringify(DIGITAL_RESPAWN_BUSINESS_PROFILE);
+    const preview = createPreview(createEmptyQuotation());
+
+    expect(preview.logoOnDarkPath).toBe(
+      "/brand/digital-respawn-logo-white.png",
+    );
+    expect(preview.logoOnLightPath).toBe(
+      "/brand/digital-respawn-logo-black.png",
+    );
+    expect(JSON.stringify(DIGITAL_RESPAWN_BUSINESS_PROFILE)).toBe(before);
+  });
+
   it("preserves stored line order and duplicate lines", () => {
     const first = addQuotationLine(createEmptyQuotation(), createDraft());
     const second = addQuotationLine(
@@ -237,5 +250,31 @@ describe("quotation preview view-model", () => {
     );
 
     expect(createPreview(quotation).total).toBe(888_000);
+  });
+
+  it("keeps Banner 80 × 300 plus Office-only installation at COP 818,000", () => {
+    const banner = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft({ lineTotal: 768_000 }),
+    );
+    const quotation = addQuotationLine(
+      banner,
+      createDraft({
+        source: "service",
+        title: "Instalación de Office únicamente",
+        details: [
+          { label: "Servicio", value: "Instalación de Office únicamente" },
+        ],
+        lineTotal: 50_000,
+      }),
+    );
+    const preview = createPreview(quotation);
+
+    expect(preview.lines.map((line) => line.lineTotal)).toEqual([
+      768_000,
+      50_000,
+    ]);
+    expect(preview.total).toBe(818_000);
+    expect(preview.formattedTotal).toBe("COP 818.000");
   });
 });

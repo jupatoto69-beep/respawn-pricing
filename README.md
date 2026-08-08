@@ -33,11 +33,20 @@ read-only customer-facing preview. The preview validates any non-empty customer
 fields, presents only the current stored snapshots and does not reprice the
 quotation.
 
+While that formal preview is open, the employee can download the same safe
+presentation model as an A4 PDF. PDF generation runs completely in the browser
+with `jsPDF`; it uses the stored line totals and order without recalculating a
+price. The preview uses the official local white logo on its dark background,
+and the white PDF uses the official local black logo. If either image fails,
+the configured `Digital Respawn` text remains available and PDF generation can
+continue without the image.
+
 Lines, customer details, notes and the preview exist only in page memory:
 refreshing or closing the page clears them, and confirming `Vaciar cotización`
 clears them together. The application has no customer database, backend or
-browser/server persistence. PDF generation, printing, WhatsApp or email
-sharing, and saved quotation history are not implemented.
+browser/server persistence. PDF export neither uploads nor sends quotation
+data. Printing, WhatsApp or email sharing, and saved quotation history are not
+implemented.
 
 ## Documentation
 

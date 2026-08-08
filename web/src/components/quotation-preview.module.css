@@ -9,8 +9,23 @@
   justify-content: space-between;
   gap: 28px;
   padding: clamp(22px, 4vw, 38px);
-  border-bottom: 3px solid #256fd1;
-  background: #f7faff;
+  border-bottom: 3px solid #4f98f0;
+  background: #071426;
+}
+
+.brandLockup {
+  min-width: 0;
+}
+
+.logo {
+  display: block;
+  width: auto;
+  max-width: min(230px, 100%);
+  height: auto;
+  max-height: 70px;
+  margin-bottom: 16px;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .businessName,
@@ -25,7 +40,7 @@
 }
 
 .businessName {
-  color: #1c5ba9;
+  color: #a9cdf8;
   font-size: 0.82rem;
   font-weight: 850;
   letter-spacing: 0.13em;
@@ -34,7 +49,7 @@
 
 .header h2 {
   margin-top: 7px;
-  color: #0a1b32;
+  color: #ffffff;
   font-size: clamp(1.8rem, 6vw, 2.8rem);
   letter-spacing: -0.045em;
 }
@@ -74,6 +89,10 @@
   font-weight: 750;
 }
 
+.businessFields dt {
+  color: #a9bad0;
+}
+
 .businessFields dd,
 .customerFields dd,
 .lineDetails dd,
@@ -84,6 +103,10 @@
   font-size: 0.85rem;
   font-weight: 650;
   overflow-wrap: anywhere;
+}
+
+.businessFields dd {
+  color: #f3f7fc;
 }
 
 .section,
@@ -219,6 +242,11 @@
 
   .businessFields {
     max-width: none;
+  }
+
+  .logo {
+    max-width: min(180px, 100%);
+    max-height: 55px;
   }
 
   .customerFields,

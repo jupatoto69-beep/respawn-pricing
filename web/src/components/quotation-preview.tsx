@@ -1,33 +1,61 @@
-import type { BusinessProfile } from "@/lib/quotation/business-profile";
-import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
-import type { TemporaryQuotationState } from "@/lib/pricing/temporary-quotation";
+import Image from "next/image";
+
+import type { QuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
 
 import styles from "./quotation-preview.module.css";
 
 export type QuotationPreviewProps = Readonly<{
-  quotation: TemporaryQuotationState;
-  total: number;
-  businessProfile: BusinessProfile;
+  preview: QuotationPreviewViewModel;
   headingId: string;
 }>;
 
+export function showFailedQuotationPreviewLogoFallback(
+  image: Pick<HTMLImageElement, "alt" | "hidden">,
+  fallback: Pick<HTMLElement, "hidden"> | null,
+): void {
+  image.hidden = true;
+  image.alt = "";
+
+  if (fallback !== null) {
+    fallback.hidden = false;
+  }
+}
+
 export function QuotationPreview({
-  quotation,
-  total,
-  businessProfile,
+  preview,
   headingId,
 }: QuotationPreviewProps) {
-  const preview = createQuotationPreviewViewModel({
-    quotation,
-    total,
-    businessProfile,
-  });
-
   return (
     <article className={styles.preview}>
       <header className={styles.header}>
-        <div>
-          <p className={styles.businessName}>{preview.businessName}</p>
+        <div className={styles.brandLockup}>
+          {preview.logoOnDarkPath === null ? null : (
+            <Image
+              key={preview.logoOnDarkPath}
+              className={styles.logo}
+              src={preview.logoOnDarkPath}
+              width={2327}
+              height={703}
+              sizes="(max-width: 620px) 180px, 230px"
+              alt={`Logo de ${preview.businessName}`}
+              unoptimized
+              onError={(event) => {
+                const fallback = event.currentTarget.nextElementSibling;
+
+                showFailedQuotationPreviewLogoFallback(
+                  event.currentTarget,
+                  fallback instanceof HTMLElement ? fallback : null,
+                );
+              }}
+            />
+          )}
+          <p
+            key={`${preview.logoOnDarkPath ?? "text"}-name-fallback`}
+            className={styles.businessName}
+            hidden={preview.logoOnDarkPath !== null}
+          >
+            {preview.businessName}
+          </p>
           <h2 id={headingId}>Cotización</h2>
         </div>
 

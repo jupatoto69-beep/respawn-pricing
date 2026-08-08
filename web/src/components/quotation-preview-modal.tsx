@@ -4,10 +4,18 @@ import {
   type RefObject,
   useEffect,
   useId,
+  useMemo,
   useRef,
+  useState,
 } from "react";
 
 import type { BusinessProfile } from "@/lib/quotation/business-profile";
+import {
+  exportQuotationPreviewPdf,
+  runQuotationPdfExport,
+  type QuotationPdfExporter,
+} from "@/lib/quotation/quotation-pdf-export";
+import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
 import type { TemporaryQuotationState } from "@/lib/pricing/temporary-quotation";
 
 import { QuotationPreview } from "./quotation-preview";
@@ -20,7 +28,32 @@ type QuotationPreviewModalProps = Readonly<{
   businessProfile: BusinessProfile;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
   onRequestClose: () => void;
+  pdfExporter?: QuotationPdfExporter;
 }>;
+
+type QuotationPdfDownloadButtonProps = Readonly<{
+  isGenerating: boolean;
+  hasLines: boolean;
+  onClick: () => void;
+}>;
+
+export function QuotationPdfDownloadButton({
+  isGenerating,
+  hasLines,
+  onClick,
+}: QuotationPdfDownloadButtonProps) {
+  return (
+    <button
+      className={styles.downloadButton}
+      type="button"
+      disabled={isGenerating || !hasLines}
+      aria-busy={isGenerating}
+      onClick={onClick}
+    >
+      {isGenerating ? "Generando PDF…" : "Descargar PDF"}
+    </button>
+  );
+}
 
 export function QuotationPreviewModal({
   isOpen,
@@ -29,11 +62,24 @@ export function QuotationPreviewModal({
   businessProfile,
   returnFocusRef,
   onRequestClose,
+  pdfExporter = exportQuotationPreviewPdf,
 }: QuotationPreviewModalProps) {
   const headingId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onRequestCloseRef = useRef(onRequestClose);
+  const exportLockRef = useRef({ current: false });
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const preview = useMemo(
+    () =>
+      createQuotationPreviewViewModel({
+        quotation,
+        total,
+        businessProfile,
+      }),
+    [quotation, total, businessProfile],
+  );
 
   useEffect(() => {
     onRequestCloseRef.current = onRequestClose;
@@ -70,6 +116,25 @@ export function QuotationPreviewModal({
     return null;
   }
 
+  async function handlePdfDownload() {
+    await runQuotationPdfExport(
+      exportLockRef.current,
+      preview,
+      pdfExporter,
+      {
+        onStart: () => {
+          setPdfError(null);
+          setIsGeneratingPdf(true);
+        },
+        onSuccess: () => undefined,
+        onError: () => {
+          setPdfError("No fue posible generar el PDF. Intenta nuevamente.");
+        },
+        onFinish: () => setIsGeneratingPdf(false),
+      },
+    );
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -84,6 +149,11 @@ export function QuotationPreviewModal({
       onClose={() => onRequestCloseRef.current()}
     >
       <div className={styles.dialogHeader}>
+        <QuotationPdfDownloadButton
+          isGenerating={isGeneratingPdf}
+          hasLines={preview.lines.length > 0}
+          onClick={handlePdfDownload}
+        />
         <button
           ref={closeButtonRef}
           className={styles.closeButton}
@@ -96,10 +166,13 @@ export function QuotationPreviewModal({
       </div>
 
       <div className={styles.scrollArea}>
+        {pdfError === null ? null : (
+          <p className={styles.pdfError} role="alert">
+            {pdfError}
+          </p>
+        )}
         <QuotationPreview
-          quotation={quotation}
-          total={total}
-          businessProfile={businessProfile}
+          preview={preview}
           headingId={headingId}
         />
       </div>
