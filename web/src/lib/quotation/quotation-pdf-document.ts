@@ -504,8 +504,13 @@ function drawFirstPageHeader(
 
   flow.cursorY = Math.max(identityBottom, titleY + titleHeight) + 4;
 
-  if (preview.businessFields.length > 0) {
-    drawFieldGrid(flow, preview.businessFields);
+  const headerFields = [
+    ...preview.quotationFields,
+    ...preview.businessFields,
+  ];
+
+  if (headerFields.length > 0) {
+    drawFieldGrid(flow, headerFields);
     flow.cursorY += 1;
   }
 

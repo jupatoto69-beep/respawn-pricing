@@ -335,6 +335,15 @@ between calculator modes, but refreshing or closing the page clears it. It uses
 no local storage, session storage, cookies, database, API route or backend
 persistence. It is a working aid rather than a persisted commercial record.
 
+Adding the first stored line freezes the quotation date from the browser's
+local calendar as year, month and day. That date remains unchanged while the
+quotation exists, including across calculator changes, preview openings and PDF
+downloads, and is presented to the customer as `DD/MM/YYYY`. The configured
+quotation validity is 15 days and is presented read-only as `15 días`; this
+release does not calculate or display an expiration date. Confirming the
+complete quotation clearing removes the frozen date so the next quotation
+receives a new local date when its first line is added.
+
 The quotation may include optional customer or company name, document or NIT,
 phone country and national number, email, city and general notes. These values
 share the quotation's in-memory lifetime, remain available while switching
@@ -349,19 +358,21 @@ opening, every non-empty customer field is validated with the same quotation
 validators used by the editable form. Validation errors block opening, all
 related accessible errors are shown and focus moves to the first invalid field.
 
-The preview presents the configured Digital Respawn business name, only useful
-non-empty customer fields, every current stored line in order, each stored line
-total, the exact quotation total and useful non-whitespace notes. It does not
-show technical line identifiers or internal commercial information, and it
-does not recalculate, round or otherwise change a price. Opening and closing
-the preview does not change the quotation or any calculator state.
+The preview presents the configured Digital Respawn business name, the frozen
+quotation date, configured validity, only useful non-empty customer fields,
+every current stored line in order, each stored line total, the exact quotation
+total and useful non-whitespace notes. It does not show technical line
+identifiers or internal commercial information, and it does not recalculate,
+round or otherwise change a price. Opening and closing the preview does not
+change the quotation or any calculator state.
 
 While the formal preview is open, the employee may download that same frozen,
 customer-safe presentation model as an A4 PDF. The browser generates the PDF
-locally with `jsPDF`, native selectable text and the already stored line order,
-quantities, line totals and exact quotation total. It does not consult a
-calculator, reconstruct a line, recalculate, round or otherwise change a price.
-The action keeps the preview and the temporary quotation open and usable.
+locally with `jsPDF`, native selectable text, the same date and validity, and
+the already stored line order, quantities, line totals and exact quotation
+total. It does not consult a calculator, reconstruct a line, recalculate, round
+or otherwise change a price. The action keeps the preview and the temporary
+quotation open and usable.
 
 The typed business profile configures two official local logo variants. The
 dark formal preview uses `/brand/digital-respawn-logo-white.png`; the PDF on a

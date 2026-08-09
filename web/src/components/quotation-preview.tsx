@@ -59,16 +59,29 @@ export function QuotationPreview({
           <h2 id={headingId}>Cotización</h2>
         </div>
 
-        {preview.businessFields.length > 0 ? (
-          <dl className={styles.businessFields}>
-            {preview.businessFields.map((field) => (
-              <div key={field.label}>
-                <dt>{field.label}</dt>
-                <dd>{field.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
+        <div className={styles.headerFields}>
+          {preview.quotationFields.length > 0 ? (
+            <dl className={styles.quotationFields}>
+              {preview.quotationFields.map((field) => (
+                <div key={field.label}>
+                  <dt>{field.label}</dt>
+                  <dd>{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+
+          {preview.businessFields.length > 0 ? (
+            <dl className={styles.businessFields}>
+              {preview.businessFields.map((field) => (
+                <div key={field.label}>
+                  <dt>{field.label}</dt>
+                  <dd>{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </div>
       </header>
 
       {preview.customerFields.length > 0 ? (

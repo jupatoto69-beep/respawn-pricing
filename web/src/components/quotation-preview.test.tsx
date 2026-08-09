@@ -39,7 +39,7 @@ function createFictionalQuotation() {
       { label: "Dimensiones", value: "80 × 300 cm" },
     ],
     lineTotal: 768_000,
-  });
+  }, new Date(2026, 7, 9, 23, 59, 59));
 
   return addQuotationLine(banner, {
     source: "service",
@@ -79,6 +79,10 @@ describe("QuotationPreview", () => {
     expect(markup).toContain("Empresa Ejemplo SAS");
     expect(markup).toContain("0900123456-7");
     expect(markup).toContain("+57 3229699093");
+    expect(markup).toContain("Fecha");
+    expect(markup).toContain("09/08/2026");
+    expect(markup).toContain("Vigencia");
+    expect(markup).toContain("15 días");
     expect(markup).toContain("Banner");
     expect(markup).toContain("Mantenimiento completo");
     expect(markup).toContain("COP 768.000");

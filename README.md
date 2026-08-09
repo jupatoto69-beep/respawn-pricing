@@ -28,10 +28,12 @@ quantities, pricing tiers, additions, negotiated prices, minimums or commercial
 rounding.
 
 The quotation may include optional customer or company details and general
-notes. Once at least one line has been added, the employee can open a formal,
-read-only customer-facing preview. The preview validates any non-empty customer
-fields, presents only the current stored snapshots and does not reprice the
-quotation.
+notes. Adding the first line freezes the browser-local quotation date for the
+lifetime of that quotation. Once at least one line has been added, the employee
+can open a formal, read-only customer-facing preview. The preview validates any
+non-empty customer fields, presents that date as `DD/MM/YYYY`, shows the
+configured validity of `15 días`, uses only the current stored snapshots and
+does not reprice the quotation. No expiration date is calculated.
 
 While that formal preview is open, the employee can download the same safe
 presentation model as an A4 PDF. PDF generation runs completely in the browser
@@ -41,12 +43,13 @@ and the white PDF uses the official local black logo. If either image fails,
 the configured `Digital Respawn` text remains available and PDF generation can
 continue without the image.
 
-Lines, customer details, notes and the preview exist only in page memory:
-refreshing or closing the page clears them, and confirming `Vaciar cotización`
-clears them together. The application has no customer database, backend or
-browser/server persistence. PDF export neither uploads nor sends quotation
-data. Printing, WhatsApp or email sharing, and saved quotation history are not
-implemented.
+Lines, customer details, notes, the frozen date and the preview exist only in
+page memory: refreshing or closing the page clears them, and confirming
+`Vaciar cotización` clears them together. The next quotation receives a new
+local date when its first line is added. The application has no customer
+database, backend or browser/server persistence. PDF export neither uploads nor
+sends quotation data. Printing, WhatsApp or email sharing, and saved quotation
+history are not implemented.
 
 ## Documentation
 

@@ -5,6 +5,10 @@ import {
 } from "@/lib/pricing/temporary-quotation";
 
 import type { BusinessProfile } from "./business-profile";
+import {
+  formatQuotationCalendarDate,
+  formatQuotationValidity,
+} from "./quotation-metadata";
 
 export type QuotationPreviewField = Readonly<{
   label: string;
@@ -23,6 +27,7 @@ export type QuotationPreviewViewModel = Readonly<{
   businessName: string;
   logoOnDarkPath: string | null;
   logoOnLightPath: string | null;
+  quotationFields: readonly QuotationPreviewField[];
   businessFields: readonly QuotationPreviewField[];
   customerFields: readonly QuotationPreviewField[];
   lines: readonly QuotationPreviewLine[];
@@ -97,6 +102,22 @@ function createBusinessFields(
   );
 }
 
+function createQuotationFields(
+  quotation: TemporaryQuotationState,
+): readonly QuotationPreviewField[] {
+  if (quotation.quotationDate === null) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze([
+    freezeField(
+      "Fecha",
+      formatQuotationCalendarDate(quotation.quotationDate),
+    ),
+    freezeField("Vigencia", formatQuotationValidity()),
+  ]);
+}
+
 function createCustomerFields(
   quotation: TemporaryQuotationState,
 ): readonly QuotationPreviewField[] {
@@ -155,6 +176,7 @@ export function createQuotationPreviewViewModel({
     logoOnLightPath: hasUsefulText(businessProfile.logoOnLightPath)
       ? businessProfile.logoOnLightPath
       : null,
+    quotationFields: createQuotationFields(quotation),
     businessFields: createBusinessFields(businessProfile),
     customerFields: createCustomerFields(quotation),
     lines: Object.freeze(lines),

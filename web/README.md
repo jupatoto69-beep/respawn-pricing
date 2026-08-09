@@ -22,16 +22,20 @@ src/app/page.tsx
 The page includes a temporary in-memory quotation shared by the area-product
 and service calculators. It stores independent snapshots of final calculated
 line totals and sums them without repricing. Optional customer details and
-general notes remain available while switching calculators. With at least one
-stored line, an employee can open a formal read-only preview that validates
-non-empty customer fields and presents those same snapshots without repricing.
-The open preview can export that same frozen customer-safe view-model as a
-selectable-text A4 PDF generated locally with `jsPDF`. The preview and document
-use the official local white-on-dark and black-on-light logo variants,
-respectively, and retain the `Digital Respawn` text fallback if a logo fails.
+general notes remain available while switching calculators. The first stored
+line freezes the browser-local quotation date. With at least one stored line,
+an employee can open a formal read-only preview that validates non-empty
+customer fields, shows that date as `DD/MM/YYYY` with the configured validity
+of `15 días`, and presents those same snapshots without repricing. The open
+preview can export that same frozen customer-safe view-model as an A4 PDF with
+selectable text generated locally with `jsPDF`. No expiration date is
+calculated. The preview and document use the official local white-on-dark and
+black-on-light logo variants, respectively, and retain the `Digital Respawn`
+text fallback if a logo fails.
 
 The quotation and preview exist only in page memory. A browser refresh or
-confirmed complete quotation clearing removes the lines and details. There is
-no customer database, backend, upload or other persistence. PDF generation
-does not transmit quotation data. Print output, WhatsApp or email sharing, and
-saved history remain out of scope.
+confirmed complete quotation clearing removes the lines, details and frozen
+date; the next first line receives a new local date. There is no customer
+database, backend, upload or other persistence. PDF generation does not
+transmit quotation data. Print output, WhatsApp or email sharing, and saved
+history remain out of scope.
