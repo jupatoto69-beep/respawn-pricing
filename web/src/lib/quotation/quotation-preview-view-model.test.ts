@@ -119,6 +119,28 @@ describe("quotation preview view-model", () => {
     expect(preview.formattedTotal).toBe("COP 768.000");
   });
 
+  it("presents the frozen Fecha and configured Vigencia without replacing the date", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft(),
+      new Date(2026, 7, 9, 23, 59, 59),
+    );
+    const frozenDate = quotation.quotationDate;
+    const before = JSON.stringify(quotation);
+    const firstPreview = createPreview(quotation);
+    const secondPreview = createPreview(quotation);
+
+    expect(firstPreview.quotationFields).toEqual([
+      { label: "Fecha", value: "09/08/2026" },
+      { label: "Vigencia", value: "15 días" },
+    ]);
+    expect(secondPreview.quotationFields).toEqual(
+      firstPreview.quotationFields,
+    );
+    expect(quotation.quotationDate).toBe(frozenDate);
+    expect(JSON.stringify(quotation)).toBe(before);
+  });
+
   it("formats a stored Colombian phone and omits it when the number is empty", () => {
     const withPhone = updateQuotationDetails(createEmptyQuotation(), {
       customerPhoneCountryIso2: "CO",
@@ -225,6 +247,8 @@ describe("quotation preview view-model", () => {
 
     expect(JSON.stringify(quotation)).toBe(before);
     expect(Object.isFrozen(preview)).toBe(true);
+    expect(Object.isFrozen(preview.quotationFields)).toBe(true);
+    expect(Object.isFrozen(preview.quotationFields[0])).toBe(true);
     expect(Object.isFrozen(preview.customerFields)).toBe(true);
     expect(Object.isFrozen(preview.customerFields[0])).toBe(true);
     expect(Object.isFrozen(preview.lines)).toBe(true);

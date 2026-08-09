@@ -1,4 +1,9 @@
 import {
+  createQuotationCalendarDate,
+  type QuotationCalendarDate,
+} from "@/lib/quotation/quotation-metadata";
+
+import {
   DEFAULT_PHONE_COUNTRY_ISO2,
   type PhoneCountryIso2,
 } from "./phone-country-catalog";
@@ -56,6 +61,7 @@ export type TemporaryQuotationState = Readonly<{
   lines: readonly QuotationLine[];
   nextLineSequence: number;
   details: TemporaryQuotationDetails;
+  quotationDate: QuotationCalendarDate | null;
 }>;
 
 const TEMPORARY_QUOTATION_DETAIL_FIELDS = Object.freeze([
@@ -95,11 +101,13 @@ function freezeState(
   lines: readonly QuotationLine[],
   nextLineSequence: number,
   details: TemporaryQuotationDetails,
+  quotationDate: QuotationCalendarDate | null,
 ): TemporaryQuotationState {
   return Object.freeze({
     lines: Object.freeze([...lines]),
     nextLineSequence,
     details: freezeDetails(details),
+    quotationDate,
   });
 }
 
@@ -162,7 +170,7 @@ export function createEmptyQuotationDetails(): TemporaryQuotationDetails {
 }
 
 export function createEmptyQuotation(): TemporaryQuotationState {
-  return freezeState([], 1, createEmptyQuotationDetails());
+  return freezeState([], 1, createEmptyQuotationDetails(), null);
 }
 
 export function updateQuotationDetails(
@@ -186,6 +194,7 @@ export function updateQuotationDetails(
     quotation.lines,
     quotation.nextLineSequence,
     details,
+    quotation.quotationDate,
   );
 }
 
@@ -219,7 +228,8 @@ export function hasQuotationInformation(
 ): boolean {
   return (
     quotation.lines.length > 0 ||
-    hasQuotationDetailsInformation(quotation.details)
+    hasQuotationDetailsInformation(quotation.details) ||
+    quotation.quotationDate !== null
   );
 }
 
@@ -235,6 +245,7 @@ export function calculateQuotationTotal(
 export function addQuotationLine(
   quotation: TemporaryQuotationState,
   draft: QuotationLineDraft,
+  addedAt?: Date,
 ): TemporaryQuotationState {
   assertValidLineTotal(draft.lineTotal);
   addSafeTotals(calculateQuotationTotal(quotation), draft.lineTotal);
@@ -260,6 +271,8 @@ export function addQuotationLine(
     [...quotation.lines, line],
     quotation.nextLineSequence + 1,
     quotation.details,
+    quotation.quotationDate ??
+      createQuotationCalendarDate(addedAt ?? new Date()),
   );
 }
 
@@ -275,6 +288,7 @@ export function removeQuotationLine(
     quotation.lines.filter((line) => line.id !== lineId),
     quotation.nextLineSequence,
     quotation.details,
+    quotation.quotationDate,
   );
 }
 
@@ -283,7 +297,8 @@ export function clearQuotation(
 ): TemporaryQuotationState {
   if (
     quotation.lines.length === 0 &&
-    !hasStoredQuotationDetails(quotation.details)
+    !hasStoredQuotationDetails(quotation.details) &&
+    quotation.quotationDate === null
   ) {
     return quotation;
   }
@@ -292,5 +307,6 @@ export function clearQuotation(
     [],
     quotation.nextLineSequence,
     createEmptyQuotationDetails(),
+    null,
   );
 }

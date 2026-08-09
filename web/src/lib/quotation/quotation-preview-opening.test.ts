@@ -88,9 +88,11 @@ describe("quotation preview opening policy", () => {
       FICTIONAL_LINE,
     );
     const before = JSON.stringify(quotation);
+    const frozenDate = quotation.quotationDate;
 
     expect(evaluateQuotationPreviewOpening(quotation).canOpen).toBe(true);
     expect(JSON.stringify(quotation)).toBe(before);
+    expect(quotation.quotationDate).toBe(frozenDate);
     expect(quotation.lines[0].lineTotal).toBe(768_000);
     expect(quotation.nextLineSequence).toBe(2);
   });

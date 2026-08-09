@@ -24,13 +24,17 @@ function createPreview(customerName = "Empresa Ejemplo SAS") {
     notes:
       "Entregar durante la próxima semana.\nConfirmar disponibilidad antes de producción.",
   });
-  const withBanner = addQuotationLine(withDetails, {
-    source: "area-product",
-    title: "Banner",
-    quantity: 1,
-    details: [{ label: "Dimensiones", value: "80 × 300 cm" }],
-    lineTotal: 768_000,
-  });
+  const withBanner = addQuotationLine(
+    withDetails,
+    {
+      source: "area-product",
+      title: "Banner",
+      quantity: 1,
+      details: [{ label: "Dimensiones", value: "80 × 300 cm" }],
+      lineTotal: 768_000,
+    },
+    new Date(2026, 7, 9, 23, 59, 59),
+  );
   const quotation = addQuotationLine(withBanner, {
     source: "service",
     title: "Instalación de Office únicamente",
@@ -68,6 +72,10 @@ describe("quotation PDF export orchestration", () => {
     expect(preview.lines.map((line) => line.lineTotal)).toEqual([
       768_000,
       50_000,
+    ]);
+    expect(preview.quotationFields).toEqual([
+      { label: "Fecha", value: "09/08/2026" },
+      { label: "Vigencia", value: "15 días" },
     ]);
   });
 
@@ -119,6 +127,7 @@ describe("quotation PDF export lifecycle", () => {
       onFinish: vi.fn(),
     };
     const preview = createPreview();
+    const before = JSON.stringify(preview);
 
     const first = runQuotationPdfExport(
       lock,
@@ -149,6 +158,11 @@ describe("quotation PDF export lifecycle", () => {
       runQuotationPdfExport(lock, preview, exporter, lifecycle),
     ).resolves.toBe("completed");
     expect(exporter).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(preview)).toBe(before);
+    expect(preview.quotationFields).toEqual([
+      { label: "Fecha", value: "09/08/2026" },
+      { label: "Vigencia", value: "15 días" },
+    ]);
   });
 
   it("recovers after failure without exposing the thrown error", async () => {

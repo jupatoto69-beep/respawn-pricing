@@ -44,22 +44,26 @@ function addFictionalLine(
   longDescription?: string,
 ): TemporaryQuotationState {
   if (index === 0) {
-    return addQuotationLine(quotation, {
-      source: "area-product",
-      title: "Banner",
-      quantity: 1,
-      details: [
-        { label: "Producto", value: "Banner" },
-        { label: "Variante", value: "Estándar sin laminado" },
-        { label: "Dimensiones", value: "80 × 300 cm" },
-        { label: "Área por unidad", value: "2,4 m²" },
-        { label: "Estructura", value: "Una cara" },
-        ...(longDescription === undefined
-          ? []
-          : [{ label: "Descripción", value: longDescription }]),
-      ],
-      lineTotal: 768_000,
-    });
+    return addQuotationLine(
+      quotation,
+      {
+        source: "area-product",
+        title: "Banner",
+        quantity: 1,
+        details: [
+          { label: "Producto", value: "Banner" },
+          { label: "Variante", value: "Estándar sin laminado" },
+          { label: "Dimensiones", value: "80 × 300 cm" },
+          { label: "Área por unidad", value: "2,4 m²" },
+          { label: "Estructura", value: "Una cara" },
+          ...(longDescription === undefined
+            ? []
+            : [{ label: "Descripción", value: longDescription }]),
+        ],
+        lineTotal: 768_000,
+      },
+      new Date(2026, 7, 9, 23, 59, 59),
+    );
   }
 
   if (index === 1) {
@@ -234,6 +238,14 @@ describe("quotation PDF document", () => {
     expect(streams).toContain("BT");
     expect(streams).not.toContain("Digital Respawn");
     expect(streams).toContain("Cotizaci");
+    expect(preview.quotationFields).toEqual([
+      { label: "Fecha", value: "09/08/2026" },
+      { label: "Vigencia", value: "15 días" },
+    ]);
+    expect(streams).toContain("Fecha");
+    expect(streams).toContain("09/08/2026");
+    expect(streams).toContain("Vigencia");
+    expect(streams).toContain("15 días");
     expect(streams).toContain("Banner");
     expect(streams).toContain("Instalaci");
     expect(streams).toContain("768.000");

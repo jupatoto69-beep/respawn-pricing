@@ -69,6 +69,7 @@ describe("temporary quotation", () => {
       lines: [],
       nextLineSequence: 1,
       details: createEmptyQuotationDetails(),
+      quotationDate: null,
     });
     expect(calculateQuotationTotal(quotation)).toBe(0);
     expect(Object.isFrozen(quotation)).toBe(true);
@@ -91,6 +92,7 @@ describe("temporary quotation", () => {
       expect(quotation.details).toEqual(createEmptyQuotationDetails());
       expect(updated.lines).toEqual(quotation.lines);
       expect(updated.nextLineSequence).toBe(quotation.nextLineSequence);
+      expect(updated.quotationDate).toBeNull();
     },
   );
 
@@ -227,6 +229,41 @@ describe("temporary quotation", () => {
     expect(second.nextLineSequence).toBe(3);
   });
 
+  it("freezes the browser-local date when the first line is added", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft(),
+      new Date(2026, 7, 9, 23, 59, 59),
+    );
+
+    expect(quotation.quotationDate).toEqual({
+      year: 2026,
+      month: 8,
+      day: 9,
+    });
+    expect(Object.isFrozen(quotation.quotationDate)).toBe(true);
+  });
+
+  it("does not replace the frozen date when additional lines are added", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft(),
+      new Date(2026, 7, 9, 23, 59, 59),
+    );
+    const second = addQuotationLine(
+      first,
+      createDraft({ title: "Servicio" }),
+      new Date(2026, 7, 10, 0, 0, 1),
+    );
+
+    expect(second.quotationDate).toBe(first.quotationDate);
+    expect(second.quotationDate).toEqual({
+      year: 2026,
+      month: 8,
+      day: 9,
+    });
+  });
+
   it("allows duplicate lines as independent entries", () => {
     const draft = createDraft();
     const first = addQuotationLine(createEmptyQuotation(), draft);
@@ -275,21 +312,40 @@ describe("temporary quotation", () => {
     );
   });
 
-  it("clears lines and details without resetting the sequence", () => {
+  it("clears lines, details and date without resetting the sequence", () => {
     const withDetails = updateQuotationDetails(
       createEmptyQuotation(),
       FICTIONAL_DETAILS,
     );
-    const quotation = addQuotationLine(withDetails, createDraft());
+    const quotation = addQuotationLine(
+      withDetails,
+      createDraft(),
+      new Date(2026, 7, 9),
+    );
     const cleared = clearQuotation(quotation);
-    const next = addQuotationLine(cleared, createDraft());
+    const next = addQuotationLine(
+      cleared,
+      createDraft(),
+      new Date(2026, 7, 10),
+    );
 
     expect(cleared).toEqual({
       lines: [],
       nextLineSequence: 2,
       details: createEmptyQuotationDetails(),
+      quotationDate: null,
     });
     expect(next.lines[0].id).toBe("quotation-line-2");
+    expect(next.quotationDate).toEqual({
+      year: 2026,
+      month: 8,
+      day: 10,
+    });
+    expect(quotation.quotationDate).toEqual({
+      year: 2026,
+      month: 8,
+      day: 9,
+    });
     expect(quotation.lines).toHaveLength(1);
     expect(quotation.details).toEqual(FICTIONAL_DETAILS);
   });
@@ -332,6 +388,22 @@ describe("temporary quotation", () => {
     expect(empty.details).toEqual(createEmptyQuotationDetails());
     expect(added.details).toEqual(createEmptyQuotationDetails());
     expect(removed.details).toEqual(createEmptyQuotationDetails());
+    expect(added.quotationDate).not.toBeNull();
+    expect(removed.quotationDate).toBe(added.quotationDate);
+  });
+
+  it("keeps the quotation date after removing the final line until complete clearing", () => {
+    const added = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft(),
+      new Date(2026, 7, 9),
+    );
+    const removed = removeQuotationLine(added, "quotation-line-1");
+
+    expect(removed.lines).toEqual([]);
+    expect(removed.quotationDate).toBe(added.quotationDate);
+    expect(hasQuotationInformation(removed)).toBe(true);
+    expect(clearQuotation(removed).quotationDate).toBeNull();
   });
 
   it("copies detail objects and their array safely", () => {
