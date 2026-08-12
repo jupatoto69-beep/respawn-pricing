@@ -14,14 +14,39 @@ discounts.
 - Apply product-specific authorized discount ranges.
 - Prevent sales below the configured minimum price.
 - Provide employees with guidance for products and services.
+- Price precise 3D-printing jobs from material, per-unit grams and printing
+  time, quantity, and modeling.
 - Build temporary on-screen quotations.
 
-Cost-and-margin pricing is planned for a future release.
+The scoped precise 3D-printing strategy is implemented. Generic
+cost-and-margin pricing for other catalog items remains planned for a future
+release.
+
+## Precise 3D printing
+
+`Impresión 3D` is a top-level quotation mode alongside `Productos por área`
+and `Servicios`; it is not part of `Servicios → Impresos`. Its precise form
+uses PLA or PETG, grams and printing time per unit, quantity, and one modeling
+option per job. It produces a rounded commercial price and supports an explicit
+manual price. A raw amount below the internal threshold can continue only after
+the employee checks `Confirmo que este precio está autorizado`; COP 5.000
+remains an absolute, non-authorizable minimum. Rounding is applied only after
+the raw amount is allowed.
+The employee-facing result, stored quotation snapshot, formal preview and PDF
+contain only customer-safe selections and the accepted final price; material,
+electricity, margin, authorization state and threshold internals are not
+presented. The checkbox is an explicit confirmation, not authentication or a
+real permissions system.
+
+A quick estimator from length × width × height is not implemented yet. The
+precise engine accepts already-resolved grams and printing time so a future
+estimator can reuse it.
 
 ## Temporary quotation
 
 The current web application includes an in-memory temporary quotation that can
-hold multiple calculated area products and services. Each added line is a
+hold multiple calculated area products and services, including precise 3D
+printing. Each added line is a
 snapshot of the calculator's final price, and the quotation total is the exact
 sum of those stored final line totals. The quotation does not recalculate
 quantities, pricing tiers, additions, negotiated prices, minimums or commercial

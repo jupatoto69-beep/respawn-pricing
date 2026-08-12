@@ -108,4 +108,13 @@ describe("service category catalog", () => {
       ),
     ).toBeNull();
   });
+
+  it("keeps 3D printing outside the Services catalog", () => {
+    expect(JSON.stringify(PRINTED_SERVICE_CATALOG)).not.toContain(
+      "three-d-printing",
+    );
+    expect(JSON.stringify(PRINTED_SERVICE_CATALOG)).not.toContain(
+      "Impresión 3D",
+    );
+  });
 });

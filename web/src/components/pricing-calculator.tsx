@@ -26,6 +26,7 @@ import type { PhoneCountryIso2 } from "@/lib/pricing/phone-country-catalog";
 import { AreaPricingCalculator } from "./area-pricing-calculator";
 import styles from "./pricing-calculator.module.css";
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
+import { ThreeDPrintingPricingCalculator } from "./three-d-printing-pricing-calculator";
 import { TemporaryQuotation } from "./temporary-quotation";
 
 type PricingCalculatorProps = Readonly<{
@@ -123,9 +124,14 @@ export function PricingCalculator({
           key={`area-products-${selection.areaProductsRevision}`}
           onAddQuotationLine={handleAddQuotationLine}
         />
-      ) : (
+      ) : selection.modeId === PRICING_MODE_IDS.services ? (
         <ServicesPricingCalculator
           key={`services-${selection.servicesRevision}`}
+          onAddQuotationLine={handleAddQuotationLine}
+        />
+      ) : (
+        <ThreeDPrintingPricingCalculator
+          key={`three-d-printing-${selection.threeDPrintingRevision}`}
           onAddQuotationLine={handleAddQuotationLine}
         />
       )}

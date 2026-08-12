@@ -18,6 +18,7 @@ describe("pricing mode selection", () => {
       modeId: PRICING_MODE_IDS.services,
       areaProductsRevision: 0,
       servicesRevision: 1,
+      threeDPrintingRevision: 0,
     });
   });
 
@@ -32,6 +33,7 @@ describe("pricing mode selection", () => {
       modeId: PRICING_MODE_IDS.areaProducts,
       areaProductsRevision: 1,
       servicesRevision: 0,
+      threeDPrintingRevision: 0,
     });
   });
 
@@ -60,5 +62,28 @@ describe("pricing mode selection", () => {
     expect(servicesOption?.description).toBe(
       "Cotiza servicios por categoría según su estrategia.",
     );
+  });
+
+  it("exposes 3D printing as the third top-level mode", () => {
+    expect(PRICING_MODE_OPTIONS.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: PRICING_MODE_IDS.areaProducts, name: "Productos por área" },
+      { id: PRICING_MODE_IDS.services, name: "Servicios" },
+      { id: PRICING_MODE_IDS.threeDPrinting, name: "Impresión 3D" },
+    ]);
+  });
+
+  it("increments the isolated 3D revision every time its mode is re-entered", () => {
+    const first = changePricingMode(
+      createInitialPricingModeSelection(),
+      PRICING_MODE_IDS.threeDPrinting,
+    );
+    const services = changePricingMode(first, PRICING_MODE_IDS.services);
+    const second = changePricingMode(
+      services,
+      PRICING_MODE_IDS.threeDPrinting,
+    );
+
+    expect(second.threeDPrintingRevision).toBe(2);
+    expect(second.servicesRevision).toBe(1);
   });
 });
