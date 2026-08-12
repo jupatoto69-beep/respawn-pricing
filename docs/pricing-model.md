@@ -16,7 +16,8 @@ the normative source for the first release.
 
 The first release calculates consistent sale prices from configured commercial
 rules. Cost-and-margin pricing is documented below for future use but is not
-implemented in the first release.
+implemented as a generic strategy. Precise 3D printing is a scoped strategy
+with its own typed configuration and privacy boundary.
 
 ## Catalog terminology and information boundaries
 
@@ -97,6 +98,9 @@ release.
 - **Duration pricing:** a base price plus a charge for each additional started
   minute.
 - **Optional add-on:** an additional configured amount added per unit.
+- **Precise 3D printing:** a material- and machine-time-based strategy with
+  one modeling charge per job, an automatic commercial price and a guarded
+  manual final-price option.
 
 ### Computer services
 
@@ -262,6 +266,46 @@ threshold includes X itself:
 - From 15 tabloids means `quantity >= 15`.
 - From 5 adhesive tabloids means `quantity >= 5`.
 
+### Precise 3D printing
+
+`Impresión 3D` is implemented as a top-level quotation mode alongside
+`Productos por área` and `Servicios`; it is not part of the `Impresos` service
+catalog. The precise form receives material, grams per unit, whole printing
+hours and minutes per unit, positive integer quantity, and one of these
+modeling selections: no modeling, AI-generated or AI-assisted model, basic
+design, or complex design.
+
+The pure pricing engine derives material and electricity values from typed
+configuration. It multiplies both per-unit variable components by quantity,
+adds modeling once, derives the normal suggested commercial price and the
+internal manual-price authorization threshold, protects the absolute
+commercial minimum, and uses the shared upward COP 500 rounding. The normal
+flow rounds only after applying the minimum. A manually entered amount is
+validated as a finite positive number and against the absolute COP 5.000 floor
+before comparison with the raw internal threshold. A lower amount requires the
+explicit employee confirmation `Confirmo que este precio está autorizado`;
+without it there is no valid result. A confirmed exception is rounded upward
+to COP 500 afterward, so rounding cannot turn an unconfirmed amount into an
+authorized one. The COP 5.000 floor is never authorizable.
+
+The confirmation records only an acknowledgement for the current form values.
+It resets when pricing inputs change and is not authentication, a permission
+grant or a role system.
+
+Employee and customer-facing models expose only the selected material, grams
+and time per unit, quantity, modeling selection, suggested/final commercial
+price as applicable, and accepted stored total. They do not expose spool
+economics, material or electricity costs, material increase, base cost,
+internal multipliers, margin, authorization threshold, or whether confirmation
+was required. The stored 3D snapshot has no `Categoría: Impresos` detail.
+Preview and PDF use that customer-safe snapshot and never invoke this engine.
+
+The engine accepts resolved grams and printing time independently of how they
+were obtained. A future quick-estimation strategy may therefore convert
+dimensions into estimated metrics and call the same engine. Length, width,
+height, volume, density classifications and estimation coefficients are not
+implemented now.
+
 ### Documentation-only implementation boundary
 
 This catalog prepares future pricing strategies, but this documentation change
@@ -275,10 +319,13 @@ does not implement:
 - Temporary quotation lines
 - Database persistence
 - An administration panel
-- A 3D-printing calculator or calculations
 
 It also adds no application code, interface controls, configuration,
 dependencies or tests.
+
+The precise 3D-printing strategy documented above is now the implemented
+exception to this historical documentation-only boundary; quick dimensional
+estimation remains outside the current release.
 
 ## First-release pricing strategies
 

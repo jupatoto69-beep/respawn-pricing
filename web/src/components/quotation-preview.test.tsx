@@ -90,6 +90,35 @@ describe("QuotationPreview", () => {
     expect(markup).toMatch(/<ol[^>]*>[\s\S]*<article>/);
   });
 
+  it("renders a customer-safe 3D printing line from its stored snapshot", () => {
+    const quotation = addQuotationLine(createEmptyQuotation(), {
+      source: "service",
+      title: "Impresión 3D",
+      quantity: 3,
+      details: [
+        { label: "Material", value: "PLA" },
+        { label: "Gramos por unidad", value: "100 g" },
+        { label: "Tiempo de impresión por unidad", value: "1 h 30 min" },
+        { label: "Modelado", value: "Diseño básico" },
+        { label: "Costo base", value: "Privado" },
+        { label: "Umbral", value: "Privado" },
+      ],
+      lineTotal: 262_500,
+    }, new Date(2026, 7, 11, 12));
+    const markup = renderPreview(quotation);
+
+    expect(markup).toContain("Impresión 3D");
+    expect(markup).toContain("PLA");
+    expect(markup).toContain("100 g");
+    expect(markup).toContain("1 h 30 min");
+    expect(markup).toContain("Diseño básico");
+    expect(markup).toContain("COP 262.500");
+    expect(markup).toContain("11/08/2026");
+    expect(markup).toContain("15 días");
+    expect(markup).not.toContain("Costo base");
+    expect(markup).not.toContain("Umbral");
+  });
+
   it("uses the official white logo proportionally without a redundant visible business name", () => {
     const markup = renderPreview();
 

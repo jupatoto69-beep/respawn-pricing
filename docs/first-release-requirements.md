@@ -10,7 +10,9 @@ The first release is a desktop-oriented web application built with Next.js.
 This document defines the normative scope of that release. The broader product
 direction in [Product Vision](product-vision.md) remains relevant to later
 releases. The cost-and-margin concepts in [Pricing Model](pricing-model.md) are
-documented for future use but are not implemented in the first release.
+documented for future generic use. The precise 3D-printing strategy described
+below is a deliberately scoped implementation and does not add a generic
+cost-and-margin editor or administration system.
 
 ## Operating model
 
@@ -65,6 +67,43 @@ Cost-and-margin pricing is documented conceptually in
 first release does not accept costs or margins as inputs and does not calculate
 prices from them.
 
+### Precise 3D-printing pricing
+
+`Impresión 3D` is a third top-level quotation mode alongside `Productos por
+área` and `Servicios`; it is not a service within the `Impresos` catalog. Its
+precise form accepts PLA or PETG, grams per unit, whole printing hours and
+minutes per unit, a positive integer quantity, and one modeling option for the
+job. Grams and time always describe one unit; quantity multiplies the material
+and machine-time parts, while modeling is added only once.
+
+Typed configuration and pure domain functions derive the normal suggested
+commercial price, enforce the absolute commercial minimum, and apply the
+shared upward COP 500 rounding. The employee may enable `Modificar precio` and
+enter a custom amount. A raw amount below the internal threshold shows only
+`Este precio requiere autorización.` and requires the explicit confirmation
+`Confirmo que este precio está autorizado`; without confirmation, calculation
+and quotation addition remain blocked. A confirmed exception is rounded upward
+to COP 500 only after authorization. COP 5.000 is an absolute minimum and
+cannot be bypassed by the confirmation.
+
+This confirmation is an acknowledgement of an authorization obtained outside
+the application. It is not authentication, role enforcement or a real
+permissions system.
+
+The employee result may show material, grams and printing time per unit,
+quantity, modeling, pricing mode, suggested price and final accepted price. It
+must not show internal material or electricity costs, spool economics,
+increases, multipliers, margins, base cost, or authorization threshold. The
+stored quotation line contains only the commercial title, quantity,
+customer-safe selections and accepted final total. It does not store the
+confirmation state or an artificial `Categoría: Impresos` detail.
+
+The pricing engine consumes already-resolved grams and printing time rather
+than form-origin metadata. A future estimator may therefore supply estimated
+metrics to the same engine. Estimation from length × width × height, volume,
+density classifications and calibration coefficients is not part of this
+release.
+
 ### Documented service and print catalog strategies
 
 The confirmed service and print catalog in
@@ -85,10 +124,13 @@ This catalog documentation does not implement:
 - Temporary quotation lines
 - Database persistence
 - An administration panel
-- A 3D-printing calculator or calculations
 
 It also adds no application code, interface controls, configuration,
 dependencies or tests.
+
+The precise 3D-printing strategy above is the implemented exception to this
+older documentation-only catalog boundary. It does not implement the future
+quick estimator, persistent price editing, or a generic administration model.
 
 ## Initial area-product catalog
 
@@ -307,6 +349,12 @@ For each calculation, the employee interface must show:
 - Final rounded price.
 - An action to add the priced line to the temporary quotation.
 
+For precise 3D printing, the applicable visible fields are the selected
+material, grams and time per unit, quantity, modeling, price-source state,
+suggested price and final accepted price. Internal cost components and the
+authorization threshold replace the generic list-price/discount concepts and
+remain hidden.
+
 ## Information hidden from employees
 
 The employee interface must not expose:
@@ -316,6 +364,9 @@ The employee interface must not expose:
 - Profitability.
 - Suppliers.
 - Internal minimum-charge values.
+- 3D spool price or weight economics.
+- 3D material increases, electricity inputs or derived costs.
+- 3D base cost, internal multipliers or authorization threshold.
 
 ## Temporary quotation
 
@@ -324,6 +375,10 @@ on-screen temporary quotation. Every stored line is an immutable snapshot of
 the customer-safe selections, quantity and final price returned by its
 calculator. Changing calculator mode, category, service or form values does not
 change lines that were already added.
+
+A precise 3D line stores its accepted rounded total and only customer-safe
+material, grams-per-unit, time-per-unit and modeling details. Later form,
+material, modeling or runtime configuration changes do not recalculate it.
 
 The quotation total is the exact sum of the stored final line totals. The
 quotation does not multiply quantity again, apply COP 500 rounding again,
@@ -408,7 +463,9 @@ The following functionality is explicitly excluded from the first release:
 - Inventory management.
 - Supplier management.
 - Cost-and-margin pricing.
-- In-system authorization of exceptional prices.
+- Quick 3D estimation from dimensions, volume or density coefficients.
+- Editable 3D prices or an administration/database-backed pricing catalog.
+- Authentication, roles or in-system permission grants for exceptional prices.
 - Accounting, electronic invoicing, online payments, and multi-company
   support.
 
@@ -429,3 +486,5 @@ The first release satisfies these requirements when it:
   without repricing it.
 - Downloads that same safe preview model as a local PDF without repricing,
   uploading or persisting quotation data.
+- Prices precise 3D jobs without exposing internal pricing in the employee
+  result, stored customer-facing snapshot, preview or PDF.

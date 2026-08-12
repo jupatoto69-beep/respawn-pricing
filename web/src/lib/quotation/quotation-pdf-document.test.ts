@@ -10,6 +10,12 @@ import {
   updateQuotationDetails,
   type TemporaryQuotationState,
 } from "../pricing/temporary-quotation";
+import { calculateThreeDPrintingPrice } from "../pricing/calculate-three-d-printing-price";
+import {
+  THREE_D_PRINTING_MATERIAL_IDS,
+  THREE_D_PRINTING_MODELING_IDS,
+} from "../pricing/three-d-printing-catalog";
+import { createThreeDPrintingQuotationLineDraft } from "../pricing/three-d-printing-quotation-line";
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "./business-profile";
 import { generateQuotationPdfBlob } from "./quotation-pdf-document";
 import type {
@@ -168,6 +174,45 @@ function createQuotationPdfTestPreview(options: Readonly<{
   });
 }
 
+function createThreeDPrintingPdfTestPreview() {
+  const calculation = calculateThreeDPrintingPrice({
+    materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
+    gramsPerUnit: 100,
+    printingHoursPerUnit: 5,
+    printingMinutesPerUnit: 30,
+    quantity: 3,
+    modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
+    manualPrice: {
+      enabled: true,
+      amountCop: 190_100,
+      belowThresholdAuthorized: true,
+    },
+  });
+  const draft = createThreeDPrintingQuotationLineDraft(calculation);
+  const quotation = addQuotationLine(
+    createEmptyQuotation(),
+    {
+      ...draft,
+      details: [
+        ...draft.details,
+        { label: "Costo base", value: "COP privado" },
+        { label: "Precio del rollo", value: "COP privado" },
+        { label: "Tarifa eléctrica", value: "COP privado" },
+        { label: "Umbral", value: "COP privado" },
+        { label: "Margen", value: "Privado" },
+        { label: "Multiplicadores", value: "Privado" },
+      ],
+    },
+    new Date(2026, 7, 11, 12),
+  );
+
+  return createQuotationPreviewViewModel({
+    quotation,
+    total: calculateQuotationTotal(quotation),
+    businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+  });
+}
+
 async function getBytes(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());
 }
@@ -266,6 +311,54 @@ describe("quotation PDF document", () => {
     expect(loadLogo).toHaveBeenCalledWith(
       "/brand/digital-respawn-logo-black.png",
     );
+  });
+
+  it("renders a precise 3D snapshot as native text without internal pricing", async () => {
+    const preview = createThreeDPrintingPdfTestPreview();
+    const serializedPreview = JSON.stringify(preview);
+    const blob = await generateQuotationPdfBlob(preview, {
+      loadLogo: async () => {
+        throw new Error("fictional missing local logo");
+      },
+    });
+    const bytes = await getBytes(blob);
+    const streams = extractInflatedStreams(bytes);
+    const allText = `${serializedPreview}\n${streams}`.toLocaleLowerCase(
+      "es-CO",
+    );
+
+    expect(streams).toContain("BT");
+    expect(streams).toContain("Impresi");
+    expect(streams).toContain("PLA");
+    expect(streams).toContain("100 g");
+    expect(streams).toContain("5 h 30 min");
+    expect(streams).toContain("Dise");
+    expect(streams).toContain("190.500");
+    expect(streams).toContain("11/08/2026");
+    expect(streams).toContain("15 días");
+
+    for (const forbidden of [
+      "costobase",
+      "basecost",
+      "costo base",
+      "precio del rollo",
+      "tarifa eléctrica",
+      "electricity",
+      "materialincreaserate",
+      "threshold",
+      "umbral",
+      "margen",
+      "multiplicador",
+      "+40%",
+      "×3",
+      "×4",
+      "autorizado",
+      "requiere autorización",
+      "categoría",
+      "impresos",
+    ]) {
+      expect(allText).not.toContain(forbidden);
+    }
   });
 
   it("generates multiple A4 pages with page numbering and complete final sections", async () => {

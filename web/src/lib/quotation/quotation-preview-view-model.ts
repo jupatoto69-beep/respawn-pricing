@@ -73,6 +73,10 @@ const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
   "Cantidad en millares",
   "Acabado adhesivo",
   "Laminado",
+  "Material",
+  "Gramos por unidad",
+  "Tiempo de impresión por unidad",
+  "Modelado",
 ]);
 
 function hasUsefulText(value: string | undefined): value is string {

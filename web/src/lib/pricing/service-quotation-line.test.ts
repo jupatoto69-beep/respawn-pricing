@@ -6,6 +6,7 @@ import { calculateFixedPriceService } from "./calculate-fixed-price-service";
 import { calculateSoftwareInstallationPrice } from "./calculate-software-installation-price";
 import { calculateTabloidPrice } from "./calculate-tabloid-price";
 import { calculateVideoEditingPrice } from "./calculate-video-editing-price";
+import { calculateThreeDPrintingPrice } from "./calculate-three-d-printing-price";
 import {
   COMPUTER_SERVICE_IDS,
   getComputerService,
@@ -32,6 +33,16 @@ import {
   TABLOID_TYPE_IDS,
 } from "./tabloid-pricing";
 import { parseVideoDuration } from "./video-duration";
+import {
+  THREE_D_PRINTING_MATERIAL_IDS,
+  THREE_D_PRINTING_MODELING_IDS,
+} from "./three-d-printing-catalog";
+import { createThreeDPrintingQuotationLineDraft } from "./three-d-printing-quotation-line";
+import {
+  addQuotationLine,
+  calculateQuotationTotal,
+  createEmptyQuotation,
+} from "./temporary-quotation";
 
 const computers = getServiceCategory(SERVICE_CATEGORY_IDS.computers)!;
 const audiovisual = getServiceCategory(SERVICE_CATEGORY_IDS.audiovisual)!;
@@ -47,7 +58,40 @@ function expectNoPrivateMinimum(line: ReturnType<typeof createServiceQuotationLi
   expect(serializedDetails).not.toContain("authorizedminimum");
 }
 
-describe("service quotation-line adapter", () => {
+function expectNoThreeDInternalPricing(
+  value: ReturnType<typeof createServiceQuotationLineDraft> | object,
+) {
+  const serialized = JSON.stringify(value).toLocaleLowerCase("es-CO");
+
+  for (const forbidden of [
+    "basecost",
+    "base cost",
+    "costo base",
+    "internal",
+    "threshold",
+    "umbral",
+    "spool",
+    "rollo",
+    "margin",
+    "margen",
+    "electricity",
+    "electricidad",
+    "tarifa",
+    "multiplier",
+    "multiplicador",
+    "+40%",
+    "×3",
+    "×4",
+    "autorizado",
+    "requiere autorización",
+    "categoría",
+    "impresos",
+  ]) {
+    expect(serialized).not.toContain(forbidden);
+  }
+}
+
+describe("quotation-line adapters", () => {
   it("preserves complete maintenance at COP 120,000", () => {
     const service = getComputerService(COMPUTER_SERVICE_IDS.maintenance)!;
     const calculation = calculateMaintenancePrice(
@@ -227,5 +271,84 @@ describe("service quotation-line adapter", () => {
       value: "Precio negociado autorizado",
     });
     expectNoPrivateMinimum(line);
+  });
+
+  it("creates a customer-safe immutable 3D printing snapshot", () => {
+    const calculation = calculateThreeDPrintingPrice({
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
+      gramsPerUnit: 100,
+      printingHoursPerUnit: 5,
+      printingMinutesPerUnit: 30,
+      quantity: 3,
+      modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
+      manualPrice: {
+        enabled: true,
+        amountCop: 190_100,
+        belowThresholdAuthorized: true,
+      },
+    });
+    const draft = createThreeDPrintingQuotationLineDraft(calculation);
+    const quotation = addQuotationLine(createEmptyQuotation(), draft);
+    const stored = quotation.lines[0];
+
+    expect(draft).toEqual({
+      source: "service",
+      title: "Impresión 3D",
+      quantity: 3,
+      details: [
+        { label: "Material", value: "PLA" },
+        { label: "Gramos por unidad", value: "100 g" },
+        { label: "Tiempo de impresión por unidad", value: "5 h 30 min" },
+        { label: "Modelado", value: "Diseño básico" },
+      ],
+      lineTotal: calculation.totalPrice,
+    });
+    expect(stored.lineTotal).toBe(calculation.totalPrice);
+    expect(stored.lineTotal).toBe(190_500);
+    expect(calculateQuotationTotal(quotation)).toBe(stored.lineTotal);
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored.details)).toBe(true);
+    expectNoThreeDInternalPricing(draft);
+    expectNoThreeDInternalPricing(stored);
+  });
+
+  it("keeps the accepted 3D line price after later inputs produce another result", () => {
+    const first = calculateThreeDPrintingPrice({
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
+      gramsPerUnit: 100,
+      printingHoursPerUnit: 5,
+      printingMinutesPerUnit: 0,
+      quantity: 1,
+      modelingId: THREE_D_PRINTING_MODELING_IDS.none,
+      manualPrice: {
+        enabled: false,
+        amountCop: null,
+        belowThresholdAuthorized: false,
+      },
+    });
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createThreeDPrintingQuotationLineDraft(first),
+    );
+    const later = calculateThreeDPrintingPrice({
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.petg,
+      gramsPerUnit: 500,
+      printingHoursPerUnit: 20,
+      printingMinutesPerUnit: 45,
+      quantity: 4,
+      modelingId: THREE_D_PRINTING_MODELING_IDS.complex,
+      manualPrice: {
+        enabled: false,
+        amountCop: null,
+        belowThresholdAuthorized: false,
+      },
+    });
+
+    expect(first.totalPrice).not.toBe(later.totalPrice);
+    expect(quotation.lines[0].lineTotal).toBe(first.totalPrice);
+    expect(quotation.lines[0].details).toContainEqual({
+      label: "Material",
+      value: "PLA",
+    });
   });
 });

@@ -55,6 +55,22 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Aún no has agregado productos o servicios.");
   });
 
+  it("renders three top-level modes and opens 3D directly", () => {
+    const markup = renderToStaticMarkup(
+      <PricingCalculator initialModeId={PRICING_MODE_IDS.threeDPrinting} />,
+    );
+
+    expect(markup).toContain("Productos por área");
+    expect(markup).toContain("Servicios");
+    expect(markup).toContain("Impresión 3D");
+    expect(markup).toContain("Impresión 3D: cotización precisa");
+    expect(markup).toContain("Gramos por unidad");
+    expect(markup).not.toContain("Categoría, servicio y datos");
+    expect(markup).not.toContain("Selecciona una categoría");
+    expect(markup).not.toContain("Selecciona un servicio");
+    expect(markup).not.toContain("Tarjetas de presentación");
+  });
+
   it("shows only computer services when Computers is selected", () => {
     const markup = renderToStaticMarkup(
       <ServicesPricingCalculator
@@ -93,6 +109,7 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Impresos");
     expect(markup).toContain("Tarjetas de presentación");
     expect(markup).toContain("Tabloides");
+    expect(markup).not.toContain("Impresión 3D");
     expect(markup).not.toContain("Mantenimiento de computador");
     expect(markup).not.toContain("Edición de video sencilla");
   });

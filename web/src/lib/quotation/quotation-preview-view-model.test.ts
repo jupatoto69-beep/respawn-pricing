@@ -9,6 +9,12 @@ import {
   type QuotationLineDraft,
   type TemporaryQuotationState,
 } from "@/lib/pricing/temporary-quotation";
+import { calculateThreeDPrintingPrice } from "@/lib/pricing/calculate-three-d-printing-price";
+import {
+  THREE_D_PRINTING_MATERIAL_IDS,
+  THREE_D_PRINTING_MODELING_IDS,
+} from "@/lib/pricing/three-d-printing-catalog";
+import { createThreeDPrintingQuotationLineDraft } from "@/lib/pricing/three-d-printing-quotation-line";
 
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "./business-profile";
 import {
@@ -232,6 +238,66 @@ describe("quotation preview view-model", () => {
     expect(serialized).not.toContain("Mínimo autorizado");
     expect(serialized).not.toContain("Descuento máximo");
     expect(serialized).not.toContain("Precio negociado autorizado");
+  });
+
+  it("projects a 3D snapshot with safe details and no internal pricing", () => {
+    const calculation = calculateThreeDPrintingPrice({
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.petg,
+      gramsPerUnit: 100,
+      printingHoursPerUnit: 1,
+      printingMinutesPerUnit: 30,
+      quantity: 3,
+      modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
+      manualPrice: {
+        enabled: true,
+        amountCop: 190_100,
+        belowThresholdAuthorized: true,
+      },
+    });
+    const draft = createThreeDPrintingQuotationLineDraft(calculation);
+    const quotation = addQuotationLine(createEmptyQuotation(), draft);
+    const preview = createPreview(quotation);
+    const serialized = JSON.stringify(preview).toLocaleLowerCase("es-CO");
+
+    expect(preview.lines).toEqual([
+      {
+        title: "Impresión 3D",
+        details: [
+          { label: "Material", value: "PETG" },
+          { label: "Gramos por unidad", value: "100 g" },
+          { label: "Tiempo de impresión por unidad", value: "1 h 30 min" },
+          { label: "Modelado", value: "Diseño básico" },
+        ],
+        quantity: 3,
+        lineTotal: calculation.totalPrice,
+        formattedLineTotal: formatQuotationCop(calculation.totalPrice),
+      },
+    ]);
+    expect(calculation.totalPrice).toBe(190_500);
+
+    for (const forbidden of [
+      "basecost",
+      "internal",
+      "threshold",
+      "spool",
+      "materialincreaserate",
+      "electricity",
+      "multiplier",
+      "costo base",
+      "margen",
+      "umbral",
+      "precio del rollo",
+      "tarifa eléctrica",
+      "+40%",
+      "×3",
+      "×4",
+      "autorizado",
+      "requiere autorización",
+      "categoría",
+      "impresos",
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
   });
 
   it("creates a deeply immutable presentation model without mutating the quotation", () => {
