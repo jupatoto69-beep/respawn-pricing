@@ -10,7 +10,7 @@ The first release is a desktop-oriented web application built with Next.js.
 This document defines the normative scope of that release. The broader product
 direction in [Product Vision](product-vision.md) remains relevant to later
 releases. The cost-and-margin concepts in [Pricing Model](pricing-model.md) are
-documented for future generic use. The precise 3D-printing strategy described
+documented for future generic use. The 3D-printing strategy described
 below is a deliberately scoped implementation and does not add a generic
 cost-and-margin editor or administration system.
 
@@ -67,14 +67,52 @@ Cost-and-margin pricing is documented conceptually in
 first release does not accept costs or margins as inputs and does not calculate
 prices from them.
 
-### Precise 3D-printing pricing
+### 3D-printing pricing
 
 `Impresión 3D` is a third top-level quotation mode alongside `Productos por
-área` and `Servicios`; it is not a service within the `Impresos` catalog. Its
-precise form accepts PLA or PETG, grams per unit, whole printing hours and
-minutes per unit, a positive integer quantity, and one modeling option for the
-job. Grams and time always describe one unit; quantity multiplies the material
-and machine-time parts, while modeling is added only once.
+área` and `Servicios`; it is not a service within the `Impresos` catalog. It has
+two employee-facing submodes: `Cotización precisa` and `Estimación rápida`.
+
+The precise form is used after the employee receives or prepares and slices the
+real model. It accepts PLA or PETG, grams per unit, whole printing hours and
+minutes per unit, a positive integer quantity, one modeling option for the job,
+`Un color` or `Multicolor`, and a KE or HI production printer. Grams and time
+always describe one unit; quantity multiplies the material and machine-time
+parts, while modeling is added only once. The precise form does not request
+width, depth or height, calculate a footprint, infer printer compatibility or
+show dimensional division warnings.
+
+`Estimación rápida` is an intentionally simple preliminary workflow for an
+unsliced request. It records approximate requested size, piece type or a short
+description, material, quantity, modeling, color mode and a required
+employee-entered `Precio estimado total`. It does not request slicer grams or
+slicer time, and it must show `Estimación preliminar. Para determinar el precio
+definitivo se requiere recibir y laminar el archivo 3D.`
+
+The quick estimated price is a manual preliminary total for the complete job,
+already including the requested quantity. It is not a unit price and the
+application must not multiply it by quantity. The raw amount must be finite,
+positive and at least COP 5.000; after validation it is rounded upward to COP
+500. It does not pass through the precise engine and therefore does not apply
+filament or electricity calculations, the material adjustment, precise ×4,
+the authorization threshold, an authorization checkbox, or automatic
+Multicolor ×3. Quick Multicolor may record the safe operational detail
+`Producción: HI`.
+
+An accepted quick estimate may create an immutable `Impresión 3D — Estimación
+preliminar` quotation line. The line stores the requested quantity, the rounded
+whole-job total, customer-safe selections and `Valor estimado. El precio
+definitivo puede cambiar después de recibir y laminar el archivo 3D.` It appears
+unchanged in the temporary quotation, formal preview and existing PDF. Cube
+calibration, `Ligera`/`Normal`/`Densa` profiles, interpolation and extrapolation
+are not active.
+
+The precise engine derives filament at COP 95.000 per 1.000 g, applies the 40%
+material adjustment, and calculates electricity from actual slicer time at
+0.150 kW and COP 900/kWh. It multiplies material and electricity by quantity,
+adds the selected modeling charge once per job, uses ×4 for the suggested raw
+commercial price, protects the COP 5.000 absolute floor, and rounds the
+accepted final amount upward to COP 500.
 
 Typed configuration and pure domain functions derive the normal suggested
 commercial price, enforce the absolute commercial minimum, and apply the
@@ -86,23 +124,36 @@ and quotation addition remain blocked. A confirmed exception is rounded upward
 to COP 500 only after authorization. COP 5.000 is an absolute minimum and
 cannot be bypassed by the confirmation.
 
+One-color work preserves the existing ×4 suggested price and ×3 authorization
+threshold. Multicolor is operationally HI-only and applies its ×3 commercial
+factor to both those raw amounts. It does not multiply the COP 5.000 absolute
+floor. These internal calculations and factors must not appear in employee or
+customer-facing views.
+
+The printer selector identifies the actual production printer, not estimated
+compatibility. One-color work allows KE or HI. Multicolor production is HI-only:
+changing to Multicolor resolves the printer to HI and KE cannot remain a valid
+choice. Returning to one color leaves HI valid. Changing the production printer
+alone does not change the commercial price or authorization because no
+printer-specific electricity or power values have been supplied; the release
+must not invent them. The slicer/operator remains responsible for confirming
+that the prepared job fits the selected printer.
+
 This confirmation is an acknowledgement of an authorization obtained outside
 the application. It is not authentication, role enforcement or a real
 permissions system.
 
-The employee result may show material, grams and printing time per unit,
-quantity, modeling, pricing mode, suggested price and final accepted price. It
-must not show internal material or electricity costs, spool economics,
-increases, multipliers, margins, base cost, or authorization threshold. The
-stored quotation line contains only the commercial title, quantity,
-customer-safe selections and accepted final total. It does not store the
-confirmation state or an artificial `Categoría: Impresos` detail.
-
-The pricing engine consumes already-resolved grams and printing time rather
-than form-origin metadata. A future estimator may therefore supply estimated
-metrics to the same engine. Estimation from length × width × height, volume,
-density classifications and calibration coefficients is not part of this
-release.
+The precise employee result may show material, slicer grams and time, quantity,
+modeling, color mode, selected production printer, price-source state,
+suggested price and final accepted price. Results must not show internal
+material or electricity costs, spool economics, increases, multipliers,
+margins, base cost, or authorization threshold. The stored precise quotation
+line contains only the commercial title, material, grams per unit, printing
+time per unit, modeling, color mode, production printer, quantity and accepted
+final total. It does not store confirmation state or an artificial `Categoría:
+Impresos` detail. Preview and PDF consume that immutable snapshot and never
+rerun the pricing engine. This scope adds no database, persistence,
+authentication, roles or administration UI.
 
 ### Documented service and print catalog strategies
 
@@ -128,9 +179,9 @@ This catalog documentation does not implement:
 It also adds no application code, interface controls, configuration,
 dependencies or tests.
 
-The precise 3D-printing strategy above is the implemented exception to this
-older documentation-only catalog boundary. It does not implement the future
-quick estimator, persistent price editing, or a generic administration model.
+The 3D-printing strategy above is the implemented exception to this older
+documentation-only catalog boundary. It does not implement persistent price
+editing or a generic administration model.
 
 ## Initial area-product catalog
 
@@ -349,11 +400,13 @@ For each calculation, the employee interface must show:
 - Final rounded price.
 - An action to add the priced line to the temporary quotation.
 
-For precise 3D printing, the applicable visible fields are the selected
-material, grams and time per unit, quantity, modeling, price-source state,
-suggested price and final accepted price. Internal cost components and the
-authorization threshold replace the generic list-price/discount concepts and
-remain hidden.
+For precise 3D printing, the applicable visible fields are material, actual
+slicer grams and time, quantity, modeling, color mode, production printer,
+price-source state, suggested price and final accepted price. Quick mode shows
+its preliminary intake fields, employee-entered whole-job total, accepted
+rounded total and required non-definitive notice.
+Internal cost components and the authorization threshold replace the generic
+list-price/discount concepts and remain hidden.
 
 ## Information hidden from employees
 
@@ -377,8 +430,12 @@ calculator. Changing calculator mode, category, service or form values does not
 change lines that were already added.
 
 A precise 3D line stores its accepted rounded total and only customer-safe
-material, grams-per-unit, time-per-unit and modeling details. Later form,
-material, modeling or runtime configuration changes do not recalculate it.
+material, slicer metrics, modeling, color and production-printer details.
+Later form, material, modeling or runtime configuration changes do not
+recalculate it. A quick-estimate line likewise stores its accepted rounded
+whole-job total and safe preliminary details; later quick-form changes do not
+reprice the stored line. Its provisional condition remains attached to that
+line in the temporary quotation, formal preview and PDF.
 
 The quotation total is the exact sum of the stored final line totals. The
 quotation does not multiply quantity again, apply COP 500 rounding again,
@@ -463,7 +520,10 @@ The following functionality is explicitly excluded from the first release:
 - Inventory management.
 - Supplier management.
 - Cost-and-margin pricing.
-- Quick 3D estimation from dimensions, volume or density coefficients.
+- Automatic quick 3D estimation from approximate size, calibration profiles,
+  interpolation or extrapolation.
+- STL geometry analysis, automatic supports or automatic model splitting.
+- Additional printers, materials, resin or invented printer Z limits.
 - Editable 3D prices or an administration/database-backed pricing catalog.
 - Authentication, roles or in-system permission grants for exceptional prices.
 - Accounting, electronic invoicing, online payments, and multi-company
@@ -486,5 +546,9 @@ The first release satisfies these requirements when it:
   without repricing it.
 - Downloads that same safe preview model as a local PDF without repricing,
   uploading or persisting quotation data.
-- Prices precise 3D jobs without exposing internal pricing in the employee
-  result, stored customer-facing snapshot, preview or PDF.
+- Prices precise 3D jobs from actual slicer grams and time without exposing
+  internal pricing in the employee result, stored customer-facing snapshot,
+  preview or PDF.
+- Provides a separate preliminary 3D workflow that never predicts price from
+  size but can store an employee-entered, rounded whole-job estimate as an
+  explicitly provisional formal quotation line.

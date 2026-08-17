@@ -20,20 +20,45 @@ src/app/page.tsx
 ```
 
 The page exposes `Impresión 3D` as a third top-level mode alongside `Productos
-por área` and `Servicios`; it is not listed under `Servicios → Impresos`. Its
-precise form accepts PLA or PETG, grams and printing hours/minutes per unit,
-quantity, and one modeling option per job. `Modificar precio` enables a custom
-amount. A raw amount below the internal threshold requires the explicit
+por área` and `Servicios`; it is not listed under `Servicios → Impresos`. It
+contains `Cotización precisa` and `Estimación rápida` as separate
+employee-facing submodes.
+
+The precise form accepts PLA or PETG, actual slicer grams and printing
+hours/minutes per unit, quantity, one modeling option per job, color mode,
+production printer and the existing manual-price controls. It does not ask for
+width, depth or height and does not infer dimensional compatibility because the
+job has already been sliced. One-color production allows KE or HI. Multicolor
+is HI-only and selecting it resolves the production printer to HI. Changing the
+printer alone does not alter current pricing because no printer-specific power
+configuration has been supplied.
+
+Quick mode records preliminary reference data plus an employee-entered
+`Precio estimado total`: approximate size, short piece description, material,
+quantity, modeling, color mode and the manual total. The entered price covers
+the complete job and already includes quantity, so the application never
+multiplies it again. It must be at least COP 5.000 and is rounded upward to COP
+500 before acceptance.
+
+Quick mode does not request or derive grams, printing time, an automatic price
+or a price range and does not call the precise 3D pricing engine. Quick
+Multicolor may record `Producción: HI` but does not apply the precise automatic
+×3 rule. An accepted quick estimate can be added as an immutable `Impresión 3D
+— Estimación preliminar` line and appears in the temporary quotation, formal
+preview and existing PDF with its line-specific provisional warning. Cube
+calibration, automatic profiles, interpolation and extrapolation are not
+active.
+
+`Modificar precio` enables a custom amount. A raw amount below the internal
+threshold requires the explicit
 checkbox `Confirmo que este precio está autorizado`; COP 5.000 remains a hard,
 non-authorizable floor. Upward COP 500 rounding happens only after the amount
-is allowed. The checkbox is an acknowledgement, not authentication or a real
+is allowed. Multicolor applies its configured commercial factor to both the
+suggested amount and guarded threshold without multiplying the absolute floor.
+The checkbox is an acknowledgement, not authentication or a real
 permissions system. Internal material, electricity, margin, multiplier,
 authorization state and threshold data are not part of the employee result,
 quotation snapshot, customer preview or PDF.
-
-The future quick estimator based on length × width × height is not included.
-The pricing engine is independent of the precise form so estimated grams and
-time can reuse it later.
 
 The page includes a temporary in-memory quotation shared by the area-product
 and service calculators. It stores independent snapshots of final calculated
@@ -51,8 +76,8 @@ text fallback if a logo fails.
 
 The quotation and preview exist only in page memory. This includes precise 3D
 lines; there is no editable pricing administration or runtime catalog storage.
-A browser refresh or
-confirmed complete quotation clearing removes the lines, details and frozen
+A browser refresh or confirmed complete quotation clearing
+removes the lines, details and frozen
 date; the next first line receives a new local date. There is no customer
 database, backend, upload or other persistence. PDF generation does not
 transmit quotation data. Print output, WhatsApp or email sharing, and saved

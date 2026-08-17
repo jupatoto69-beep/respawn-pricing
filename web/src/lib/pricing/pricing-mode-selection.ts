@@ -27,7 +27,7 @@ export const PRICING_MODE_OPTIONS: readonly PricingModeOption[] = [
   {
     id: PRICING_MODE_IDS.threeDPrinting,
     name: "Impresión 3D",
-    description: "Cotiza con material, tiempo, cantidad y modelado.",
+    description: "Cotiza trabajos laminados o registra datos preliminares.",
   },
 ] as const;
 

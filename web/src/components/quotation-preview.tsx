@@ -112,7 +112,14 @@ export function QuotationPreview({
                 {line.details.length > 0 ? (
                   <dl className={styles.lineDetails}>
                     {line.details.map((detail, detailIndex) => (
-                      <div key={`${detail.label}-${detailIndex}`}>
+                      <div
+                        key={`${detail.label}-${detailIndex}`}
+                        className={
+                          detail.label === "Condición"
+                            ? styles.lineCondition
+                            : undefined
+                        }
+                      >
                         <dt>{detail.label}</dt>
                         <dd>{detail.value}</dd>
                       </div>

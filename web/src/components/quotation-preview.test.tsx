@@ -119,6 +119,42 @@ describe("QuotationPreview", () => {
     expect(markup).not.toContain("Umbral");
   });
 
+  it("keeps a preliminary 3D warning visibly associated with its line", () => {
+    const quotation = addQuotationLine(createEmptyQuotation(), {
+      source: "service",
+      title: "Impresión 3D — Estimación preliminar",
+      quantity: 3,
+      details: [
+        { label: "Tipo", value: "Estimación preliminar" },
+        { label: "Tamaño aproximado", value: "15 cm" },
+        { label: "Descripción", value: "Figura decorativa" },
+        { label: "Material", value: "PLA" },
+        { label: "Modelado", value: "Modelo con IA / asistido por IA" },
+        { label: "Tipo de impresión", value: "Multicolor" },
+        { label: "Producción", value: "HI" },
+        {
+          label: "Condición",
+          value:
+            "Valor estimado. El precio definitivo puede cambiar después de recibir y laminar el archivo 3D.",
+        },
+      ],
+      lineTotal: 80_000,
+    });
+    const markup = renderPreview(quotation);
+
+    expect(markup).toContain(
+      "<h4>Impresión 3D — Estimación preliminar</h4>",
+    );
+    expect(markup).toContain("Figura decorativa");
+    expect(markup).toContain("Producción");
+    expect(markup).toContain("HI");
+    expect(markup).toContain("lineCondition");
+    expect(markup).toContain(
+      "Valor estimado. El precio definitivo puede cambiar después de recibir y laminar el archivo 3D.",
+    );
+    expect(markup).toContain("COP 80.000");
+  });
+
   it("uses the official white logo proportionally without a redundant visible business name", () => {
     const markup = renderPreview();
 

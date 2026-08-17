@@ -77,6 +77,11 @@ const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
   "Gramos por unidad",
   "Tiempo de impresión por unidad",
   "Modelado",
+  "Tipo de impresión",
+  "Impresora",
+  "Tamaño aproximado",
+  "Producción",
+  "Condición",
 ]);
 
 function hasUsefulText(value: string | undefined): value is string {

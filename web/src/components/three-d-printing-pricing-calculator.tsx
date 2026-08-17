@@ -18,26 +18,56 @@ import {
   THREE_D_PRINTING_MATERIAL_OPTIONS,
   THREE_D_PRINTING_MODELING_OPTIONS,
 } from "@/lib/pricing/three-d-printing-catalog";
+import {
+  getThreeDPrintingColorMode,
+  isThreeDPrintingColorModeId,
+  THREE_D_PRINTING_COLOR_MODE_IDS,
+  THREE_D_PRINTING_COLOR_MODE_OPTIONS,
+} from "@/lib/pricing/three-d-printing-color-mode";
+import {
+  getThreeDPrintingPrinter,
+  isThreeDPrintingPrinterId,
+  THREE_D_PRINTING_PRINTER_IDS,
+  THREE_D_PRINTING_PRINTER_OPTIONS,
+} from "@/lib/pricing/three-d-printing-printer";
 import { createThreeDPrintingQuotationLineDraft } from "@/lib/pricing/three-d-printing-quotation-line";
 import {
   changeThreeDPrintingBelowThresholdAuthorization,
+  changeThreeDPrintingColorMode,
   changeThreeDPrintingManualPriceEnabled,
   changeThreeDPrintingMaterial,
   changeThreeDPrintingModeling,
+  changeThreeDPrintingPrinter,
   changeThreeDPrintingTextField,
+  clearThreeDPrintingBelowThresholdAuthorization,
   createInitialThreeDPrintingPricingFormValues,
-  parseThreeDPrintingPricingFormValues,
+  resolveThreeDPrintingPricingFormValues,
+  type ResolvedThreeDPrintingForm,
   type ThreeDPrintingPricingFormValues,
   type ThreeDPrintingTextField,
 } from "@/lib/pricing/three-d-printing-selection";
+import {
+  isThreeDPrintingSubmodeId,
+  THREE_D_PRINTING_SUBMODE_IDS,
+  THREE_D_PRINTING_SUBMODE_OPTIONS,
+  type ThreeDPrintingSubmodeId,
+} from "@/lib/pricing/three-d-printing-submode";
 import type { QuotationLineDraft } from "@/lib/pricing/temporary-quotation";
 
 import formStyles from "./area-pricing-calculator.module.css";
-import styles from "./services-pricing-calculator.module.css";
+import serviceStyles from "./services-pricing-calculator.module.css";
+import { ThreeDPrintingQuickIntake } from "./three-d-printing-quick-intake";
+import styles from "./three-d-printing-pricing-calculator.module.css";
 
 type ThreeDPrintingPricingCalculatorProps = Readonly<{
   onAddQuotationLine?: (line: QuotationLineDraft) => void;
   initialValues?: ThreeDPrintingPricingFormValues;
+  initialSubmodeId?: ThreeDPrintingSubmodeId;
+}>;
+
+type ThreeDPrintingUiResult = Readonly<{
+  calculation: ThreeDPrintingPriceCalculation;
+  resolvedForm: ResolvedThreeDPrintingForm;
 }>;
 
 const priceFormatter = new Intl.NumberFormat("es-CO", {
@@ -54,6 +84,12 @@ const measurementFormatter = new Intl.NumberFormat("es-CO", {
 
 const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "3D printing material must be valid.": "Selecciona un material.",
+  "3D printing color mode must be valid.":
+    "Selecciona un tipo de impresión.",
+  "3D printing production printer must be valid.":
+    "Selecciona una impresora de producción.",
+  "3D printing multicolor production requires HI.":
+    "La producción multicolor requiere la impresora HI.",
   "3D printing modeling option must be valid.":
     "Selecciona una opción de modelado.",
   "3D printing grams per unit is required.": "Ingresa los gramos por unidad.",
@@ -109,7 +145,7 @@ function resolveAuthorizationRequired(
 
   try {
     return requiresThreeDPrintingManualPriceAuthorization(
-      parseThreeDPrintingPricingFormValues(values),
+      resolveThreeDPrintingPricingFormValues(values).pricingInput,
     );
   } catch {
     return false;
@@ -119,14 +155,15 @@ function resolveAuthorizationRequired(
 export function ThreeDPrintingPricingCalculator({
   onAddQuotationLine,
   initialValues,
+  initialSubmodeId = THREE_D_PRINTING_SUBMODE_IDS.precise,
 }: ThreeDPrintingPricingCalculatorProps = {}) {
   const idPrefix = useId();
+  const [submodeId, setSubmodeId] =
+    useState<ThreeDPrintingSubmodeId>(initialSubmodeId);
   const [values, setValues] = useState<ThreeDPrintingPricingFormValues>(
     () => initialValues ?? createInitialThreeDPrintingPricingFormValues(),
   );
-  const [result, setResult] = useState<ThreeDPrintingPriceCalculation | null>(
-    null,
-  );
+  const [result, setResult] = useState<ThreeDPrintingUiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addFeedbackSequence, setAddFeedbackSequence] = useState(0);
   const authorizationRequired = resolveAuthorizationRequired(values);
@@ -135,6 +172,18 @@ export function ThreeDPrintingPricingCalculator({
     setResult(null);
     setError(null);
     setAddFeedbackSequence(0);
+  }
+
+  function handleSubmodeChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextSubmodeId = event.currentTarget.value;
+
+    if (!isThreeDPrintingSubmodeId(nextSubmodeId)) {
+      return;
+    }
+
+    setSubmodeId(nextSubmodeId);
+    setValues(clearThreeDPrintingBelowThresholdAuthorization);
+    clearFeedback();
   }
 
   function handleMaterialChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -150,24 +199,48 @@ export function ThreeDPrintingPricingCalculator({
     if (!isThreeDPrintingModelingId(modelingId)) {
       return;
     }
+
+    setValues((current) => changeThreeDPrintingModeling(current, modelingId));
+    clearFeedback();
+  }
+
+  function handleColorModeChange(event: ChangeEvent<HTMLSelectElement>) {
+    const colorModeId = event.currentTarget.value;
+    if (!isThreeDPrintingColorModeId(colorModeId)) {
+      return;
+    }
+
     setValues((current) =>
-      changeThreeDPrintingModeling(current, modelingId),
+      changeThreeDPrintingColorMode(current, colorModeId),
     );
+    clearFeedback();
+  }
+
+  function handlePrinterChange(event: ChangeEvent<HTMLSelectElement>) {
+    const printerId = event.currentTarget.value;
+    if (!isThreeDPrintingPrinterId(printerId)) {
+      return;
+    }
+
+    setValues((current) => changeThreeDPrintingPrinter(current, printerId));
     clearFeedback();
   }
 
   function handleTextChange(event: ChangeEvent<HTMLInputElement>) {
     const field = event.currentTarget.name as ThreeDPrintingTextField;
     const value = event.currentTarget.value;
-    if (
-      field !== "gramsPerUnit" &&
-      field !== "printingHoursPerUnit" &&
-      field !== "printingMinutesPerUnit" &&
-      field !== "quantity" &&
-      field !== "manualPriceCop"
-    ) {
+    const acceptedFields: readonly ThreeDPrintingTextField[] = [
+      "gramsPerUnit",
+      "printingHoursPerUnit",
+      "printingMinutesPerUnit",
+      "quantity",
+      "manualPriceCop",
+    ];
+
+    if (!acceptedFields.includes(field)) {
       return;
     }
+
     setValues((current) =>
       changeThreeDPrintingTextField(current, field, value),
     );
@@ -195,12 +268,13 @@ export function ThreeDPrintingPricingCalculator({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     try {
-      setResult(
-        calculateThreeDPrintingPrice(
-          parseThreeDPrintingPricingFormValues(values),
-        ),
+      const resolvedForm = resolveThreeDPrintingPricingFormValues(values);
+      const calculation = calculateThreeDPrintingPrice(
+        resolvedForm.pricingInput,
       );
+      setResult(Object.freeze({ calculation, resolvedForm }));
       setError(null);
       setAddFeedbackSequence(0);
     } catch (caughtError: unknown) {
@@ -223,321 +297,454 @@ export function ThreeDPrintingPricingCalculator({
     if (result === null || onAddQuotationLine === undefined) {
       return;
     }
+
     onAddQuotationLine(createThreeDPrintingQuotationLineDraft(result));
     setAddFeedbackSequence((sequence) => sequence + 1);
   }
 
   return (
-    <div className={formStyles.calculator}>
-      <form
-        className={formStyles.form}
-        onSubmit={handleSubmit}
-        onReset={handleReset}
-        noValidate
-      >
-        <div className={formStyles.formHeading}>
-          <div>
-            <p className={formStyles.kicker}>Datos de entrada</p>
-            <h3>Impresión 3D: cotización precisa</h3>
-          </div>
-          <p className={formStyles.requiredNote}>Completa los campos obligatorios</p>
+    <div>
+      <fieldset className={styles.submodeSelector}>
+        <legend>Flujo de impresión 3D</legend>
+        <div className={styles.submodeOptions}>
+          {THREE_D_PRINTING_SUBMODE_OPTIONS.map((option) => (
+            <label key={option.id} htmlFor={`${idPrefix}-${option.id}`}>
+              <input
+                id={`${idPrefix}-${option.id}`}
+                type="radio"
+                name={`${idPrefix}-three-d-printing-submode`}
+                value={option.id}
+                checked={submodeId === option.id}
+                onChange={handleSubmodeChange}
+              />
+              <span>
+                <strong>{option.name}</strong>
+                <small>{option.description}</small>
+              </span>
+            </label>
+          ))}
         </div>
+      </fieldset>
 
-        <div className={formStyles.fields}>
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-material`}>Material</label>
-            <select
-              id={`${idPrefix}-material`}
-              name="materialId"
-              value={values.materialId}
-              onChange={handleMaterialChange}
-              required
-            >
-              <option value="">Selecciona un material</option>
-              {THREE_D_PRINTING_MATERIAL_OPTIONS.map((material) => (
-                <option key={material.id} value={material.id}>
-                  {material.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-grams`}>Gramos por unidad</label>
-            <div className={formStyles.inputShell}>
-              <input
-                id={`${idPrefix}-grams`}
-                name="gramsPerUnit"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="any"
-                value={values.gramsPerUnit}
-                onChange={handleTextChange}
-                placeholder="100"
-                required
-              />
-              <span aria-hidden="true">g</span>
-            </div>
-          </div>
-
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-hours`}>Horas de impresión por unidad</label>
-            <div className={formStyles.inputShell}>
-              <input
-                id={`${idPrefix}-hours`}
-                name="printingHoursPerUnit"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={values.printingHoursPerUnit}
-                onChange={handleTextChange}
-                placeholder="5"
-                required
-              />
-              <span aria-hidden="true">h</span>
-            </div>
-          </div>
-
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-minutes`}>
-              Minutos de impresión por unidad
-            </label>
-            <div className={formStyles.inputShell}>
-              <input
-                id={`${idPrefix}-minutes`}
-                name="printingMinutesPerUnit"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                max="59"
-                step="1"
-                value={values.printingMinutesPerUnit}
-                onChange={handleTextChange}
-                placeholder="0"
-                required
-              />
-              <span aria-hidden="true">min</span>
-            </div>
-          </div>
-
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-quantity`}>Cantidad</label>
-            <div className={`${formStyles.inputShell} ${styles.quantityShell}`}>
-              <input
-                id={`${idPrefix}-quantity`}
-                name="quantity"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={values.quantity}
-                onChange={handleTextChange}
-                placeholder="1"
-                required
-              />
-              <span aria-hidden="true">unidades</span>
-            </div>
-          </div>
-
-          <div className={formStyles.field}>
-            <label htmlFor={`${idPrefix}-modeling`}>Modelado</label>
-            <select
-              id={`${idPrefix}-modeling`}
-              name="modelingId"
-              value={values.modelingId}
-              onChange={handleModelingChange}
-              required
-            >
-              {THREE_D_PRINTING_MODELING_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <fieldset className={formStyles.structureOptions}>
-            <legend>Precio</legend>
-            <label>
-              <input
-                type="checkbox"
-                name="manualPriceEnabled"
-                checked={values.manualPriceEnabled}
-                onChange={handleManualPriceEnabled}
-              />
-              <span>Modificar precio</span>
-            </label>
-          </fieldset>
-
-          {values.manualPriceEnabled ? (
-            <div className={`${formStyles.field} ${styles.wideField}`}>
-              <label htmlFor={`${idPrefix}-manual-price`}>Precio personalizado</label>
-              <div className={formStyles.inputShell}>
-                <input
-                  id={`${idPrefix}-manual-price`}
-                  name="manualPriceCop"
-                  type="number"
-                  inputMode="decimal"
-                  min="5000"
-                  step="any"
-                  value={values.manualPriceCop}
-                  onChange={handleTextChange}
-                  placeholder="Precio final del trabajo"
-                  required
-                  aria-describedby={
-                    authorizationRequired ? `${idPrefix}-authorization` : undefined
-                  }
-                />
-                <span aria-hidden="true">COP</span>
+      {submodeId === THREE_D_PRINTING_SUBMODE_IDS.quick ? (
+        <ThreeDPrintingQuickIntake
+          onAddQuotationLine={onAddQuotationLine}
+        />
+      ) : (
+        <div className={formStyles.calculator}>
+          <form
+            className={formStyles.form}
+            onSubmit={handleSubmit}
+            onReset={handleReset}
+            noValidate
+          >
+            <div className={formStyles.formHeading}>
+              <div>
+                <p className={formStyles.kicker}>Datos de entrada</p>
+                <h3>Impresión 3D: cotización precisa</h3>
               </div>
+              <p className={formStyles.requiredNote}>
+                Completa los campos obligatorios
+              </p>
             </div>
-          ) : null}
 
-          {authorizationRequired ? (
+            <div className={formStyles.fields}>
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-material`}>Material</label>
+                <select
+                  id={`${idPrefix}-material`}
+                  name="materialId"
+                  value={values.materialId}
+                  onChange={handleMaterialChange}
+                  required
+                >
+                  <option value="">Selecciona un material</option>
+                  {THREE_D_PRINTING_MATERIAL_OPTIONS.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-grams`}>Gramos por unidad</label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-grams`}
+                    name="gramsPerUnit"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="any"
+                    value={values.gramsPerUnit}
+                    onChange={handleTextChange}
+                    placeholder="100"
+                    required
+                  />
+                  <span aria-hidden="true">g</span>
+                </div>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-hours`}>
+                  Horas de impresión por unidad
+                </label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-hours`}
+                    name="printingHoursPerUnit"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    step="1"
+                    value={values.printingHoursPerUnit}
+                    onChange={handleTextChange}
+                    placeholder="5"
+                    required
+                  />
+                  <span aria-hidden="true">h</span>
+                </div>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-minutes`}>
+                  Minutos de impresión por unidad
+                </label>
+                <div className={formStyles.inputShell}>
+                  <input
+                    id={`${idPrefix}-minutes`}
+                    name="printingMinutesPerUnit"
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="59"
+                    step="1"
+                    value={values.printingMinutesPerUnit}
+                    onChange={handleTextChange}
+                    placeholder="0"
+                    required
+                  />
+                  <span aria-hidden="true">min</span>
+                </div>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-quantity`}>Cantidad</label>
+                <div
+                  className={`${formStyles.inputShell} ${serviceStyles.quantityShell}`}
+                >
+                  <input
+                    id={`${idPrefix}-quantity`}
+                    name="quantity"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={values.quantity}
+                    onChange={handleTextChange}
+                    placeholder="1"
+                    required
+                  />
+                  <span aria-hidden="true">unidades</span>
+                </div>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-modeling`}>Modelado</label>
+                <select
+                  id={`${idPrefix}-modeling`}
+                  name="modelingId"
+                  value={values.modelingId}
+                  onChange={handleModelingChange}
+                  required
+                >
+                  {THREE_D_PRINTING_MODELING_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-color-mode`}>
+                  Tipo de impresión
+                </label>
+                <select
+                  id={`${idPrefix}-color-mode`}
+                  name="colorModeId"
+                  value={values.colorModeId}
+                  onChange={handleColorModeChange}
+                  required
+                >
+                  {THREE_D_PRINTING_COLOR_MODE_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                {values.colorModeId ===
+                THREE_D_PRINTING_COLOR_MODE_IDS.multicolor ? (
+                  <p className={formStyles.fieldHelp}>
+                    Multicolor se produce únicamente en HI.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className={formStyles.field}>
+                <label htmlFor={`${idPrefix}-printer`}>Impresora</label>
+                <select
+                  id={`${idPrefix}-printer`}
+                  name="printerId"
+                  value={values.printerId}
+                  onChange={handlePrinterChange}
+                  required
+                >
+                  {THREE_D_PRINTING_PRINTER_OPTIONS.map((printer) => (
+                    <option
+                      key={printer.id}
+                      value={printer.id}
+                      disabled={
+                        values.colorModeId ===
+                          THREE_D_PRINTING_COLOR_MODE_IDS.multicolor &&
+                        printer.id === THREE_D_PRINTING_PRINTER_IDS.ke
+                      }
+                    >
+                      {printer.name}
+                    </option>
+                  ))}
+                </select>
+                <p className={formStyles.fieldHelp}>
+                  Impresora seleccionada para producir el trabajo.
+                </p>
+              </div>
+
+              <fieldset className={formStyles.structureOptions}>
+                <legend>Precio</legend>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="manualPriceEnabled"
+                    checked={values.manualPriceEnabled}
+                    onChange={handleManualPriceEnabled}
+                  />
+                  <span>Modificar precio</span>
+                </label>
+              </fieldset>
+
+              {values.manualPriceEnabled ? (
+                <div
+                  className={`${formStyles.field} ${serviceStyles.wideField}`}
+                >
+                  <label htmlFor={`${idPrefix}-manual-price`}>
+                    Precio personalizado
+                  </label>
+                  <div className={formStyles.inputShell}>
+                    <input
+                      id={`${idPrefix}-manual-price`}
+                      name="manualPriceCop"
+                      type="number"
+                      inputMode="decimal"
+                      min="5000"
+                      step="any"
+                      value={values.manualPriceCop}
+                      onChange={handleTextChange}
+                      placeholder="Precio final del trabajo"
+                      required
+                      aria-describedby={
+                        authorizationRequired
+                          ? `${idPrefix}-authorization`
+                          : undefined
+                      }
+                    />
+                    <span aria-hidden="true">COP</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {authorizationRequired ? (
+                <div
+                  id={`${idPrefix}-authorization`}
+                  className={`${serviceStyles.minimumWarning} ${serviceStyles.wideField}`}
+                >
+                  <strong>Este precio requiere autorización.</strong>
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="belowThresholdAuthorized"
+                      checked={values.belowThresholdAuthorized}
+                      onChange={handleAuthorizationChange}
+                    />
+                    <span>Confirmo que este precio está autorizado</span>
+                  </label>
+                </div>
+              ) : null}
+
+              <p className={serviceStyles.threeDPrintingNotice}>
+                Usa los gramos y el tiempo reales entregados por el laminador
+                para una unidad. La cantidad multiplica esas medidas; el
+                modelado se cobra una sola vez por trabajo.
+              </p>
+            </div>
+
+            <div className={formStyles.actions}>
+              <button className={formStyles.primaryButton} type="submit">
+                Calcular precio
+              </button>
+              <button className={formStyles.secondaryButton} type="reset">
+                Limpiar
+              </button>
+            </div>
+
             <div
-              id={`${idPrefix}-authorization`}
-              className={`${styles.minimumWarning} ${styles.wideField}`}
-            >
-              <strong>Este precio requiere autorización.</strong>
-              <label>
-                <input
-                  type="checkbox"
-                  name="belowThresholdAuthorized"
-                  checked={values.belowThresholdAuthorized}
-                  onChange={handleAuthorizationChange}
-                />
-                <span>Confirmo que este precio está autorizado</span>
-              </label>
-            </div>
-          ) : null}
-
-          <p className={styles.threeDPrintingNotice}>
-            Los gramos y el tiempo corresponden a una unidad. La cantidad
-            multiplica esas medidas; el modelado se cobra una sola vez por trabajo.
-          </p>
-        </div>
-
-        <div className={formStyles.actions}>
-          <button className={formStyles.primaryButton} type="submit">
-            Calcular precio
-          </button>
-          <button className={formStyles.secondaryButton} type="reset">
-            Limpiar
-          </button>
-        </div>
-
-        <div className={formStyles.errorRegion} aria-live="assertive" aria-atomic="true">
-          {error ? (
-            <p className={formStyles.error} role="alert">
-              <span aria-hidden="true">!</span>
-              {error}
-            </p>
-          ) : null}
-        </div>
-      </form>
-
-      <section
-        className={formStyles.results}
-        aria-label="Resultado de impresión 3D"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <div className={formStyles.resultHeading}>
-          <p className={formStyles.kicker}>Resultado</p>
-          <h3>Resumen comercial</h3>
-        </div>
-
-        {result ? (
-          <dl className={formStyles.priceList}>
-            <div className={formStyles.priceItem}>
-              <dt>Producto</dt>
-              <dd className={styles.textValue}>Impresión 3D</dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Material</dt>
-              <dd className={styles.textValue}>
-                {getThreeDPrintingMaterialConfig(result.materialId).name}
-              </dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Gramos por unidad</dt>
-              <dd>{measurementFormatter.format(result.gramsPerUnit)} g</dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Tiempo de impresión por unidad</dt>
-              <dd className={styles.textValue}>
-                {formatThreeDPrintingDuration(
-                  result.printingHoursPerUnit,
-                  result.printingMinutesPerUnit,
-                )}
-              </dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Cantidad</dt>
-              <dd>{result.quantity}</dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Modelado</dt>
-              <dd className={styles.textValue}>
-                {getThreeDPrintingModelingOption(result.modelingId).name}
-              </dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Precio comercial sugerido</dt>
-              <dd>
-                <data value={result.suggestedPrice}>
-                  {priceFormatter.format(result.suggestedPrice)}
-                </data>
-              </dd>
-            </div>
-            <div className={formStyles.priceItem}>
-              <dt>Estado del precio</dt>
-              <dd className={styles.textValue}>
-                {result.priceSource === "manual"
-                  ? "Precio modificado"
-                  : "Precio sugerido"}
-              </dd>
-            </div>
-            <div className={formStyles.priceItemFeatured}>
-              <dt>Total final</dt>
-              <dd>
-                <data value={result.totalPrice}>
-                  {priceFormatter.format(result.totalPrice)}
-                </data>
-              </dd>
-              <dd className={formStyles.priceItemNote}>Precio comercial final</dd>
-            </div>
-          </dl>
-        ) : (
-          <div className={formStyles.emptyResult}>
-            <span aria-hidden="true">COP</span>
-            <p>Completa los datos y calcula para ver el resumen comercial.</p>
-          </div>
-        )}
-
-        {result && onAddQuotationLine ? (
-          <div className={formStyles.quotationAction}>
-            <button
-              className={formStyles.primaryButton}
-              type="button"
-              aria-label="Agregar Impresión 3D a la cotización"
-              onClick={handleAddQuotationLine}
-            >
-              Agregar a la cotización
-            </button>
-            <p
-              key={addFeedbackSequence}
-              className={formStyles.quotationFeedback}
-              aria-live="polite"
+              className={formStyles.errorRegion}
+              aria-live="assertive"
               aria-atomic="true"
             >
-              {addFeedbackSequence > 0 ? "Agregado a la cotización." : ""}
-            </p>
-          </div>
-        ) : null}
-      </section>
+              {error ? (
+                <p className={formStyles.error} role="alert">
+                  <span aria-hidden="true">!</span>
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </form>
+
+          <section
+            className={formStyles.results}
+            aria-label="Resultado de impresión 3D"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <div className={formStyles.resultHeading}>
+              <p className={formStyles.kicker}>Resultado</p>
+              <h3>Resumen comercial</h3>
+            </div>
+
+            {result ? (
+              <dl className={formStyles.priceList}>
+                <div className={formStyles.priceItem}>
+                  <dt>Producto</dt>
+                  <dd className={serviceStyles.textValue}>Impresión 3D</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Material</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {
+                      getThreeDPrintingMaterialConfig(
+                        result.calculation.materialId,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Gramos por unidad</dt>
+                  <dd>
+                    {measurementFormatter.format(
+                      result.calculation.gramsPerUnit,
+                    )} g
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Tiempo de impresión por unidad</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {formatThreeDPrintingDuration(
+                      result.calculation.printingHoursPerUnit,
+                      result.calculation.printingMinutesPerUnit,
+                    )}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Cantidad</dt>
+                  <dd>{result.calculation.quantity}</dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Modelado</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {
+                      getThreeDPrintingModelingOption(
+                        result.calculation.modelingId,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Tipo de impresión</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {
+                      getThreeDPrintingColorMode(
+                        result.calculation.colorModeId,
+                      ).name
+                    }
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Impresora</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {getThreeDPrintingPrinter(result.resolvedForm.printerId).name}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Precio comercial sugerido</dt>
+                  <dd>
+                    <data value={result.calculation.suggestedPrice}>
+                      {priceFormatter.format(result.calculation.suggestedPrice)}
+                    </data>
+                  </dd>
+                </div>
+                <div className={formStyles.priceItem}>
+                  <dt>Estado del precio</dt>
+                  <dd className={serviceStyles.textValue}>
+                    {result.calculation.priceSource === "manual"
+                      ? "Precio modificado"
+                      : "Precio sugerido"}
+                  </dd>
+                </div>
+                <div className={formStyles.priceItemFeatured}>
+                  <dt>Total final</dt>
+                  <dd>
+                    <data value={result.calculation.totalPrice}>
+                      {priceFormatter.format(result.calculation.totalPrice)}
+                    </data>
+                  </dd>
+                  <dd className={formStyles.priceItemNote}>
+                    Precio comercial final
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <div className={formStyles.emptyResult}>
+                <span aria-hidden="true">COP</span>
+                <p>Completa los datos y calcula para ver el resumen comercial.</p>
+              </div>
+            )}
+
+            {result && onAddQuotationLine ? (
+              <div className={formStyles.quotationAction}>
+                <button
+                  className={formStyles.primaryButton}
+                  type="button"
+                  aria-label="Agregar Impresión 3D a la cotización"
+                  onClick={handleAddQuotationLine}
+                >
+                  Agregar a la cotización
+                </button>
+                <p
+                  key={addFeedbackSequence}
+                  className={formStyles.quotationFeedback}
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {addFeedbackSequence > 0
+                    ? "Agregado a la cotización."
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

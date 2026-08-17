@@ -14,33 +14,57 @@ discounts.
 - Apply product-specific authorized discount ranges.
 - Prevent sales below the configured minimum price.
 - Provide employees with guidance for products and services.
-- Price precise 3D-printing jobs from material, per-unit grams and printing
-  time, quantity, and modeling.
+- Price precise 3D-printing jobs from actual slicer grams and printing time.
+- Collect preliminary 3D-printing intake before an STL/model is sliced.
 - Build temporary on-screen quotations.
 
 The scoped precise 3D-printing strategy is implemented. Generic
 cost-and-margin pricing for other catalog items remains planned for a future
 release.
 
-## Precise 3D printing
+## 3D printing
 
 `Impresión 3D` is a top-level quotation mode alongside `Productos por área`
-and `Servicios`; it is not part of `Servicios → Impresos`. Its precise form
-uses PLA or PETG, grams and printing time per unit, quantity, and one modeling
-option per job. It produces a rounded commercial price and supports an explicit
-manual price. A raw amount below the internal threshold can continue only after
-the employee checks `Confirmo que este precio está autorizado`; COP 5.000
-remains an absolute, non-authorizable minimum. Rounding is applied only after
-the raw amount is allowed.
-The employee-facing result, stored quotation snapshot, formal preview and PDF
-contain only customer-safe selections and the accepted final price; material,
-electricity, margin, authorization state and threshold internals are not
-presented. The checkbox is an explicit confirmation, not authentication or a
-real permissions system.
+and `Servicios`; it is not part of `Servicios → Impresos`. It exposes two
+employee-facing submodes: `Cotización precisa` and `Estimación rápida`.
 
-A quick estimator from length × width × height is not implemented yet. The
-precise engine accepts already-resolved grams and printing time so a future
-estimator can reuse it.
+The precise form uses PLA or PETG, actual grams and printing time per unit from
+the slicer, quantity, one modeling option per job, color mode, production
+printer, and the existing manual-price controls. It does not request physical
+dimensions or calculate dimensional compatibility: the prepared job has
+already been sliced. One-color production may select KE or HI. Multicolor
+production is HI-only and switching to it safely resolves the selection to HI.
+The selected printer does not currently change price because no
+printer-specific power values have been supplied.
+
+Quick mode is a preliminary workflow for an unsliced request. It records an
+approximate size, short piece description, material, quantity, modeling, color
+mode and an employee-entered `Precio estimado total`. That amount is the manual
+preliminary total for the complete job, already including the requested
+quantity; it is never treated as a unit price or multiplied by quantity again.
+It must be at least COP 5.000 and is rounded upward to COP 500.
+
+Quick mode does not derive grams, printing time, a monetary value or a range
+from size and does not call the precise pricing engine. In particular, quick
+Multicolor records that production requires HI but does not automatically apply
+the precise ×3 rule. An accepted quick estimate can become an immutable
+`Impresión 3D — Estimación preliminar` line in the temporary quotation, formal
+preview and existing PDF. The line always carries its provisional warning.
+Automatic calibration, profiles, interpolation and extrapolation remain
+inactive.
+
+The commercial engine preserves the existing material, electricity, quantity,
+modeling, minimum and rounding rules. Multicolor applies its configured
+commercial factor consistently to both the suggested amount and guarded manual
+price threshold, while the absolute COP 5.000 floor is not multiplied. An
+accepted manual price is rounded only after raw-value validation and any
+required confirmation.
+
+The employee-facing result, stored quotation snapshot, formal preview and PDF
+contain only customer-safe selections and the accepted final price; internal
+material/electricity costs, margin, authorization state and threshold details
+are not presented. The checkbox is an explicit confirmation, not
+authentication or a real permissions system.
 
 ## Temporary quotation
 

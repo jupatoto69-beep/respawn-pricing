@@ -37,7 +37,13 @@ import {
   THREE_D_PRINTING_MATERIAL_IDS,
   THREE_D_PRINTING_MODELING_IDS,
 } from "./three-d-printing-catalog";
+import { THREE_D_PRINTING_COLOR_MODE_IDS } from "./three-d-printing-color-mode";
+import { THREE_D_PRINTING_PRINTER_IDS } from "./three-d-printing-printer";
 import { createThreeDPrintingQuotationLineDraft } from "./three-d-printing-quotation-line";
+import {
+  createInitialThreeDPrintingPricingFormValues,
+  resolveThreeDPrintingPricingFormValues,
+} from "./three-d-printing-selection";
 import {
   addQuotationLine,
   calculateQuotationTotal,
@@ -84,6 +90,12 @@ function expectNoThreeDInternalPricing(
     "×4",
     "autorizado",
     "requiere autorización",
+    "belowthresholdauthorized",
+    "authorizationthresholdraw",
+    "suggestedpriceraw",
+    "dimensiones",
+    "compatible",
+    "división",
     "categoría",
     "impresos",
   ]) {
@@ -274,20 +286,26 @@ describe("quotation-line adapters", () => {
   });
 
   it("creates a customer-safe immutable 3D printing snapshot", () => {
-    const calculation = calculateThreeDPrintingPrice({
+    const resolvedForm = resolveThreeDPrintingPricingFormValues({
+      ...createInitialThreeDPrintingPricingFormValues(),
       materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
-      gramsPerUnit: 100,
-      printingHoursPerUnit: 5,
-      printingMinutesPerUnit: 30,
-      quantity: 3,
+      gramsPerUnit: "100",
+      printingHoursPerUnit: "5",
+      printingMinutesPerUnit: "30",
+      printerId: THREE_D_PRINTING_PRINTER_IDS.hi,
+      quantity: "3",
       modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
-      manualPrice: {
-        enabled: true,
-        amountCop: 190_100,
-        belowThresholdAuthorized: true,
-      },
+      manualPriceEnabled: true,
+      manualPriceCop: "190100",
+      belowThresholdAuthorized: true,
     });
-    const draft = createThreeDPrintingQuotationLineDraft(calculation);
+    const calculation = calculateThreeDPrintingPrice(
+      resolvedForm.pricingInput,
+    );
+    const draft = createThreeDPrintingQuotationLineDraft({
+      calculation,
+      resolvedForm,
+    });
     const quotation = addQuotationLine(createEmptyQuotation(), draft);
     const stored = quotation.lines[0];
 
@@ -300,6 +318,8 @@ describe("quotation-line adapters", () => {
         { label: "Gramos por unidad", value: "100 g" },
         { label: "Tiempo de impresión por unidad", value: "5 h 30 min" },
         { label: "Modelado", value: "Diseño básico" },
+        { label: "Tipo de impresión", value: "Un color" },
+        { label: "Impresora", value: "HI" },
       ],
       lineTotal: calculation.totalPrice,
     });
@@ -312,26 +332,63 @@ describe("quotation-line adapters", () => {
     expectNoThreeDInternalPricing(stored);
   });
 
-  it("keeps the accepted 3D line price after later inputs produce another result", () => {
-    const first = calculateThreeDPrintingPrice({
-      materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
-      gramsPerUnit: 100,
-      printingHoursPerUnit: 5,
-      printingMinutesPerUnit: 0,
-      quantity: 1,
-      modelingId: THREE_D_PRINTING_MODELING_IDS.none,
-      manualPrice: {
-        enabled: false,
-        amountCop: null,
-        belowThresholdAuthorized: false,
-      },
+  it("stores the selected HI production printer for multicolor", () => {
+    const resolvedForm = resolveThreeDPrintingPricingFormValues({
+      ...createInitialThreeDPrintingPricingFormValues(),
+      colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+      printerId: THREE_D_PRINTING_PRINTER_IDS.hi,
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.petg,
+      gramsPerUnit: "100",
+      printingHoursPerUnit: "5",
+      printingMinutesPerUnit: "0",
     });
+    const calculation = calculateThreeDPrintingPrice(
+      resolvedForm.pricingInput,
+    );
+    const draft = createThreeDPrintingQuotationLineDraft({
+      calculation,
+      resolvedForm,
+    });
+    const stored = addQuotationLine(createEmptyQuotation(), draft).lines[0];
+
+    expect(stored.details).toEqual([
+      { label: "Material", value: "PETG" },
+      { label: "Gramos por unidad", value: "100 g" },
+      { label: "Tiempo de impresión por unidad", value: "5 h" },
+      { label: "Modelado", value: "Sin modelado" },
+      { label: "Tipo de impresión", value: "Multicolor" },
+      { label: "Impresora", value: "HI" },
+    ]);
+    expect(stored.lineTotal).toBe(168_000);
+    expect(stored.lineTotal).toBe(calculation.totalPrice);
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored.details)).toBe(true);
+    expectNoThreeDInternalPricing(stored);
+  });
+
+  it("keeps the accepted 3D line price after later inputs produce another result", () => {
+    const firstResolvedForm = resolveThreeDPrintingPricingFormValues({
+      ...createInitialThreeDPrintingPricingFormValues(),
+      materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
+      gramsPerUnit: "100",
+      printingHoursPerUnit: "5",
+      printingMinutesPerUnit: "0",
+      quantity: "1",
+      modelingId: THREE_D_PRINTING_MODELING_IDS.none,
+    });
+    const first = calculateThreeDPrintingPrice(
+      firstResolvedForm.pricingInput,
+    );
     const quotation = addQuotationLine(
       createEmptyQuotation(),
-      createThreeDPrintingQuotationLineDraft(first),
+      createThreeDPrintingQuotationLineDraft({
+        calculation: first,
+        resolvedForm: firstResolvedForm,
+      }),
     );
     const later = calculateThreeDPrintingPrice({
       materialId: THREE_D_PRINTING_MATERIAL_IDS.petg,
+      colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.singleColor,
       gramsPerUnit: 500,
       printingHoursPerUnit: 20,
       printingMinutesPerUnit: 45,
