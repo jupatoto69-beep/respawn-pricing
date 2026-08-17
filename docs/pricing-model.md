@@ -98,9 +98,9 @@ release.
 - **Duration pricing:** a base price plus a charge for each additional started
   minute.
 - **Optional add-on:** an additional configured amount added per unit.
-- **Precise 3D printing:** a material- and machine-time-based strategy with
-  one modeling charge per job, an automatic commercial price and a guarded
-  manual final-price option.
+- **3D printing:** a material- and machine-time-based commercial strategy with
+  actual slicer inputs, one modeling charge per job, an automatic commercial
+  price and a guarded manual final-price option.
 
 ### Computer services
 
@@ -266,14 +266,54 @@ threshold includes X itself:
 - From 15 tabloids means `quantity >= 15`.
 - From 5 adhesive tabloids means `quantity >= 5`.
 
-### Precise 3D printing
+### 3D printing
 
 `Impresión 3D` is implemented as a top-level quotation mode alongside
 `Productos por área` and `Servicios`; it is not part of the `Impresos` service
-catalog. The precise form receives material, grams per unit, whole printing
-hours and minutes per unit, positive integer quantity, and one of these
-modeling selections: no modeling, AI-generated or AI-assisted model, basic
-design, or complex design.
+catalog. It contains separate `Cotización precisa` and `Estimación rápida`
+employee workflows.
+
+For precise quotation, the employee receives or prepares the real 3D model,
+slices it, and enters the slicer's actual grams and printing time. The form also
+receives material, positive integer quantity, production printer, color mode,
+and one of these modeling selections: no modeling, AI-generated or AI-assisted
+model, basic design, or complex design. Because the prepared job has already
+been sliced, the precise form does not request width, depth or height, calculate
+a footprint, infer printer compatibility or show dimensional division warnings.
+
+Quick mode is a preliminary workflow for a request that has not been sliced. It
+collects approximate requested size, piece type or a short description,
+material, quantity, modeling, color mode and an employee-entered manual
+estimated total. The amount is the total for the complete requested job,
+already considering quantity; it is not a unit price and is not multiplied by
+quantity again. It must be finite, positive and at least COP 5.000, then is
+rounded upward to COP 500.
+
+The quick total is accepted through a separate typed boundary and does not call
+the precise 3D engine. It therefore does not calculate filament, electricity,
+the 40% adjustment, precise ×4, the authorization threshold or automatic
+Multicolor ×3. No quick authorization checkbox exists. Multicolor may store the
+customer-safe operational detail `Producción: HI` without changing the entered
+amount. The accepted total and preliminary selections form an immutable
+`Impresión 3D — Estimación preliminar` line whose warning travels through the
+temporary quotation, formal preview and existing PDF. No cube calibration,
+`Ligera`/`Normal`/`Densa` profile, interpolation or extrapolation is active.
+
+#### Printer and color configuration
+
+Typed printer configuration lists KE and HI as production choices without
+attaching dimensions or pricing data. One-color jobs may be produced on either
+printer. Multicolor jobs are HI-only, so changing to Multicolor resolves the
+selection to HI and rejects KE as a production choice. Returning to one color
+keeps HI valid. Printer selection alone does not affect price or authorization
+because no printer-specific power/electricity values have been supplied.
+
+The precise base calculation uses filament at COP 95.000 / 1.000 g, applies a
+40% material adjustment, and adds electricity from actual slicer time at
+0.150 kW and COP 900/kWh. Material and electricity are multiplied by quantity;
+the selected modeling charge is added once per job. One color derives its
+suggested raw price as base ×4 and authorization threshold as base ×3.
+Multicolor applies its additional ×3 commercial factor to both raw values.
 
 The pure pricing engine derives material and electricity values from typed
 configuration. It multiplies both per-unit variable components by quantity,
@@ -288,23 +328,27 @@ without it there is no valid result. A confirmed exception is rounded upward
 to COP 500 afterward, so rounding cannot turn an unconfirmed amount into an
 authorized one. The COP 5.000 floor is never authorizable.
 
+One-color pricing preserves the prior calculation. Multicolor applies its
+configured commercial factor to both the suggested amount and raw
+authorization threshold. The absolute COP 5.000 floor is never multiplied.
+These factors and threshold values remain private implementation details and
+are not rendered in employee or customer-facing output.
+
 The confirmation records only an acknowledgement for the current form values.
-It resets when pricing inputs change and is not authentication, a permission
-grant or a role system.
+It resets when threshold-affecting inputs change: material, grams, printing
+time, quantity, modeling, color, manual amount or manual-price enablement.
+Changing only the production printer does not reset it. The confirmation is not
+authentication, a permission grant or a role system.
 
-Employee and customer-facing models expose only the selected material, grams
-and time per unit, quantity, modeling selection, suggested/final commercial
-price as applicable, and accepted stored total. They do not expose spool
-economics, material or electricity costs, material increase, base cost,
-internal multipliers, margin, authorization threshold, or whether confirmation
-was required. The stored 3D snapshot has no `Categoría: Impresos` detail.
-Preview and PDF use that customer-safe snapshot and never invoke this engine.
-
-The engine accepts resolved grams and printing time independently of how they
-were obtained. A future quick-estimation strategy may therefore convert
-dimensions into estimated metrics and call the same engine. Length, width,
-height, volume, density classifications and estimation coefficients are not
-implemented now.
+Employee and customer-facing models expose only customer-safe material, actual
+slicer metrics, quantity, modeling, color and selected production printer,
+suggested/final commercial price as applicable, and accepted stored total.
+They do not expose spool economics, material or electricity costs,
+material increase, base cost, internal multipliers, margin, authorization
+threshold, or whether confirmation was required. The stored 3D snapshot has no
+`Categoría: Impresos` detail. Preview and PDF use that immutable customer-safe
+snapshot and never invoke the pricing engine. This feature adds no database,
+persistence, authentication, roles or administration UI.
 
 ### Documentation-only implementation boundary
 
@@ -323,9 +367,8 @@ does not implement:
 It also adds no application code, interface controls, configuration,
 dependencies or tests.
 
-The precise 3D-printing strategy documented above is now the implemented
-exception to this historical documentation-only boundary; quick dimensional
-estimation remains outside the current release.
+The 3D-printing strategy documented above is now the implemented exception to
+this historical documentation-only boundary.
 
 ## First-release pricing strategies
 

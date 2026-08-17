@@ -1,0 +1,152 @@
+.submodeSelector {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid rgba(122, 170, 229, 0.3);
+  border-radius: 14px;
+  background: rgba(7, 20, 38, 0.7);
+}
+
+.submodeSelector legend {
+  padding: 0 7px;
+  color: #e5ebf2;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.submodeOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.submodeOptions label {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #31557d;
+  border-radius: 10px;
+  background: #080f1a;
+  cursor: pointer;
+}
+
+.submodeOptions label:has(input:checked) {
+  border-color: #8bb8ff;
+  background: rgba(61, 139, 255, 0.12);
+}
+
+.submodeOptions input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--color-blue);
+}
+
+.submodeOptions input:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.submodeOptions span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.submodeOptions strong {
+  color: var(--color-white);
+  font-size: 0.9rem;
+}
+
+.submodeOptions small {
+  color: #aeb9c7;
+  font-size: 0.74rem;
+}
+
+.preliminaryNotice {
+  grid-column: 1 / -1;
+  margin: 0 0 20px;
+  padding: 14px;
+  border: 1px solid rgba(139, 184, 255, 0.45);
+  border-radius: 10px;
+  background: rgba(61, 139, 255, 0.1);
+  color: #dceaff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.textInput,
+.quickTextArea {
+  width: 100%;
+  border: 1px solid #31557d;
+  border-radius: 9px;
+  background: #080f1a;
+  color: var(--color-white);
+  font: inherit;
+}
+
+.textInput {
+  min-height: 50px;
+  padding: 11px 13px;
+}
+
+.quickTextArea {
+  min-height: 86px;
+  padding: 12px 13px;
+  resize: vertical;
+}
+
+.textInput:hover,
+.quickTextArea:hover {
+  border-color: #4d76a8;
+  background: #0a1321;
+}
+
+.textInput:focus-visible,
+.quickTextArea:focus-visible {
+  border-color: #8bb8ff;
+  outline: 3px solid #8bb8ff;
+  outline-offset: 2px;
+}
+
+.quickScope {
+  display: grid;
+  gap: 14px;
+  color: #c8d2df;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.quickScope p {
+  margin: 0;
+}
+
+.quickScope p:first-child {
+  color: #e4efff;
+  font-weight: 700;
+}
+
+.quickCondition {
+  margin: 16px 0 0;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 190, 92, 0.5);
+  border-radius: 10px;
+  background: rgba(255, 168, 38, 0.1);
+  color: #ffe0a8;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .submodeSelector {
+    padding: 14px;
+  }
+
+  .submodeOptions {
+    grid-template-columns: 1fr;
+  }
+}

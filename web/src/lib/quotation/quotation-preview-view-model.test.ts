@@ -14,7 +14,19 @@ import {
   THREE_D_PRINTING_MATERIAL_IDS,
   THREE_D_PRINTING_MODELING_IDS,
 } from "@/lib/pricing/three-d-printing-catalog";
+import { THREE_D_PRINTING_COLOR_MODE_IDS } from "@/lib/pricing/three-d-printing-color-mode";
+import { THREE_D_PRINTING_PRINTER_IDS } from "@/lib/pricing/three-d-printing-printer";
+import { createThreeDPrintingQuickQuotationLineDraft } from "@/lib/pricing/three-d-printing-quick-quotation-line";
+import {
+  createInitialThreeDPrintingQuickFormValues,
+  resolveThreeDPrintingQuickFormValues,
+  THREE_D_PRINTING_QUICK_ESTIMATE_CONDITION,
+} from "@/lib/pricing/three-d-printing-quick-selection";
 import { createThreeDPrintingQuotationLineDraft } from "@/lib/pricing/three-d-printing-quotation-line";
+import {
+  createInitialThreeDPrintingPricingFormValues,
+  resolveThreeDPrintingPricingFormValues,
+} from "@/lib/pricing/three-d-printing-selection";
 
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "./business-profile";
 import {
@@ -240,21 +252,28 @@ describe("quotation preview view-model", () => {
     expect(serialized).not.toContain("Precio negociado autorizado");
   });
 
-  it("projects a 3D snapshot with safe details and no internal pricing", () => {
-    const calculation = calculateThreeDPrintingPrice({
+  it("projects the immutable precise printer snapshot without internal pricing", () => {
+    const resolvedForm = resolveThreeDPrintingPricingFormValues({
+      ...createInitialThreeDPrintingPricingFormValues(),
+      colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+      printerId: THREE_D_PRINTING_PRINTER_IDS.hi,
       materialId: THREE_D_PRINTING_MATERIAL_IDS.petg,
-      gramsPerUnit: 100,
-      printingHoursPerUnit: 1,
-      printingMinutesPerUnit: 30,
-      quantity: 3,
+      gramsPerUnit: "100",
+      printingHoursPerUnit: "1",
+      printingMinutesPerUnit: "30",
+      quantity: "3",
       modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
-      manualPrice: {
-        enabled: true,
-        amountCop: 190_100,
-        belowThresholdAuthorized: true,
-      },
+      manualPriceEnabled: true,
+      manualPriceCop: "190100",
+      belowThresholdAuthorized: true,
     });
-    const draft = createThreeDPrintingQuotationLineDraft(calculation);
+    const calculation = calculateThreeDPrintingPrice(
+      resolvedForm.pricingInput,
+    );
+    const draft = createThreeDPrintingQuotationLineDraft({
+      calculation,
+      resolvedForm,
+    });
     const quotation = addQuotationLine(createEmptyQuotation(), draft);
     const preview = createPreview(quotation);
     const serialized = JSON.stringify(preview).toLocaleLowerCase("es-CO");
@@ -267,6 +286,8 @@ describe("quotation preview view-model", () => {
           { label: "Gramos por unidad", value: "100 g" },
           { label: "Tiempo de impresión por unidad", value: "1 h 30 min" },
           { label: "Modelado", value: "Diseño básico" },
+          { label: "Tipo de impresión", value: "Multicolor" },
+          { label: "Impresora", value: "HI" },
         ],
         quantity: 3,
         lineTotal: calculation.totalPrice,
@@ -283,6 +304,13 @@ describe("quotation preview view-model", () => {
       "materialincreaserate",
       "electricity",
       "multiplier",
+      "belowthresholdauthorized",
+      "authorizationthresholdraw",
+      "suggestedpriceraw",
+      "dimensiones",
+      "compatible",
+      "división",
+      "estimación preliminar",
       "costo base",
       "margen",
       "umbral",
@@ -295,6 +323,61 @@ describe("quotation preview view-model", () => {
       "requiere autorización",
       "categoría",
       "impresos",
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it("projects a distinct immutable quick estimate with its line warning", () => {
+    const draft = createThreeDPrintingQuickQuotationLineDraft(
+      resolveThreeDPrintingQuickFormValues({
+        ...createInitialThreeDPrintingQuickFormValues(),
+        approximateSize: "15 cm",
+        pieceDescription: "Figura decorativa",
+        quantity: "3",
+        modelingId: THREE_D_PRINTING_MODELING_IDS.aiAssisted,
+        colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+        estimatedTotalCop: "80000",
+      }),
+    );
+    const quotation = addQuotationLine(createEmptyQuotation(), draft);
+    const preview = createPreview(quotation);
+    const serialized = JSON.stringify(preview).toLocaleLowerCase("es-CO");
+
+    expect(preview.lines).toEqual([
+      {
+        title: "Impresión 3D — Estimación preliminar",
+        details: [
+          { label: "Tipo", value: "Estimación preliminar" },
+          { label: "Tamaño aproximado", value: "15 cm" },
+          { label: "Descripción", value: "Figura decorativa" },
+          { label: "Material", value: "PLA" },
+          { label: "Modelado", value: "Modelo con IA / asistido por IA" },
+          { label: "Tipo de impresión", value: "Multicolor" },
+          { label: "Producción", value: "HI" },
+          { label: "Condición", value: THREE_D_PRINTING_QUICK_ESTIMATE_CONDITION },
+        ],
+        quantity: 3,
+        lineTotal: 80_000,
+        formattedLineTotal: formatQuotationCop(80_000),
+      },
+    ]);
+
+    for (const forbidden of [
+      "grams",
+      "gramos",
+      "printinghours",
+      "printingminutes",
+      "tiempo de impresión",
+      "basecost",
+      "electricity",
+      "threshold",
+      "authorization",
+      "calibration",
+      "interpolation",
+      "multiplier",
+      "×3",
+      "×4",
     ]) {
       expect(serialized).not.toContain(forbidden);
     }

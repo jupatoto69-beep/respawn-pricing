@@ -17,10 +17,12 @@ import {
   THREE_D_PRINTING_MODELING_IDS,
   THREE_D_PRINTING_MODELING_OPTIONS,
 } from "./three-d-printing-catalog";
+import { THREE_D_PRINTING_COLOR_MODE_IDS } from "./three-d-printing-color-mode";
 
 const PRECISE_THREE_D_PRINTING_FIXTURE: ThreeDPrintingPricingInput =
   Object.freeze({
     materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
+    colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.singleColor,
     gramsPerUnit: 100,
     printingHoursPerUnit: 5,
     printingMinutesPerUnit: 0,
@@ -114,6 +116,24 @@ describe("3D printing material and electricity derivation", () => {
 });
 
 describe("precise 3D printing commercial pricing", () => {
+  it("calculates the representative PLA 90 g / 2 h 30 min fixture", () => {
+    const result = calculateThreeDPrintingPrice(
+      createInput({
+        gramsPerUnit: 90,
+        printingHoursPerUnit: 2,
+        printingMinutesPerUnit: 30,
+      }),
+    );
+
+    expect(result.internal.rawMaterialCostPerUnit).toBe(8_550);
+    expect(result.internal.adjustedMaterialCostPerUnit).toBe(11_970);
+    expect(result.internal.electricityCostPerUnit).toBe(337.5);
+    expect(result.internal.baseCost).toBe(12_307.5);
+    expect(result.internal.suggestedPriceRaw).toBe(49_230);
+    expect(result.suggestedPrice).toBe(49_500);
+    expect(result.totalPrice).toBe(49_500);
+  });
+
   it("calculates the representative PLA 100 g / 5 h fixture", () => {
     const result = calculateThreeDPrintingPrice(
       PRECISE_THREE_D_PRINTING_FIXTURE,
@@ -127,6 +147,85 @@ describe("precise 3D printing commercial pricing", () => {
     expect(result.internal.authorizationThresholdRaw).toBe(41_925);
     expect(result.suggestedPrice).toBe(56_000);
     expect(result.totalPrice).toBe(56_000);
+  });
+
+  it("keeps the representative one-color fixture unchanged", () => {
+    const result = calculateThreeDPrintingPrice(
+      createInput({
+        colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.singleColor,
+      }),
+    );
+
+    expect(result.internal.baseCost).toBe(13_975);
+    expect(result.suggestedPrice).toBe(56_000);
+  });
+
+  it("applies multicolor to suggested price and authorization threshold", () => {
+    const result = calculateThreeDPrintingPrice(
+      createInput({
+        colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+      }),
+    );
+
+    expect(result.internal.baseCost).toBe(13_975);
+    expect(result.internal.suggestedPriceRaw).toBe(167_700);
+    expect(result.internal.authorizationThresholdRaw).toBe(125_775);
+    expect(result.suggestedPrice).toBe(168_000);
+    expect(result.totalPrice).toBe(168_000);
+  });
+
+  it("compares multicolor manual amounts against the raw threshold before rounding", () => {
+    const multicolorInput = createInput({
+      colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+    });
+
+    expect(() =>
+      calculateThreeDPrintingPrice({
+        ...multicolorInput,
+        manualPrice: {
+          enabled: true,
+          amountCop: 125_500,
+          belowThresholdAuthorized: false,
+        },
+      }),
+    ).toThrow("requires authorization");
+
+    expect(
+      calculateThreeDPrintingPrice({
+        ...multicolorInput,
+        manualPrice: {
+          enabled: true,
+          amountCop: 125_500,
+          belowThresholdAuthorized: true,
+        },
+      }).totalPrice,
+    ).toBe(125_500);
+
+    expect(
+      calculateThreeDPrintingPrice({
+        ...multicolorInput,
+        manualPrice: {
+          enabled: true,
+          amountCop: 125_800,
+          belowThresholdAuthorized: false,
+        },
+      }).totalPrice,
+    ).toBe(126_000);
+  });
+
+  it("keeps COP 5,000 as the absolute multicolor minimum", () => {
+    expect(() =>
+      calculateThreeDPrintingPrice(
+        createInput({
+          colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+          manualPrice: {
+            enabled: true,
+            amountCop: 4_999,
+            belowThresholdAuthorized: true,
+          },
+        }),
+      ),
+    ).toThrow("absolute commercial minimum");
   });
 
   it("multiplies material and electricity by quantity but modeling only once", () => {
@@ -380,17 +479,17 @@ describe("precise 3D printing commercial pricing", () => {
     ).toThrow("absolute commercial minimum");
   });
 
-  it("accepts metrics from an estimator-independent source", () => {
-    const estimatedMetrics = Object.freeze({
+  it("accepts already-resolved slicer metrics", () => {
+    const slicerMetrics = Object.freeze({
       gramsPerUnit: 32.5,
       printingHoursPerUnit: 2,
       printingMinutesPerUnit: 15,
     });
     const result = calculateThreeDPrintingPrice(
-      createInput({ ...estimatedMetrics }),
+      createInput({ ...slicerMetrics }),
     );
 
-    expect(result.gramsPerUnit).toBe(estimatedMetrics.gramsPerUnit);
+    expect(result.gramsPerUnit).toBe(slicerMetrics.gramsPerUnit);
     expect(result.internal.printingTimeHoursPerUnit).toBe(2.25);
   });
 
@@ -451,6 +550,13 @@ describe("precise 3D printing input validation", () => {
         createInput({ modelingId: "invalid" as ThreeDPrintingPricingInput["modelingId"] }),
       ),
     ).toThrow("modeling option must be valid");
+    expect(() =>
+      calculateThreeDPrintingPrice(
+        createInput({
+          colorModeId: "invalid" as ThreeDPrintingPricingInput["colorModeId"],
+        }),
+      ),
+    ).toThrow("color mode must be valid");
   });
 
   it.each([null, Number.NaN, Number.POSITIVE_INFINITY, 0, -1])(

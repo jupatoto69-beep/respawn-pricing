@@ -15,7 +15,19 @@ import {
   THREE_D_PRINTING_MATERIAL_IDS,
   THREE_D_PRINTING_MODELING_IDS,
 } from "../pricing/three-d-printing-catalog";
+import { THREE_D_PRINTING_COLOR_MODE_IDS } from "../pricing/three-d-printing-color-mode";
+import { THREE_D_PRINTING_PRINTER_IDS } from "../pricing/three-d-printing-printer";
+import { createThreeDPrintingQuickQuotationLineDraft } from "../pricing/three-d-printing-quick-quotation-line";
+import {
+  createInitialThreeDPrintingQuickFormValues,
+  resolveThreeDPrintingQuickFormValues,
+  THREE_D_PRINTING_QUICK_ESTIMATE_CONDITION,
+} from "../pricing/three-d-printing-quick-selection";
 import { createThreeDPrintingQuotationLineDraft } from "../pricing/three-d-printing-quotation-line";
+import {
+  createInitialThreeDPrintingPricingFormValues,
+  resolveThreeDPrintingPricingFormValues,
+} from "../pricing/three-d-printing-selection";
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "./business-profile";
 import { generateQuotationPdfBlob } from "./quotation-pdf-document";
 import type {
@@ -175,20 +187,27 @@ function createQuotationPdfTestPreview(options: Readonly<{
 }
 
 function createThreeDPrintingPdfTestPreview() {
-  const calculation = calculateThreeDPrintingPrice({
+  const resolvedForm = resolveThreeDPrintingPricingFormValues({
+    ...createInitialThreeDPrintingPricingFormValues(),
+    colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+    printerId: THREE_D_PRINTING_PRINTER_IDS.hi,
     materialId: THREE_D_PRINTING_MATERIAL_IDS.pla,
-    gramsPerUnit: 100,
-    printingHoursPerUnit: 5,
-    printingMinutesPerUnit: 30,
-    quantity: 3,
+    gramsPerUnit: "100",
+    printingHoursPerUnit: "5",
+    printingMinutesPerUnit: "30",
+    quantity: "3",
     modelingId: THREE_D_PRINTING_MODELING_IDS.basic,
-    manualPrice: {
-      enabled: true,
-      amountCop: 190_100,
-      belowThresholdAuthorized: true,
-    },
+    manualPriceEnabled: true,
+    manualPriceCop: "190100",
+    belowThresholdAuthorized: true,
   });
-  const draft = createThreeDPrintingQuotationLineDraft(calculation);
+  const calculation = calculateThreeDPrintingPrice(
+    resolvedForm.pricingInput,
+  );
+  const draft = createThreeDPrintingQuotationLineDraft({
+    calculation,
+    resolvedForm,
+  });
   const quotation = addQuotationLine(
     createEmptyQuotation(),
     {
@@ -204,6 +223,38 @@ function createThreeDPrintingPdfTestPreview() {
       ],
     },
     new Date(2026, 7, 11, 12),
+  );
+
+  return createQuotationPreviewViewModel({
+    quotation,
+    total: calculateQuotationTotal(quotation),
+    businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+  });
+}
+
+function createThreeDPrintingQuickPdfTestPreview() {
+  const draft = createThreeDPrintingQuickQuotationLineDraft(
+    resolveThreeDPrintingQuickFormValues({
+      ...createInitialThreeDPrintingQuickFormValues(),
+      approximateSize: "15 cm",
+      pieceDescription: "Figura decorativa",
+      quantity: "3",
+      modelingId: THREE_D_PRINTING_MODELING_IDS.aiAssisted,
+      colorModeId: THREE_D_PRINTING_COLOR_MODE_IDS.multicolor,
+      estimatedTotalCop: "80000",
+    }),
+  );
+  const quotation = addQuotationLine(
+    createEmptyQuotation(),
+    {
+      ...draft,
+      details: [
+        ...draft.details,
+        { label: "Costo base", value: "COP privado" },
+        { label: "Umbral", value: "COP privado" },
+      ],
+    },
+    new Date(2026, 7, 16, 12),
   );
 
   return createQuotationPreviewViewModel({
@@ -333,6 +384,10 @@ describe("quotation PDF document", () => {
     expect(streams).toContain("100 g");
     expect(streams).toContain("5 h 30 min");
     expect(streams).toContain("Dise");
+    expect(streams).toContain("Multicolor");
+    expect(streams).toContain("HI");
+    expect(serializedPreview).not.toContain("Dimensiones");
+    expect(serializedPreview).not.toContain("Impresora compatible");
     expect(streams).toContain("190.500");
     expect(streams).toContain("11/08/2026");
     expect(streams).toContain("15 días");
@@ -346,6 +401,13 @@ describe("quotation PDF document", () => {
       "electricity",
       "materialincreaserate",
       "threshold",
+      "belowthresholdauthorized",
+      "authorizationthresholdraw",
+      "suggestedpriceraw",
+      "dimensiones",
+      "compatible",
+      "división",
+      "estimación preliminar",
       "umbral",
       "margen",
       "multiplicador",
@@ -356,6 +418,54 @@ describe("quotation PDF document", () => {
       "requiere autorización",
       "categoría",
       "impresos",
+    ]) {
+      expect(allText).not.toContain(forbidden);
+    }
+  });
+
+  it("renders the quick estimate and its line warning without invented metrics", async () => {
+    const preview = createThreeDPrintingQuickPdfTestPreview();
+    const serializedPreview = JSON.stringify(preview);
+    const blob = await generateQuotationPdfBlob(preview, {
+      loadLogo: async () => {
+        throw new Error("fictional missing local logo");
+      },
+    });
+    const streams = extractInflatedStreams(await getBytes(blob));
+    const allText = `${serializedPreview}\n${streams}`.toLocaleLowerCase(
+      "es-CO",
+    );
+
+    expect(serializedPreview).toContain(
+      "Impresión 3D — Estimación preliminar",
+    );
+    expect(serializedPreview).toContain(THREE_D_PRINTING_QUICK_ESTIMATE_CONDITION);
+    expect(serializedPreview).toContain('"quantity":3');
+    expect(serializedPreview).toContain('"lineTotal":80000');
+    expect(streams).toContain("Impresi");
+    expect(streams).toContain("Estimaci");
+    expect(streams).toContain("Figura decorativa");
+    expect(streams).toContain("Multicolor");
+    expect(streams).toContain("HI");
+    expect(streams).toContain("Valor estimado.");
+    expect(streams).toContain("precio definitivo puede cambiar");
+    expect(streams).toContain("recibir y laminar el archivo 3D.");
+    expect(streams).toContain("80.000");
+
+    for (const forbidden of [
+      "privado",
+      "gramos por unidad",
+      "tiempo de impresión por unidad",
+      "costo base",
+      "umbral",
+      "basecost",
+      "electricity",
+      "threshold",
+      "authorization",
+      "calibration",
+      "interpolation",
+      "×3",
+      "×4",
     ]) {
       expect(allText).not.toContain(forbidden);
     }

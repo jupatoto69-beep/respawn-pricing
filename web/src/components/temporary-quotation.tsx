@@ -497,7 +497,14 @@ export function TemporaryQuotation({
 
                 <dl className={styles.details}>
                   {line.details.map((detail, detailIndex) => (
-                    <div key={`${detail.label}-${detailIndex}`}>
+                    <div
+                      key={`${detail.label}-${detailIndex}`}
+                      className={
+                        detail.label === "Condición"
+                          ? styles.conditionDetail
+                          : undefined
+                      }
+                    >
                       <dt>{detail.label}</dt>
                       <dd>{detail.value}</dd>
                     </div>

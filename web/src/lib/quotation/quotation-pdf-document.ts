@@ -564,6 +564,8 @@ function createLineFields(
   ]);
 }
 
+const LINE_FULL_WIDTH_LABELS = new Set(["Condición"]);
+
 function measureLineBlock(
   flow: PdfFlowLayout,
   line: QuotationPreviewLine,
@@ -579,7 +581,11 @@ function measureLineBlock(
     46,
     LINE_TOTAL_STYLE,
   );
-  const rows = createFieldGridRows(flow, createLineFields(line), new Set());
+  const rows = createFieldGridRows(
+    flow,
+    createLineFields(line),
+    LINE_FULL_WIDTH_LABELS,
+  );
 
   return (
     4 +
@@ -644,6 +650,7 @@ function drawQuotationLine(
   flow.cursorY += Math.max(titleHeight, totalHeight) + 2;
 
   drawFieldGrid(flow, createLineFields(line), {
+    preferredFullWidthLabels: LINE_FULL_WIDTH_LABELS,
     onPageBreak: createLineContinuation(flow, lineNumber),
   });
 

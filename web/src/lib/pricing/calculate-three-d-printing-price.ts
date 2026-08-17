@@ -7,6 +7,10 @@ import {
   type ThreeDPrintingMaterialId,
   type ThreeDPrintingModelingId,
 } from "./three-d-printing-catalog";
+import {
+  getThreeDPrintingColorMode,
+  type ThreeDPrintingColorModeId,
+} from "./three-d-printing-color-mode";
 
 export type ThreeDPrintingMetrics = Readonly<{
   gramsPerUnit: number;
@@ -28,6 +32,7 @@ export const THREE_D_PRINTING_ABSOLUTE_MINIMUM_ERROR =
 export type ThreeDPrintingPricingInput = ThreeDPrintingMetrics &
   Readonly<{
     materialId: ThreeDPrintingMaterialId;
+    colorModeId: ThreeDPrintingColorModeId;
     quantity: number;
     modelingId: ThreeDPrintingModelingId;
     manualPrice: ThreeDPrintingManualPrice;
@@ -48,6 +53,7 @@ export type ThreeDPrintingCostBreakdown = Readonly<{
 
 export type ThreeDPrintingPriceCalculation = Readonly<{
   materialId: ThreeDPrintingMaterialId;
+  colorModeId: ThreeDPrintingColorModeId;
   gramsPerUnit: number;
   printingHoursPerUnit: number;
   printingMinutesPerUnit: number;
@@ -241,6 +247,7 @@ export function calculateThreeDPrintingPrice(
 ): ThreeDPrintingPriceCalculation {
   const material = getThreeDPrintingMaterialConfig(input.materialId);
   const modeling = getThreeDPrintingModelingOption(input.modelingId);
+  const colorMode = getThreeDPrintingColorMode(input.colorModeId);
 
   assertSafeNonNegativeInteger(
     input.quantity,
@@ -273,11 +280,14 @@ export function calculateThreeDPrintingPrice(
   );
   const baseCost = assertFiniteCalculation(variableCost + modeling.priceCop);
   const suggestedPriceRaw = assertFiniteCalculation(
-    baseCost * THREE_D_PRINTING_COMMERCIAL_CONFIG.suggestedPriceMultiplier,
+    baseCost *
+      THREE_D_PRINTING_COMMERCIAL_CONFIG.suggestedPriceMultiplier *
+      colorMode.commercialMultiplier,
   );
   const authorizationThresholdRaw = assertFiniteCalculation(
     baseCost *
-      THREE_D_PRINTING_COMMERCIAL_CONFIG.authorizationThresholdMultiplier,
+      THREE_D_PRINTING_COMMERCIAL_CONFIG.authorizationThresholdMultiplier *
+      colorMode.commercialMultiplier,
   );
   const suggestedPrice = assertSafeFinalPrice(
     roundUpToCop500(
@@ -309,6 +319,7 @@ export function calculateThreeDPrintingPrice(
 
   return Object.freeze({
     materialId: material.id,
+    colorModeId: colorMode.id,
     gramsPerUnit: input.gramsPerUnit,
     printingHoursPerUnit: input.printingHoursPerUnit,
     printingMinutesPerUnit: input.printingMinutesPerUnit,

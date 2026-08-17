@@ -209,6 +209,19 @@
   margin-top: 16px;
 }
 
+.lineDetails .lineCondition {
+  grid-column: 1 / -1;
+  padding: 11px 12px;
+  border: 1px solid #efd39d;
+  border-radius: 8px;
+  background: #fff8e9;
+}
+
+.lineDetails .lineCondition dd {
+  color: #6d4b12;
+  line-height: 1.5;
+}
+
 .lineSummary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
