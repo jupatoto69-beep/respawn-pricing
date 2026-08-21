@@ -10,6 +10,10 @@ import {
   updateQuotationDetails,
   type TemporaryQuotationState,
 } from "../pricing/temporary-quotation";
+import {
+  calculateCutVinylColorGroupPrice,
+  createCutVinylColorGroupPricing,
+} from "../pricing/cut-vinyl-color-group";
 import { calculateThreeDPrintingPrice } from "../pricing/calculate-three-d-printing-price";
 import {
   THREE_D_PRINTING_MATERIAL_IDS,
@@ -123,6 +127,39 @@ function addFictionalLine(
     ],
     lineTotal: 50_000 + index,
   });
+}
+
+function addCutVinylLine(
+  quotation: TemporaryQuotationState,
+  subtotalBeforeMinimumAndRounding: number,
+): TemporaryQuotationState {
+  const commercialGroup = createCutVinylColorGroupPricing(
+    "cut-vinyl",
+    "Rojo",
+    subtotalBeforeMinimumAndRounding,
+  );
+
+  if (commercialGroup === null) {
+    throw new Error("Expected Cut vinyl group pricing.");
+  }
+
+  return addQuotationLine(
+    quotation,
+    {
+      source: "area-product",
+      title: "Vinilo de corte",
+      quantity: 1,
+      details: [
+        { label: "Producto", value: "Vinilo de corte" },
+        { label: "Color", value: "Rojo" },
+      ],
+      lineTotal: calculateCutVinylColorGroupPrice([
+        subtotalBeforeMinimumAndRounding,
+      ]).roundedTotal,
+      commercialGroup,
+    },
+    new Date(2026, 7, 9, 23, 59, 59),
+  );
 }
 
 function createQuotationPdfTestPreview(options: Readonly<{
@@ -362,6 +399,32 @@ describe("quotation PDF document", () => {
     expect(loadLogo).toHaveBeenCalledWith(
       "/brand/digital-respawn-logo-black.png",
     );
+  });
+
+  it("renders exact Cut vinyl group contributions and the once-rounded total", async () => {
+    const first = addCutVinylLine(createEmptyQuotation(), 4_000);
+    const second = addCutVinylLine(first, 6_000);
+    const quotation = addCutVinylLine(second, 3_000);
+    const preview = createQuotationPreviewViewModel({
+      quotation,
+      total: calculateQuotationTotal(quotation),
+      businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+    });
+    const blob = await generateQuotationPdfBlob(preview, {
+      loadLogo: async () => {
+        throw new Error("fictional missing local logo");
+      },
+    });
+    const streams = extractInflatedStreams(await getBytes(blob));
+
+    expect(preview.lines.map((line) => line.lineTotal)).toEqual([
+      4_615, 6_923, 3_462,
+    ]);
+    expect(preview.total).toBe(15_000);
+    expect(streams).toContain("4.615");
+    expect(streams).toContain("6.923");
+    expect(streams).toContain("3.462");
+    expect(streams).toContain("15.000");
   });
 
   it("renders a precise 3D snapshot as native text without internal pricing", async () => {

@@ -265,12 +265,13 @@ The application must perform area-based pricing in this order:
    rounded group price = ceiling(protected group price / 500) × 500
    ```
 
-10. Add the rounded result as a line in the temporary quotation.
+10. Store the rounded commercial result in the temporary quotation.
 
 The calculated base price before discounts and additions is the list price
 shown to the employee. The final minimum is applied after the discount and
-additions; it is not a pre-discount value. A quotation total is the sum of its
-already rounded lines and is not rounded a second time.
+additions; it is not a pre-discount value. A quotation total is the sum of the
+stored final line totals that represent its already rounded commercial lines
+or groups, and is not rounded a second time.
 
 ## Grouping rules
 
@@ -292,6 +293,12 @@ same product and color may be grouped before evaluating that minimum. Different
 colors form separate groups and evaluate the minimum independently. This is a
 confirmed public product rule and is distinct from the private final minimum
 floor used for exceptional-price authorization.
+
+For Cut vinyl, the complete color group is the commercial unit that receives
+the minimum and one upward COP 500 rounding. Individual stored piece lines may
+carry deterministic proportional contributions whose sum is exactly the
+once-rounded group total. Those contributions are not protected or rounded
+independently and therefore do not need to be COP 500 multiples.
 
 ## Confirmed future special pricing rules
 
@@ -424,10 +431,18 @@ The employee interface must not expose:
 ## Temporary quotation
 
 An employee may add one or more valid area-product or service results to an
-on-screen temporary quotation. Every stored line is an immutable snapshot of
-the customer-safe selections, quantity and final price returned by its
-calculator. Changing calculator mode, category, service or form values does not
-change lines that were already added.
+on-screen temporary quotation. Except for the Cut vinyl color-group rule below,
+every stored line is an immutable snapshot of the customer-safe selections,
+quantity and final price returned by its calculator. Changing calculator mode,
+category, service or form values does not change lines that were already added.
+
+Each stored Cut vinyl piece preserves its customer-safe selection, quantity,
+color and commercial subtotal snapshot. Its final line contribution is the
+specific exception: when a piece is added to or removed from the same color
+group, the quotation reevaluates that complete group, applies its minimum and
+rounding once, and redistributes the resulting total across the current piece
+lines. No other product is automatically repriced when quotation composition
+changes.
 
 A precise 3D line stores its accepted rounded total and only customer-safe
 material, slicer metrics, modeling, color and production-printer details.
@@ -437,10 +452,12 @@ whole-job total and safe preliminary details; later quick-form changes do not
 reprice the stored line. Its provisional condition remains attached to that
 line in the temporary quotation, formal preview and PDF.
 
-The quotation total is the exact sum of the stored final line totals. The
-quotation does not multiply quantity again, apply COP 500 rounding again,
-re-evaluate quantity tiers, recalculate additions, negotiated prices or
-minimums, or consult a catalog after a line is added.
+The quotation total is the exact sum of the stored final line totals. Normal
+lines are not repriced: the quotation does not multiply quantity again, apply
+COP 500 rounding again, re-evaluate quantity tiers, recalculate additions,
+negotiated prices or minimums, or consult a catalog after a line is added. The
+only composition-dependent exception is the stored Cut vinyl color-group
+calculation described above.
 
 The quotation exists only in page memory. It remains available while switching
 between calculator modes, but refreshing or closing the page clears it. It uses

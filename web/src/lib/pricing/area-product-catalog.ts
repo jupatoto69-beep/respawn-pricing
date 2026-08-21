@@ -14,6 +14,8 @@ export const BANNER_STANDARD_VARIANT_ID = "standard-without-lamination";
 export const BANNER_LAMINATED_VARIANT_ID = "laminated";
 export const BANNER_STANDARD_MATERIAL_RATE_PER_M2 = 80_000;
 export const BANNER_LAMINATION_RATE_PER_FACE_M2 = 5_000;
+export const CUT_VINYL_PRODUCT_ID = "cut-vinyl";
+export const CUT_VINYL_STANDARD_RATE_PER_M2 = 80_000;
 
 export const AREA_PRODUCT_CATALOG: readonly AreaProduct[] = [
   {
@@ -38,13 +40,13 @@ export const AREA_PRODUCT_CATALOG: readonly AreaProduct[] = [
     ],
   },
   {
-    id: "cut-vinyl",
+    id: CUT_VINYL_PRODUCT_ID,
     name: "Vinilo de corte",
     variants: [
       {
         id: "standard",
         name: "Estándar",
-        ratePerSquareMeter: 80_000,
+        ratePerSquareMeter: CUT_VINYL_STANDARD_RATE_PER_M2,
       },
     ],
   },

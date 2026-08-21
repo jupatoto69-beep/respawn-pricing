@@ -57,6 +57,7 @@ const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
   "Descripción",
   "Configuración",
   "Variante",
+  "Color",
   "Dimensiones",
   "Área por unidad",
   "Estructura",
