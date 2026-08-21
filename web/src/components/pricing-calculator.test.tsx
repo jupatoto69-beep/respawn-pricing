@@ -25,6 +25,7 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Vinilo de corte");
     expect(markup).toContain("Banner");
     expect(markup).toContain("Panaflex");
+    expect(markup).not.toContain('name="customRate"');
     expect(markup).toContain("Cotización temporal");
     expect(markup).toContain("Datos de la cotización");
     expect(markup).toContain(

@@ -58,7 +58,11 @@ export function resolveAreaProductRate(
   }
 
   if (variantId === CUSTOM_RATE_VARIANT_ID) {
-    if (customRate === undefined || !Number.isFinite(customRate) || customRate < 0) {
+    if (
+      customRate === undefined ||
+      !Number.isFinite(customRate) ||
+      customRate <= 0
+    ) {
       return null;
     }
 

@@ -642,7 +642,7 @@ export function AreaPricingCalculator({
                   name="customRate"
                   type="number"
                   inputMode="decimal"
-                  min="0"
+                  min="0.01"
                   step="any"
                   value={values.customRate}
                   onChange={handleInputChange}

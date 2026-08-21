@@ -11,6 +11,17 @@ import {
 import { roundUpToCop500 } from "./round-up-to-cop-500";
 
 describe("area product catalog", () => {
+  it("contains the four confirmed products", () => {
+    expect(
+      getAreaProducts().map((product) => [product.id, product.name]),
+    ).toEqual([
+      ["printed-vinyl", "Vinilo impreso"],
+      ["cut-vinyl", "Vinilo de corte"],
+      ["banner", "Banner"],
+      ["panaflex", "Panaflex"],
+    ]);
+  });
+
   it("contains the documented products and rates", () => {
     expect(
       getAreaProducts().flatMap((product) =>
@@ -33,25 +44,41 @@ describe("area product catalog", () => {
 
   it("returns only variants that belong to the selected product", () => {
     expect(
-      getAreaProductVariants("cut-vinyl").map((variant) => variant.id),
-    ).toEqual(["standard"]);
-    expect(
-      getAreaProductVariants("printed-vinyl").map((variant) => variant.id),
-    ).toEqual([
-      "standard-without-lamination",
-      "standard-lamination",
-      "floorgraphic-lamination",
-    ]);
+      Object.fromEntries(
+        getAreaProducts().map((product) => [
+          product.id,
+          getAreaProductVariants(product.id).map((variant) => variant.id),
+        ]),
+      ),
+    ).toEqual({
+      "printed-vinyl": [
+        "standard-without-lamination",
+        "standard-lamination",
+        "floorgraphic-lamination",
+      ],
+      "cut-vinyl": ["standard"],
+      banner: ["standard-without-lamination", "laminated"],
+      panaflex: ["standard-material"],
+    });
     expect(getAreaProductVariants("unknown")).toEqual([]);
   });
 });
 
 describe("area product rate resolution", () => {
-  it("resolves a configured rate for a valid product and variant", () => {
-    expect(
-      resolveAreaProductRate("printed-vinyl", "floorgraphic-lamination"),
-    ).toBe(95_000);
-  });
+  it.each([
+    ["printed-vinyl", "standard-without-lamination", 80_000],
+    ["printed-vinyl", "standard-lamination", 85_000],
+    ["printed-vinyl", "floorgraphic-lamination", 95_000],
+    ["cut-vinyl", "standard", 80_000],
+    ["banner", "standard-without-lamination", 80_000],
+    ["banner", "laminated", 85_000],
+    ["panaflex", "standard-material", 85_000],
+  ] as const)(
+    "resolves %s / %s to COP %i per square meter",
+    (productId, variantId, expectedRate) => {
+      expect(resolveAreaProductRate(productId, variantId)).toBe(expectedRate);
+    },
+  );
 
   it("does not resolve incomplete or incompatible selections", () => {
     expect(resolveAreaProductRate("", "")).toBeNull();
@@ -65,7 +92,7 @@ describe("area product rate resolution", () => {
     ).toBe(72_345);
   });
 
-  it.each([undefined, Number.NaN, Number.POSITIVE_INFINITY, -1])(
+  it.each([undefined, Number.NaN, Number.POSITIVE_INFINITY, 0, -1])(
     "rejects invalid custom rate %s",
     (rate) => {
       expect(
@@ -87,7 +114,7 @@ describe("area product selection changes", () => {
       changeAreaProduct(
         {
           productId: "printed-vinyl",
-          variantId: CUSTOM_RATE_VARIANT_ID,
+          variantId: "floorgraphic-lamination",
           customRate: "72345",
         },
         "cut-vinyl",
