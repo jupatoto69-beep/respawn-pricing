@@ -1,10 +1,16 @@
 import type { PanaflexMeasureClassification } from "./calculate-illuminated-panaflex-sign-price";
 import { PANAFLEX_MEASURE_CLASSIFICATIONS } from "./calculate-illuminated-panaflex-sign-price";
+import {
+  createCutVinylColorGroupPricing,
+  normalizeCutVinylColor,
+} from "./cut-vinyl-color-group";
 import type { QuotationLineDraft } from "./temporary-quotation";
 
 export type AreaProductQuotationLineInput = Readonly<{
+  productId: string;
   productName: string;
   variantName: string | null;
+  cutVinylColor: string | null;
   lengthCm: number;
   widthCm: number;
   areaM2: number;
@@ -15,6 +21,7 @@ export type AreaProductQuotationLineInput = Readonly<{
   panaflexPricingOptionName: string | null;
   panaflexMeasureClassification: PanaflexMeasureClassification | null;
   panaflexStructureRatePerCm2: number | null;
+  subtotalBeforeMinimumAndRounding: number;
   finalPrice: number;
 }>;
 
@@ -41,11 +48,21 @@ const MEASURE_CLASSIFICATION_LABELS: Readonly<
 export function createAreaProductQuotationLineDraft(
   input: AreaProductQuotationLineInput,
 ): QuotationLineDraft {
+  const commercialGroup = createCutVinylColorGroupPricing(
+    input.productId,
+    input.cutVinylColor ?? "",
+    input.subtotalBeforeMinimumAndRounding,
+  );
+  const cutVinylColor =
+    commercialGroup === null
+      ? null
+      : normalizeCutVinylColor(input.cutVinylColor ?? "").displayValue;
   const details = [
     { label: "Producto", value: input.productName },
     ...(input.variantName
       ? [{ label: "Variante", value: input.variantName }]
       : []),
+    ...(cutVinylColor ? [{ label: "Color", value: cutVinylColor }] : []),
     {
       label: "Dimensiones",
       value: `${numberFormatter.format(input.lengthCm)} × ${numberFormatter.format(input.widthCm)} cm`,
@@ -103,5 +120,6 @@ export function createAreaProductQuotationLineDraft(
     quantity: input.quantity,
     details,
     lineTotal: input.finalPrice,
+    ...(commercialGroup ? { commercialGroup } : {}),
   };
 }

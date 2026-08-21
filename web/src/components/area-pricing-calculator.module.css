@@ -187,6 +187,10 @@
   color: #687587;
 }
 
+.inputShell .textInput {
+  padding-right: 13px;
+}
+
 .inputShell input:hover,
 .field select:hover {
   border-color: #4d76a8;

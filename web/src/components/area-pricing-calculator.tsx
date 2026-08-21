@@ -11,6 +11,7 @@ import {
   createAreaProductQuotationLineDraft,
   type AreaProductQuotationLineInput,
 } from "@/lib/pricing/area-product-quotation-line";
+import { CUT_VINYL_PRODUCT_ID } from "@/lib/pricing/area-product-catalog";
 import { calculateAreaBasePrice } from "@/lib/pricing/calculate-area-base-price";
 import {
   calculateIlluminatedPanaflexSignPrice,
@@ -37,6 +38,10 @@ import {
 } from "@/lib/pricing/panaflex-pricing-options";
 import { changePanaflexPricingSelection } from "@/lib/pricing/panaflex-pricing-selection";
 import {
+  calculateCutVinylColorGroupPrice,
+  normalizeCutVinylColor,
+} from "@/lib/pricing/cut-vinyl-color-group";
+import {
   changeAreaProduct,
   CUSTOM_RATE_VARIANT_ID,
   getAreaProducts,
@@ -53,6 +58,7 @@ type FormValues = {
   variantId: string;
   lengthCm: string;
   widthCm: string;
+  cutVinylColor: string;
   customRate: string;
   quantity: string;
   bannerStructureOptionId: BannerStructureOptionId | null;
@@ -77,6 +83,7 @@ const EMPTY_FORM: FormValues = {
   variantId: "",
   lengthCm: "",
   widthCm: "",
+  cutVinylColor: "",
   customRate: "",
   quantity: "1",
   bannerStructureOptionId: null,
@@ -138,6 +145,8 @@ const RANGE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "El área del aviso luminoso no es válida.",
   "Panaflex sign pricing option must be valid.":
     "La opción de aviso luminoso no es válida.",
+  "Cut vinyl color is required.":
+    "Ingresa el color del vinilo de corte para definir su grupo comercial.",
 };
 
 const UNKNOWN_RANGE_ERROR_MESSAGE =
@@ -363,6 +372,11 @@ export function AreaPricingCalculator({
         productId,
         currentValues.panaflexPricingOptionId,
       ),
+      cutVinylColor:
+        productId === CUT_VINYL_PRODUCT_ID &&
+        currentValues.productId === CUT_VINYL_PRODUCT_ID
+          ? currentValues.cutVinylColor
+          : "",
     }));
     clearFeedback();
   }
@@ -433,7 +447,11 @@ export function AreaPricingCalculator({
       const widthCm = toNumber(values.widthCm);
       const quantity = toNumber(values.quantity);
       const areaM2 = calculateAreaBasePrice(lengthCm, widthCm, 1, 1);
-      let priceBeforeRounding: number;
+      const cutVinylColor =
+        values.productId === CUT_VINYL_PRODUCT_ID
+          ? normalizeCutVinylColor(values.cutVinylColor)
+          : null;
+      let subtotalBeforeMinimumAndRounding: number;
       let panaflexCalculation: IlluminatedPanaflexSignPriceCalculation | null =
         null;
 
@@ -444,7 +462,8 @@ export function AreaPricingCalculator({
           quantity,
           panaflexPricingOptionId,
         );
-        priceBeforeRounding = panaflexCalculation.priceBeforeCommercialRounding;
+        subtotalBeforeMinimumAndRounding =
+          panaflexCalculation.priceBeforeCommercialRounding;
       } else {
         const basePrice = calculateAreaBasePrice(
           lengthCm,
@@ -464,7 +483,7 @@ export function AreaPricingCalculator({
         const bannerStructureOptionId =
           values.bannerStructureOptionId ??
           DEFAULT_BANNER_STRUCTURE_OPTION_ID;
-        priceBeforeRounding = applyBannerStructurePrice(
+        subtotalBeforeMinimumAndRounding = applyBannerStructurePrice(
           values.productId,
           values.variantId,
           totalAreaM2,
@@ -477,9 +496,19 @@ export function AreaPricingCalculator({
       const bannerStructureOptionId =
         values.bannerStructureOptionId ??
         DEFAULT_BANNER_STRUCTURE_OPTION_ID;
+      const cutVinylGroupCalculation =
+        cutVinylColor === null
+          ? null
+          : calculateCutVinylColorGroupPrice([
+              subtotalBeforeMinimumAndRounding,
+            ]);
+      const priceBeforeRounding =
+        cutVinylGroupCalculation?.protectedSubtotal ??
+        subtotalBeforeMinimumAndRounding;
       const roundedPrice =
+        cutVinylGroupCalculation?.roundedTotal ??
         panaflexCalculation?.commercialRoundedPrice ??
-        roundUpToCop500(priceBeforeRounding);
+        roundUpToCop500(subtotalBeforeMinimumAndRounding);
       const bannerStructureName =
         values.productId === BANNER_PRODUCT_ID
           ? getBannerStructureOption(bannerStructureOptionId).name
@@ -500,8 +529,10 @@ export function AreaPricingCalculator({
         panaflexPricingOptionName,
         panaflexCalculation,
         quotationLineInput: {
+          productId: values.productId,
           productName,
           variantName,
+          cutVinylColor: cutVinylColor?.displayValue ?? null,
           lengthCm,
           widthCm,
           areaM2,
@@ -516,6 +547,7 @@ export function AreaPricingCalculator({
             panaflexCalculation?.measureClassification ?? null,
           panaflexStructureRatePerCm2:
             panaflexCalculation?.structureRate ?? null,
+          subtotalBeforeMinimumAndRounding,
           finalPrice: roundedPrice,
         },
       });
@@ -651,6 +683,34 @@ export function AreaPricingCalculator({
                 />
                 <span aria-hidden="true">COP/m²</span>
               </div>
+            </div>
+          ) : null}
+
+          {values.productId === CUT_VINYL_PRODUCT_ID ? (
+            <div className={styles.field}>
+              <label htmlFor={`${idPrefix}-cut-vinyl-color`}>
+                Color para agrupación comercial
+              </label>
+              <div className={styles.inputShell}>
+                <input
+                  className={styles.textInput}
+                  id={`${idPrefix}-cut-vinyl-color`}
+                  name="cutVinylColor"
+                  type="text"
+                  value={values.cutVinylColor}
+                  onChange={handleInputChange}
+                  aria-describedby={`${idPrefix}-cut-vinyl-color-help`}
+                  autoComplete="off"
+                  placeholder="Ej. Rojo"
+                  required
+                />
+              </div>
+              <p
+                className={styles.fieldHelp}
+                id={`${idPrefix}-cut-vinyl-color-help`}
+              >
+                Las piezas del mismo color comparten un único mínimo comercial.
+              </p>
             </div>
           ) : null}
 
@@ -809,6 +869,35 @@ export function AreaPricingCalculator({
           />
         ) : result ? (
           <dl className={styles.priceList}>
+            {result.quotationLineInput.cutVinylColor ? (
+              <>
+                <div className={styles.priceItem}>
+                  <dt>Grupo comercial de color</dt>
+                  <dd className={styles.structureResult}>
+                    {result.quotationLineInput.cutVinylColor}
+                  </dd>
+                </div>
+                <div className={styles.priceItem}>
+                  <dt>Subtotal antes del mínimo</dt>
+                  <dd>
+                    <data
+                      value={
+                        result.quotationLineInput
+                          .subtotalBeforeMinimumAndRounding
+                      }
+                    >
+                      {basePriceFormatter.format(
+                        result.quotationLineInput
+                          .subtotalBeforeMinimumAndRounding,
+                      )}
+                    </data>
+                  </dd>
+                  <dd className={styles.priceItemNote}>
+                    Se agrupa con las demás piezas del mismo color.
+                  </dd>
+                </div>
+              </>
+            ) : null}
             {result.bannerStructureName ? (
               <div className={styles.priceItem}>
                 <dt>Opción de Banner</dt>
@@ -833,7 +922,9 @@ export function AreaPricingCalculator({
                 </data>
               </dd>
               <dd className={styles.priceItemNote}>
-                Valor calculado sin redondear
+                {result.quotationLineInput.cutVinylColor
+                  ? "Valor protegido por el mínimo del grupo"
+                  : "Valor calculado sin redondear"}
               </dd>
             </div>
             <div className={styles.priceItemFeatured}>
@@ -844,7 +935,9 @@ export function AreaPricingCalculator({
                 </data>
               </dd>
               <dd className={styles.priceItemNote}>
-                Resultado ajustado a múltiplos de COP 500
+                {result.quotationLineInput.cutVinylColor
+                  ? "El grupo se recalcula al agregar o eliminar piezas del mismo color"
+                  : "Resultado ajustado a múltiplos de COP 500"}
               </dd>
             </div>
           </dl>

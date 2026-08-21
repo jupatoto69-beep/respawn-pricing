@@ -11,6 +11,10 @@ import {
 } from "@/lib/pricing/temporary-quotation";
 import { calculateThreeDPrintingPrice } from "@/lib/pricing/calculate-three-d-printing-price";
 import {
+  calculateCutVinylColorGroupPrice,
+  createCutVinylColorGroupPricing,
+} from "@/lib/pricing/cut-vinyl-color-group";
+import {
   THREE_D_PRINTING_MATERIAL_IDS,
   THREE_D_PRINTING_MODELING_IDS,
 } from "@/lib/pricing/three-d-printing-catalog";
@@ -47,6 +51,34 @@ function createDraft(
     ],
     lineTotal: 768_000,
     ...overrides,
+  };
+}
+
+function createCutVinylDraft(
+  subtotalBeforeMinimumAndRounding: number,
+): QuotationLineDraft {
+  const commercialGroup = createCutVinylColorGroupPricing(
+    "cut-vinyl",
+    "Rojo",
+    subtotalBeforeMinimumAndRounding,
+  );
+
+  if (commercialGroup === null) {
+    throw new Error("Expected Cut vinyl group pricing.");
+  }
+
+  return {
+    source: "area-product",
+    title: "Vinilo de corte",
+    quantity: 1,
+    details: [
+      { label: "Producto", value: "Vinilo de corte" },
+      { label: "Color", value: "Rojo" },
+    ],
+    lineTotal: calculateCutVinylColorGroupPrice([
+      subtotalBeforeMinimumAndRounding,
+    ]).roundedTotal,
+    commercialGroup,
   };
 }
 
@@ -250,6 +282,44 @@ describe("quotation preview view-model", () => {
     expect(serialized).not.toContain("Mínimo autorizado");
     expect(serialized).not.toContain("Descuento máximo");
     expect(serialized).not.toContain("Precio negociado autorizado");
+  });
+
+  it("shows the Cut vinyl color but not its technical grouping metadata", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft(4_000),
+    );
+    const preview = createPreview(quotation);
+    const serialized = JSON.stringify(preview);
+
+    expect(preview.lines[0].details).toContainEqual({
+      label: "Color",
+      value: "Rojo",
+    });
+    expect(serialized).not.toContain("cut-vinyl:rojo");
+    expect(serialized).not.toContain("subtotalBeforeMinimumAndRounding");
+    expect(preview.total).toBe(15_000);
+  });
+
+  it("preserves exact non-COP-500 Cut vinyl contributions in preview data", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft(4_000),
+    );
+    const second = addQuotationLine(first, createCutVinylDraft(6_000));
+    const quotation = addQuotationLine(second, createCutVinylDraft(3_000));
+    const preview = createPreview(quotation);
+
+    expect(preview.lines.map((line) => line.lineTotal)).toEqual([
+      4_615, 6_923, 3_462,
+    ]);
+    expect(preview.lines.map((line) => line.formattedLineTotal)).toEqual([
+      "COP 4.615",
+      "COP 6.923",
+      "COP 3.462",
+    ]);
+    expect(preview.total).toBe(15_000);
+    expect(preview.formattedTotal).toBe("COP 15.000");
   });
 
   it("projects the immutable precise printer snapshot without internal pricing", () => {

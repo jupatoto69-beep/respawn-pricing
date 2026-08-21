@@ -464,6 +464,14 @@ colors form separate groups and evaluate the minimum independently. This is a
 confirmed public product rule and is distinct from the private final minimum
 floor used for exceptional-price authorization.
 
+The complete Cut vinyl color group is the commercial unit that receives the
+minimum and one upward COP 500 rounding. When its composition changes, its
+stored piece lines reevaluate the group total from their commercial subtotal
+snapshots. Their deterministic proportional contributions sum exactly to the
+once-rounded group total but are not independently rounded and therefore do
+not need to be COP 500 multiples. Other quotation lines retain their stored
+commercial totals and are not automatically repriced.
+
 ## First-release commercial values
 
 ### Base price
@@ -523,11 +531,13 @@ The application must calculate each price in this order:
    rounded price = ceiling(protected price / 500) × 500
    ```
 
-8. Add the rounded result to the temporary quotation.
+8. Store the rounded commercial result in the temporary quotation.
 
 The minimum is applied after the discount and additions. It is not a
-pre-discount minimum. A quotation total is the sum of its already rounded lines
-and is not rounded a second time.
+pre-discount minimum. A quotation total is the sum of its stored final line
+totals and is not rounded a second time. Normal lines store their individually
+rounded results; Cut vinyl piece contributions instead sum to the once-rounded
+total of their color group as described above.
 
 ## Future cost-and-margin model
 

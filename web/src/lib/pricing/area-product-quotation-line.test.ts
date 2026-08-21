@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { BANNER_STANDARD_VARIANT_ID } from "./area-product-catalog";
+import {
+  BANNER_STANDARD_VARIANT_ID,
+  CUT_VINYL_PRODUCT_ID,
+} from "./area-product-catalog";
 import {
   createAreaProductQuotationLineDraft,
   type AreaProductQuotationLineInput,
@@ -9,6 +12,7 @@ import { BANNER_STRUCTURE_OPTION_IDS } from "./banner-structure-options";
 import { calculateAreaBasePrice } from "./calculate-area-base-price";
 import { calculateBannerStructurePrice } from "./calculate-banner-structure-price";
 import { calculateIlluminatedPanaflexSignPrice } from "./calculate-illuminated-panaflex-sign-price";
+import { CUT_VINYL_COLOR_GROUP_PRICING_KIND } from "./cut-vinyl-color-group";
 import { PANAFLEX_PRICING_OPTION_IDS } from "./panaflex-pricing-options";
 import { roundUpToCop500 } from "./round-up-to-cop-500";
 
@@ -16,8 +20,10 @@ function createInput(
   overrides: Partial<AreaProductQuotationLineInput> = {},
 ): AreaProductQuotationLineInput {
   return {
+    productId: "printed-vinyl",
     productName: "Vinilo impreso",
     variantName: "Estándar sin laminado",
+    cutVinylColor: null,
     lengthCm: 100,
     widthCm: 100,
     areaM2: 1,
@@ -28,6 +34,7 @@ function createInput(
     panaflexPricingOptionName: null,
     panaflexMeasureClassification: null,
     panaflexStructureRatePerCm2: null,
+    subtotalBeforeMinimumAndRounding: 80_000,
     finalPrice: 80_000,
     ...overrides,
   };
@@ -159,5 +166,48 @@ describe("area-product quotation-line adapter", () => {
     expect(
       line.details.find((detail) => detail.label === "Tarifa visible")?.value,
     ).toContain("82.345");
+  });
+
+  it("stores normalized Cut vinyl color-group pricing without exposing the key as a detail", () => {
+    const line = createAreaProductQuotationLineDraft(
+      createInput({
+        productId: CUT_VINYL_PRODUCT_ID,
+        productName: "Vinilo de corte",
+        variantName: "Estándar",
+        cutVinylColor: "  RoJO   claro  ",
+        subtotalBeforeMinimumAndRounding: 4_000,
+        finalPrice: 15_000,
+      }),
+    );
+
+    expect(line.details).toContainEqual({
+      label: "Color",
+      value: "RoJO claro",
+    });
+    expect(line.commercialGroup).toEqual({
+      kind: CUT_VINYL_COLOR_GROUP_PRICING_KIND,
+      productId: CUT_VINYL_PRODUCT_ID,
+      groupKey: "cut-vinyl:rojo claro",
+      subtotalBeforeMinimumAndRounding: 4_000,
+    });
+    expect(JSON.stringify(line.details)).not.toContain("cut-vinyl:rojo claro");
+  });
+
+  it.each([
+    ["printed-vinyl", "Vinilo impreso"],
+    ["banner", "Banner"],
+    ["panaflex", "Panaflex"],
+  ])("does not attach color-group pricing to %s", (productId, productName) => {
+    const line = createAreaProductQuotationLineDraft(
+      createInput({
+        productId,
+        productName,
+        cutVinylColor: "Rojo",
+      }),
+    );
+
+    expect(line.commercialGroup).toBeUndefined();
+    expect(line.details).not.toContainEqual({ label: "Color", value: "Rojo" });
+    expect(line.lineTotal).toBe(80_000);
   });
 });

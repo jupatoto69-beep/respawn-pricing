@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { CUT_VINYL_PRODUCT_ID } from "./area-product-catalog";
+import {
+  calculateCutVinylColorGroupPrice,
+  createCutVinylColorGroupPricing,
+} from "./cut-vinyl-color-group";
 import {
   addQuotationLine,
   calculateQuotationTotal,
@@ -27,6 +32,36 @@ function createDraft(
     details: [{ label: "Dimensiones", value: "80 × 300 cm" }],
     lineTotal: 768_000,
     ...overrides,
+  };
+}
+
+function createCutVinylDraft(
+  color: string,
+  subtotalBeforeMinimumAndRounding: number,
+  quantity = 1,
+): QuotationLineDraft {
+  const commercialGroup = createCutVinylColorGroupPricing(
+    CUT_VINYL_PRODUCT_ID,
+    color,
+    subtotalBeforeMinimumAndRounding,
+  );
+
+  if (commercialGroup === null) {
+    throw new Error("Expected Cut vinyl group pricing.");
+  }
+
+  return {
+    source: "area-product",
+    title: "Vinilo de corte",
+    quantity,
+    details: [
+      { label: "Producto", value: "Vinilo de corte" },
+      { label: "Color", value: color.trim() },
+    ],
+    lineTotal: calculateCutVinylColorGroupPrice([
+      subtotalBeforeMinimumAndRounding,
+    ]).roundedTotal,
+    commercialGroup,
   };
 }
 
@@ -272,6 +307,137 @@ describe("temporary quotation", () => {
     expect(second.lines).toHaveLength(2);
     expect(second.lines[0].id).not.toBe(second.lines[1].id);
     expect(second.lines[0].lineTotal).toBe(second.lines[1].lineTotal);
+  });
+
+  it("applies COP 15,000 to one Cut vinyl piece below the group minimum", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 4_000),
+    );
+
+    expect(quotation.lines[0].lineTotal).toBe(15_000);
+    expect(calculateQuotationTotal(quotation)).toBe(15_000);
+  });
+
+  it("does not apply the minimum per piece when one color exceeds it together", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 4_000),
+    );
+    const second = addQuotationLine(
+      first,
+      createCutVinylDraft("rojo", 6_000),
+    );
+    const quotation = addQuotationLine(
+      second,
+      createCutVinylDraft(" ROJO ", 6_000),
+    );
+
+    expect(quotation.lines).toHaveLength(3);
+    expect(quotation.lines.map((line) => line.lineTotal)).toEqual([
+      4_000, 6_000, 6_000,
+    ]);
+    expect(calculateQuotationTotal(quotation)).toBe(16_000);
+  });
+
+  it("applies the minimum once when a same-color group remains below it", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 4_000),
+    );
+    const second = addQuotationLine(
+      first,
+      createCutVinylDraft("Rojo", 6_000),
+    );
+    const quotation = addQuotationLine(
+      second,
+      createCutVinylDraft("Rojo", 3_000),
+    );
+
+    expect(calculateQuotationTotal(quotation)).toBe(15_000);
+    expect(
+      quotation.lines.reduce((total, line) => total + line.lineTotal, 0),
+    ).toBe(15_000);
+  });
+
+  it("keeps different Cut vinyl colors as independent minimum groups", () => {
+    const red = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 10_000),
+    );
+    const quotation = addQuotationLine(
+      red,
+      createCutVinylDraft("Azul", 8_000),
+    );
+
+    expect(quotation.lines.map((line) => line.lineTotal)).toEqual([
+      15_000, 15_000,
+    ]);
+    expect(calculateQuotationTotal(quotation)).toBe(30_000);
+  });
+
+  it("keeps a Cut vinyl color group above the minimum", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 20_000),
+    );
+
+    expect(calculateQuotationTotal(quotation)).toBe(20_000);
+  });
+
+  it("groups same-color pieces after quantity has affected each subtotal", () => {
+    const onePiece = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Verde", 4_000, 1),
+    );
+    const quotation = addQuotationLine(
+      onePiece,
+      createCutVinylDraft("Verde", 12_000, 3),
+    );
+
+    expect(quotation.lines.map((line) => line.quantity)).toEqual([1, 3]);
+    expect(quotation.lines.map((line) => line.lineTotal)).toEqual([
+      4_000, 12_000,
+    ]);
+    expect(calculateQuotationTotal(quotation)).toBe(16_000);
+  });
+
+  it("recalculates the remaining color group after deleting one of its lines", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft("Rojo", 4_000),
+    );
+    const second = addQuotationLine(
+      first,
+      createCutVinylDraft("Rojo", 12_000),
+    );
+    const removed = removeQuotationLine(second, "quotation-line-2");
+
+    expect(calculateQuotationTotal(second)).toBe(16_000);
+    expect(removed.lines).toHaveLength(1);
+    expect(removed.lines[0].lineTotal).toBe(15_000);
+    expect(calculateQuotationTotal(removed)).toBe(15_000);
+    expect(second.lines[0].lineTotal).toBe(4_000);
+  });
+
+  it.each([
+    ["Vinilo impreso", 8_000],
+    ["Banner", 8_000],
+    ["Panaflex", 8_000],
+  ])("does not group %s by a color detail", (title, lineTotal) => {
+    const draft = createDraft({
+      title,
+      details: [{ label: "Color", value: "Rojo" }],
+      lineTotal,
+    });
+    const first = addQuotationLine(createEmptyQuotation(), draft);
+    const quotation = addQuotationLine(first, draft);
+
+    expect(quotation.lines.map((line) => line.lineTotal)).toEqual([
+      lineTotal,
+      lineTotal,
+    ]);
+    expect(calculateQuotationTotal(quotation)).toBe(lineTotal * 2);
   });
 
   it("preserves quotation details while adding and removing lines", () => {

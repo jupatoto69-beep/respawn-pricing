@@ -8,8 +8,13 @@ import {
   createEmptyQuotationDetails,
   updateQuotationDetails,
   updateQuotationPhoneCountry,
+  type QuotationLineDraft,
   type TemporaryQuotationTextDetailField,
 } from "@/lib/pricing/temporary-quotation";
+import {
+  calculateCutVinylColorGroupPrice,
+  createCutVinylColorGroupPricing,
+} from "@/lib/pricing/cut-vinyl-color-group";
 import { validateTemporaryQuotationDetails } from "@/lib/pricing/temporary-quotation-details-validation";
 import {
   PHONE_COUNTRY_DEFINITIONS,
@@ -28,6 +33,34 @@ const noopUpdate: (
 ) => void = () => undefined;
 const noopCountryUpdate: (countryIso2: PhoneCountryIso2) => void = () =>
   undefined;
+
+function createCutVinylDraft(
+  subtotalBeforeMinimumAndRounding: number,
+): QuotationLineDraft {
+  const commercialGroup = createCutVinylColorGroupPricing(
+    "cut-vinyl",
+    "Rojo",
+    subtotalBeforeMinimumAndRounding,
+  );
+
+  if (commercialGroup === null) {
+    throw new Error("Expected Cut vinyl group pricing.");
+  }
+
+  return {
+    source: "area-product",
+    title: "Vinilo de corte",
+    quantity: 1,
+    details: [
+      { label: "Producto", value: "Vinilo de corte" },
+      { label: "Color", value: "Rojo" },
+    ],
+    lineTotal: calculateCutVinylColorGroupPrice([
+      subtotalBeforeMinimumAndRounding,
+    ]).roundedTotal,
+    commercialGroup,
+  };
+}
 
 describe("TemporaryQuotation", () => {
   it("renders editable quotation details in the empty state", () => {
@@ -240,5 +273,35 @@ describe("TemporaryQuotation", () => {
     expect(lineListMarkup).not.toContain(
       "Entregar durante la próxima semana.",
     );
+  });
+
+  it("renders the exact proportional Cut vinyl contributions and group total", () => {
+    const first = addQuotationLine(
+      createEmptyQuotation(),
+      createCutVinylDraft(4_000),
+    );
+    const second = addQuotationLine(first, createCutVinylDraft(6_000));
+    const quotation = addQuotationLine(second, createCutVinylDraft(3_000));
+    const markup = renderToStaticMarkup(
+      <TemporaryQuotation
+        quotation={quotation}
+        total={calculateQuotationTotal(quotation)}
+        onUpdateDetail={noopUpdate}
+        onUpdatePhoneCountry={noopCountryUpdate}
+        onRemoveLine={noop}
+        onClear={noop}
+      />,
+    );
+
+    expect(quotation.lines.map((line) => line.lineTotal)).toEqual([
+      4_615, 6_923, 3_462,
+    ]);
+    expect(markup).toContain('data value="4615"');
+    expect(markup).toContain('data value="6923"');
+    expect(markup).toContain('data value="3462"');
+    expect(markup).toContain("COP 4.615");
+    expect(markup).toContain("COP 6.923");
+    expect(markup).toContain("COP 3.462");
+    expect(markup).toContain("COP 15.000");
   });
 });

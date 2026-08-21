@@ -7,6 +7,11 @@ import {
   DEFAULT_PHONE_COUNTRY_ISO2,
   type PhoneCountryIso2,
 } from "./phone-country-catalog";
+import {
+  allocateCutVinylColorGroupLineTotals,
+  CUT_VINYL_COLOR_GROUP_PRICING_KIND,
+  type CutVinylColorGroupPricing,
+} from "./cut-vinyl-color-group";
 
 export {
   getPhoneCountryDefinition,
@@ -34,6 +39,7 @@ export type QuotationLineDraft = Readonly<{
   quantity: number;
   details: readonly QuotationLineDetail[];
   lineTotal: number;
+  commercialGroup?: CutVinylColorGroupPricing;
 }>;
 
 export type QuotationLine = QuotationLineDraft &
@@ -157,6 +163,53 @@ function copyDetails(
   );
 }
 
+function copyCommercialGroup(
+  commercialGroup: CutVinylColorGroupPricing,
+): CutVinylColorGroupPricing {
+  return Object.freeze({
+    kind: commercialGroup.kind,
+    productId: commercialGroup.productId,
+    groupKey: commercialGroup.groupKey,
+    subtotalBeforeMinimumAndRounding:
+      commercialGroup.subtotalBeforeMinimumAndRounding,
+  });
+}
+
+function repriceCutVinylColorGroups(
+  lines: readonly QuotationLine[],
+): readonly QuotationLine[] {
+  const allocations = allocateCutVinylColorGroupLineTotals(
+    lines.flatMap((line) =>
+      line.commercialGroup?.kind === CUT_VINYL_COLOR_GROUP_PRICING_KIND
+        ? [{ lineId: line.id, pricing: line.commercialGroup }]
+        : [],
+    ),
+  );
+  const totalsByLineId = new Map(
+    allocations.map((allocation) => [allocation.lineId, allocation.lineTotal]),
+  );
+
+  return lines.map((line) => {
+    const repricedTotal = totalsByLineId.get(line.id);
+
+    if (repricedTotal === undefined || repricedTotal === line.lineTotal) {
+      return line;
+    }
+
+    return Object.freeze({
+      ...line,
+      lineTotal: repricedTotal,
+    });
+  });
+}
+
+function calculateLinesTotal(lines: readonly QuotationLine[]): number {
+  return lines.reduce((total, line) => {
+    assertValidLineTotal(line.lineTotal);
+    return addSafeTotals(total, line.lineTotal);
+  }, 0);
+}
+
 export function createEmptyQuotationDetails(): TemporaryQuotationDetails {
   return freezeDetails({
     customerName: "",
@@ -236,10 +289,7 @@ export function hasQuotationInformation(
 export function calculateQuotationTotal(
   quotation: TemporaryQuotationState,
 ): number {
-  return quotation.lines.reduce((total, line) => {
-    assertValidLineTotal(line.lineTotal);
-    return addSafeTotals(total, line.lineTotal);
-  }, 0);
+  return calculateLinesTotal(quotation.lines);
 }
 
 export function addQuotationLine(
@@ -248,7 +298,6 @@ export function addQuotationLine(
   addedAt?: Date,
 ): TemporaryQuotationState {
   assertValidLineTotal(draft.lineTotal);
-  addSafeTotals(calculateQuotationTotal(quotation), draft.lineTotal);
 
   if (
     !Number.isSafeInteger(quotation.nextLineSequence) ||
@@ -265,10 +314,19 @@ export function addQuotationLine(
     quantity: draft.quantity,
     details: copyDetails(draft.details),
     lineTotal: draft.lineTotal,
+    ...(draft.commercialGroup
+      ? { commercialGroup: copyCommercialGroup(draft.commercialGroup) }
+      : {}),
   });
+  const repricedLines = repriceCutVinylColorGroups([
+    ...quotation.lines,
+    line,
+  ]);
+
+  calculateLinesTotal(repricedLines);
 
   return freezeState(
-    [...quotation.lines, line],
+    repricedLines,
     quotation.nextLineSequence + 1,
     quotation.details,
     quotation.quotationDate ??
@@ -285,7 +343,9 @@ export function removeQuotationLine(
   }
 
   return freezeState(
-    quotation.lines.filter((line) => line.id !== lineId),
+    repriceCutVinylColorGroups(
+      quotation.lines.filter((line) => line.id !== lineId),
+    ),
     quotation.nextLineSequence,
     quotation.details,
     quotation.quotationDate,
