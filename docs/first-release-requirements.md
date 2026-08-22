@@ -45,14 +45,9 @@ fixed base price = configured unit price × quantity
 ```
 
 Each fixed-price selection is treated as its own quotation line and commercial
-group in the first release. After calculating the fixed base price, the
-application must:
-
-1. Apply an authorized discount only to the fixed base price.
-2. Add compatible additions without applying a discount.
-3. Apply the privately configured final minimum charge as the final floor.
-4. Round the protected price upward to the next COP 500 increment.
-5. Add the rounded result to the temporary quotation.
+result. Current fixed-price service calculators store the exact configured
+unit-price-times-quantity total. They do not pass that result through a generic
+discount, addition, minimum or COP 500 rounding pipeline.
 
 ### Area-based products
 
@@ -94,41 +89,32 @@ already including the requested quantity. It is not a unit price and the
 application must not multiply it by quantity. The raw amount must be finite,
 positive and at least COP 5.000; after validation it is rounded upward to COP
 500. It does not pass through the precise engine and therefore does not apply
-filament or electricity calculations, the material adjustment, precise ×4,
-the authorization threshold, an authorization checkbox, or automatic
-Multicolor ×3. Quick Multicolor may record the safe operational detail
-`Producción: HI`.
+precise material and machine-time calculations, an automatic price or the
+precise manual-price authorization flow. Quick Multicolor may record the safe
+operational detail `Producción: HI` without changing the employee-entered
+whole-job total.
 
 An accepted quick estimate may create an immutable `Impresión 3D — Estimación
 preliminar` quotation line. The line stores the requested quantity, the rounded
 whole-job total, customer-safe selections and `Valor estimado. El precio
 definitivo puede cambiar después de recibir y laminar el archivo 3D.` It appears
-unchanged in the temporary quotation, formal preview and existing PDF. Cube
+unchanged in the temporary quotation, formal preview and PDF. Cube
 calibration, `Ligera`/`Normal`/`Densa` profiles, interpolation and extrapolation
 are not active.
 
-The precise engine derives filament at COP 95.000 per 1.000 g, applies the 40%
-material adjustment, and calculates electricity from actual slicer time at
-0.150 kW and COP 900/kWh. It multiplies material and electricity by quantity,
-adds the selected modeling charge once per job, uses ×4 for the suggested raw
-commercial price, protects the COP 5.000 absolute floor, and rounds the
-accepted final amount upward to COP 500.
+The precise engine uses actual slicer grams and time per unit, applies quantity
+to the per-unit production components and applies the selected modeling option
+once per job. Private typed configuration derives the suggested commercial
+price and the internal boundary for its guarded manual-price control. The
+accepted final amount uses the current precise 3D upward COP 500 rounding
+strategy. A manual amount that requires authorization remains blocked until
+the employee explicitly confirms that authorization was obtained.
 
-Typed configuration and pure domain functions derive the normal suggested
-commercial price, enforce the absolute commercial minimum, and apply the
-shared upward COP 500 rounding. The employee may enable `Modificar precio` and
-enter a custom amount. A raw amount below the internal threshold shows only
-`Este precio requiere autorización.` and requires the explicit confirmation
-`Confirmo que este precio está autorizado`; without confirmation, calculation
-and quotation addition remain blocked. A confirmed exception is rounded upward
-to COP 500 only after authorization. COP 5.000 is an absolute minimum and
-cannot be bypassed by the confirmation.
-
-One-color work preserves the existing ×4 suggested price and ×3 authorization
-threshold. Multicolor is operationally HI-only and applies its ×3 commercial
-factor to both those raw amounts. It does not multiply the COP 5.000 absolute
-floor. These internal calculations and factors must not appear in employee or
-customer-facing views.
+One-color and Multicolor work follow their configured precise commercial
+behavior, and Multicolor is operationally HI-only. Actual internal costs,
+commercial coefficients, profitability information and authorization
+thresholds must not be copied into public documentation or employee/customer
+views.
 
 The printer selector identifies the actual production printer, not estimated
 compatibility. One-color work allows KE or HI. Multicolor production is HI-only:
@@ -155,33 +141,20 @@ Impresos` detail. Preview and PDF consume that immutable snapshot and never
 rerun the pricing engine. This scope adds no database, persistence,
 authentication, roles or administration UI.
 
-### Documented service and print catalog strategies
+### Implemented service and print catalog strategies
 
-The confirmed service and print catalog in
-[Pricing Model](pricing-model.md) records fixed prices, bundle prices, quantity
-tiers, duration pricing and optional add-ons. Generic fixed-price calculation
-and compatible additions are already supported first-release concepts. The
-catalog entries and their catalog-specific bundle, quantity-tier, duration and
-per-unit optional-add-on rules are documented inputs for future implementation
-and are not added to the application by this documentation change.
+The current `Servicios` mode implements calculators for computer maintenance,
+Office installation, individual software installation, hard-drive recovery,
+protected-system access, simple video editing, business cards and tabloids.
 
-This catalog documentation does not implement:
+Those calculators use explicit fixed prices, the complete-maintenance bundle,
+quantity tiers, duration-based pricing, negotiated prices where supported,
+public product-specific commercial minimums, and tabloid lamination. The
+specific catalog rules are documented in [Pricing Model](pricing-model.md).
 
-- Service forms
-- Duration calculations
-- Quantity tiers
-- Optional add-ons
-- Employee-entered manual discounts
-- Temporary quotation lines
-- Database persistence
-- An administration panel
-
-It also adds no application code, interface controls, configuration,
-dependencies or tests.
-
-The 3D-printing strategy above is the implemented exception to this older
-documentation-only catalog boundary. It does not implement persistent price
-editing or a generic administration model.
+These implementations do not provide generic percentage-discount, addition or
+minimum engines. Database persistence, a catalog administration panel and
+generic cost-and-margin pricing remain future scope.
 
 ## Initial area-product catalog
 
@@ -197,7 +170,7 @@ customer-facing rates may be stored in the public repository.
 | Cut vinyl | Standard | Area-based | COP 80,000/m² |
 | Banner | Standard without lamination | Area-based | COP 80,000/m² |
 | Banner | Laminated | Area-based | COP 85,000/m² |
-| Panaflex | Standard material | Illuminated-sign strategies | COP 85,000/m² |
+| Panaflex | Standard material | Area-based material pricing | COP 85,000/m² |
 
 Cut vinyl has no lamination variants in the first release.
 
@@ -218,81 +191,48 @@ identified fictitious examples.
 Custom rate is exceptional rather than a normal catalog variant. The employee
 must explicitly select the custom-rate option before the application displays
 a manual final-sales-rate field in COP/m². The manual field must remain hidden
-for normal product-and-variant selections.
+for normal product-and-variant selections. An entered Custom rate must be
+finite and strictly greater than zero.
 
 ## Area-based calculation
 
-The application must perform area-based pricing in this order:
+For Printed vinyl, Cut vinyl, Banner and material-only Panaflex, the application
+must:
 
-1. Validate the dimensions and quantity. Dimensions must be positive numeric
-   values, and quantity must be a positive integer.
-2. Convert the dimensions from centimeters to square meters:
-
-   ```text
-   area in square meters = (length in centimeters / 100)
-                          × (width in centimeters / 100)
-   ```
-
-3. Multiply the area by the configured rate to obtain the base price for one
-   item.
-4. Multiply the base price for one item by quantity.
-5. Group compatible items when the applicable commercial rules allow it.
-6. Apply an authorized discount only to the grouped base price:
+1. Validate positive dimensions and a positive integer quantity.
+2. Calculate the unrounded area per unit:
 
    ```text
-   discounted base price = grouped base price × (1 - applied discount)
+   area per unit in m² = (lengthCm × widthCm) / 10,000
    ```
 
-7. Add laminates and all other additions without applying a discount:
+3. Include quantity in the total area and multiply by the resolved public
+   variant rate or a valid exceptional Custom rate.
+4. Apply the Banner structure/lamination rule when Banner is selected.
+5. For Cut vinyl, preserve the unrounded commercial subtotal for color-group
+   evaluation; for other area products, round the product-specific result
+   upward once to COP 500.
+6. Store the accepted commercial result as the quotation line's `lineTotal`.
 
-   ```text
-   subtotal with additions = discounted base price + additions
-   ```
-
-8. Apply the privately configured final minimum charge as a floor for the
-   commercial group:
-
-   ```text
-   protected group price = maximum(
-     subtotal with additions,
-     configured final minimum charge
-   )
-   ```
-
-9. Round the protected group price upward to the next COP 500 increment:
-
-   ```text
-   rounded group price = ceiling(protected group price / 500) × 500
-   ```
-
-10. Store the rounded commercial result in the temporary quotation.
-
-The calculated base price before discounts and additions is the list price
-shown to the employee. The final minimum is applied after the discount and
-additions; it is not a pre-discount value. A quotation total is the sum of the
-stored final line totals that represent its already rounded commercial lines
-or groups, and is not rounded a second time.
+Illuminated Panaflex uses its separate direct cm² strategy below. A stored
+`lineTotal` already includes quantity. The quotation does not multiply it or
+round it again.
 
 ## Grouping rules
 
-The special grouping rules in this section apply to area-based products. Each
-fixed-price selection remains its own line and commercial group as defined
-above. Area-based items may share a commercial group only when their pricing,
-finish, and production requirements are compatible.
+Normal area-product lines are independent pricing snapshots. Cut vinyl is the
+only current area-product rule that depends on the composition of the temporary
+quotation.
 
-- Cut vinyl groups only items with the same product and color.
-- Banner and printed vinyl may group items with different design colors.
-- Incompatible finishes or production processes create separate groups.
-- Matte and gloss laminate must never share the same group.
+Cut vinyl requires a color. The application trims surrounding whitespace,
+collapses repeated internal whitespace, normalizes Unicode text and compares
+case-insensitively so accidental formatting differences do not create separate
+commercial groups. Accents remain significant. Different normalized colors
+form separate groups.
 
-Each separate group receives its own discount calculation, additions, final
-minimum floor, and commercial rounding.
-
-Cut vinyl has a COP 15,000 commercial minimum per color group. Pieces of the
-same product and color may be grouped before evaluating that minimum. Different
-colors form separate groups and evaluate the minimum independently. This is a
-confirmed public product rule and is distinct from the private final minimum
-floor used for exceptional-price authorization.
+Cut vinyl has a public COP 15,000 commercial minimum per normalized color
+group. Piece subtotals in that group are combined before the minimum is
+evaluated, and the complete group receives one upward COP 500 rounding.
 
 For Cut vinyl, the complete color group is the commercial unit that receives
 the minimum and one upward COP 500 rounding. Individual stored piece lines may
@@ -300,21 +240,54 @@ carry deterministic proportional contributions whose sum is exactly the
 once-rounded group total. Those contributions are not protected or rounded
 independently and therefore do not need to be COP 500 multiples.
 
-## Confirmed future special pricing rules
+Adding or removing a Cut vinyl piece reevaluates only the affected color group.
+Other products and services are not automatically repriced.
 
-The following rules are confirmed but remain outside the first-release
-implementation scope.
+Current behavior does not separate Standard and Custom rate Cut vinyl pieces
+when they share the same normalized color. Whether mixed-rate pieces should
+instead form separate groups is pending business confirmation; it is not a new
+commercial rule established by this documentation.
 
-For general structures, `areaBasePrice` is the area-based material price in
-COP, calculated using the applicable final sales rate in COP/m²:
+## Implemented area-product special pricing rules
+
+### Banner
+
+Let `A` be the total area in m², including quantity:
 
 ```text
-single-face structure price = areaBasePrice × 4
-double-face structure price = (areaBasePrice × 4) + areaBasePrice
+S = A × COP 80,000
+L = A × COP 5,000
 ```
 
-For illuminated panaflex signs, dimensions are centimeters (cm) and their
-product is square centimeters (cm²):
+Standard Banner pricing is:
+
+```text
+material only = S
+single-face structure = 4S
+double-face structure = 5S
+```
+
+Laminated Banner pricing is:
+
+```text
+material only = S + L
+single-face structure = 4S + L
+double-face structure = 5S + 2L
+```
+
+The application applies one upward COP 500 rounding after the complete Banner
+formula. It must not calculate laminated structures as COP 85,000 multiplied
+by the structure factor.
+
+Custom rate remains exceptional. For Banner it replaces the material rate used
+by the 1/4/5 structure multiplier and does not add automatic lamination.
+
+### Panaflex
+
+Material-only Panaflex uses area-based pricing at COP 85,000/m² and supports
+the exceptional Custom rate option. Illuminated signs use a separate direct
+calculation. Their input dimensions are centimeters (cm) and their product is
+square centimeters (cm²):
 
 ```text
 areaCm2 = lengthCm × widthCm
@@ -346,46 +319,61 @@ The 10,000 threshold is measured in cm². It is distinct from input dimensions
 in cm and from catalog rates expressed per square meter (m²). Exactly 10,000
 cm² is standard and does not receive the multiplier.
 
-## Discounts
+## COP 500 rounding
 
-- Each product or service may define its own maximum authorized discount.
-- The application must reject a negative discount.
-- The application must reject a discount above the configured maximum.
-- A discount applies only to the base price.
-- Laminates and all other additions are not discounted.
+COP 500 rounding is not a universal post-processing rule:
 
-An automatic quantity-tier price is not a manual employee discount. It becomes
+- Area products use upward COP 500 rounding when their implemented strategy
+  reaches the commercial rounding stage.
+- Cut vinyl rounds the complete normalized color group once and distributes
+  that result across its stored piece lines.
+- Precise and quick 3D workflows use upward COP 500 rounding according to their
+  separate acceptance strategies.
+- Business cards and tabloids preserve their calculated totals without passing
+  through a generic COP 500 helper.
+- The temporary quotation sums stored totals exactly and never rounds the grand
+  total again.
+
+## Product-specific adjustments
+
+The current application implements explicit adjustments only where a product
+or service defines them. These include quantity tiers, negotiated business-card
+and tabloid prices, tabloid lamination, Banner structures and lamination,
+Panaflex additional-face pricing, 3D modeling and precise Multicolor behavior.
+
+An automatic quantity-tier price is not a generic employee discount. It becomes
 the applicable unit price when quantity reaches the configured inclusive
-threshold, applies to every unit in the selection, and may be lower than the
-minimum price an employee is authorized to enter manually.
+threshold and applies to every unit in that selection.
+
+Generic percentage discounts, generic additions and a generic commercial
+minimum engine are future concepts and are not current first-release
+capabilities.
 
 ## Commercial price levels
 
 - The normal price is the standard customer-facing unit price before an
   applicable quantity tier.
 - The automatic quantity-tier price is selected by the configured quantity
-  rule, not entered as a manual employee discount.
-- The minimum employee-authorized price is the lowest price an employee may
-  authorize when a manual adjustment is available. A confirmed amount may be
-  documented publicly.
-- A private internal floor for exceptions is an additional internal control.
-  Its amount remains private unless it has been explicitly confirmed as public.
+  rule.
+- A negotiated price is an employee-entered unit price supported only by the
+  business-card and tabloid calculators.
+- A public minimum employee-authorized price applies only where that specific
+  negotiated-price rule defines one.
+- Private internal boundaries used by guarded pricing remain private.
 
-## Minimum charges and exceptions
+## Commercial minimums and exceptions
 
-- Private internal final minimum floors for exceptions are private commercial
-  configuration.
-- Internal floor amounts that have not been publicly confirmed must not be
-  stored in public documentation or committed public configuration.
-- A publicly confirmed minimum employee-authorized sales price is distinct
-  from a private internal floor and may be documented publicly.
-- The employee-facing interface must not display or otherwise disclose an
-  internal minimum-charge value.
-- The application must block any requested exception below the final minimum.
-- An exceptional price below the minimum requires administrator authorization
-  through a process outside the first-release system.
-- The first release must not model, record, or imply an in-system approval for
-  an exceptional price.
+- There is no universal generic minimum applied to every calculator.
+- Cut vinyl has the confirmed public COP 15,000 minimum per normalized color
+  group.
+- Business cards and tabloids enforce only the public, product-specific
+  negotiated-price minimums documented in [Pricing Model](pricing-model.md).
+- The 3D strategies enforce their current validation and guarded manual-price
+  behavior without exposing private costs, profitability configuration or
+  sensitive internal thresholds.
+- A confirmation control records only that an external authorization was
+  acknowledged. It is not authentication, role enforcement or an in-system
+  permission grant.
 
 Because this release has no authentication or authorization system, hiding
 commercial data in the interface is not an access-control boundary. Private
@@ -398,13 +386,9 @@ must be controlled outside the application.
 For each calculation, the employee interface must show:
 
 - The selected product or service.
-- Valid dimensions when the pricing strategy requires them.
-- Quantity.
-- List price.
-- Maximum permitted discount.
-- Applied discount.
-- Selected additions.
-- Final rounded price.
+- The public inputs and selections required by that strategy.
+- Quantity and the accepted final price with the strategy-specific breakdown
+  that is safe for the employee.
 - An action to add the priced line to the temporary quotation.
 
 For precise 3D printing, the applicable visible fields are material, actual
@@ -412,8 +396,7 @@ slicer grams and time, quantity, modeling, color mode, production printer,
 price-source state, suggested price and final accepted price. Quick mode shows
 its preliminary intake fields, employee-entered whole-job total, accepted
 rounded total and required non-definitive notice.
-Internal cost components and the authorization threshold replace the generic
-list-price/discount concepts and remain hidden.
+Internal cost components and authorization thresholds remain hidden.
 
 ## Information hidden from employees
 
@@ -541,7 +524,8 @@ The following functionality is explicitly excluded from the first release:
   interpolation or extrapolation.
 - STL geometry analysis, automatic supports or automatic model splitting.
 - Additional printers, materials, resin or invented printer Z limits.
-- Editable 3D prices or an administration/database-backed pricing catalog.
+- Persistent or administration/database-backed editing of the 3D pricing
+  catalog.
 - Authentication, roles or in-system permission grants for exceptional prices.
 - Accounting, electronic invoicing, online payments, and multi-company
   support.
@@ -552,13 +536,15 @@ The first release satisfies these requirements when it:
 
 - Prices fixed-price and area-based products and services using configured
   rules.
-- Enforces product-specific discount limits.
-- Applies grouping, additions, final minimum charges, and upward COP 500
-  rounding in the required order.
+- Applies current product-specific tiers, negotiated-price confirmations,
+  additions, commercial minimums and rounding only where their calculator
+  defines them.
+- Applies the Cut vinyl minimum and one rounding per normalized color group
+  while preserving all unrelated quotation snapshots.
 - Shows only employee-visible commercial information.
-- Blocks below-minimum exceptions and leaves their authorization outside the
-  system.
 - Builds a temporary on-screen quotation without persisting it.
+- Validates optional customer details when populated and preserves the frozen
+  browser-local date and 15-day validity across preview and PDF.
 - Presents a formal read-only preview of the current temporary quotation
   without repricing it.
 - Downloads that same safe preview model as a local PDF without repricing,

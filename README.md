@@ -5,22 +5,27 @@ Internal pricing and quotation platform for Digital Respawn.
 ## Overview
 
 Respawn Pricing helps employees calculate consistent prices for products and
-services from configured commercial rules, variable materials and authorized
-discounts.
+services from configured product-specific commercial rules and build a
+customer-safe temporary quotation.
 
-## First release goals
+## Current release capabilities
 
-- Calculate fixed and area-based prices.
-- Apply product-specific authorized discount ranges.
-- Prevent sales below the configured minimum price.
-- Provide employees with guidance for products and services.
-- Price precise 3D-printing jobs from actual slicer grams and printing time.
-- Collect preliminary 3D-printing intake before an STL/model is sliced.
-- Build temporary on-screen quotations.
+- Price Printed vinyl, Cut vinyl, Banner and Panaflex by area, including their
+  implemented product-specific rules and an exceptional Custom rate option.
+- Price computer maintenance, Office and individual software installation,
+  disk recovery, protected-system access, simple video, business cards and
+  tabloids.
+- Price precise 3D-printing jobs from actual slicer grams and printing time,
+  or record a manual quick estimate before the model is sliced.
+- Build an in-memory temporary quotation from accepted commercial results.
+- Capture optional validated customer details and notes.
+- Present a formal customer-safe preview and generate its PDF locally.
+- Freeze the browser-local quotation date and show the current 15-day
+  validity.
 
-The scoped precise 3D-printing strategy is implemented. Generic
-cost-and-margin pricing for other catalog items remains planned for a future
-release.
+These capabilities are implemented and covered by automated tests. Generic
+discount, addition, minimum and cost-and-margin engines remain future work;
+the current calculators use explicit product- or service-specific rules.
 
 ## 3D printing
 
@@ -47,34 +52,39 @@ It must be at least COP 5.000 and is rounded upward to COP 500.
 Quick mode does not derive grams, printing time, a monetary value or a range
 from size and does not call the precise pricing engine. In particular, quick
 Multicolor records that production requires HI but does not automatically apply
-the precise ×3 rule. An accepted quick estimate can become an immutable
+the precise-flow color pricing behavior. An accepted quick estimate can become
+an immutable
 `Impresión 3D — Estimación preliminar` line in the temporary quotation, formal
-preview and existing PDF. The line always carries its provisional warning.
+preview and PDF. The line always carries its provisional warning.
 Automatic calibration, profiles, interpolation and extrapolation remain
 inactive.
 
-The commercial engine preserves the existing material, electricity, quantity,
-modeling, minimum and rounding rules. Multicolor applies its configured
-commercial factor consistently to both the suggested amount and guarded manual
-price threshold, while the absolute COP 5.000 floor is not multiplied. An
-accepted manual price is rounded only after raw-value validation and any
-required confirmation.
+The precise commercial engine uses the slicer inputs, quantity, modeling and
+color behavior defined by its private typed configuration. Its accepted final
+price follows the current 3D validation and upward COP 500 rounding strategy.
+Quick estimates use their separate manual whole-job acceptance rule and never
+reuse the precise calculation.
 
 The employee-facing result, stored quotation snapshot, formal preview and PDF
-contain only customer-safe selections and the accepted final price; internal
-material/electricity costs, margin, authorization state and threshold details
-are not presented. The checkbox is an explicit confirmation, not
-authentication or a real permissions system.
+contain only customer-safe selections and the accepted final price. Internal
+commercial configuration, costs, margins, profitability and authorization
+thresholds are not customer-facing data. The application does not provide
+authentication, roles or a permissions system.
 
 ## Temporary quotation
 
 The current web application includes an in-memory temporary quotation that can
-hold multiple calculated area products and services, including precise 3D
-printing. Each added line is a
-snapshot of the calculator's final price, and the quotation total is the exact
-sum of those stored final line totals. The quotation does not recalculate
-quantities, pricing tiers, additions, negotiated prices, minimums or commercial
-rounding.
+hold multiple calculated area products, services, and precise or quick 3D
+results. A stored `lineTotal` already includes the quantity behavior accepted
+by its calculator, so the quotation never multiplies quantity again. Its total
+is the exact sum of the stored line totals and is not rounded a second time.
+
+Normal lines remain immutable pricing snapshots. Cut vinyl is the specific
+composition-dependent exception: pieces in the same normalized color group
+are combined before the COP 15,000 group minimum and one upward COP 500
+rounding are applied. Adding or removing a Cut vinyl piece may redistribute
+the affected group's total across its lines. Other products and services are
+not automatically repriced.
 
 The quotation may include optional customer or company details and general
 notes. Adding the first line freezes the browser-local quotation date for the
@@ -137,4 +147,7 @@ npm run build
 
 ## Project status
 
-Early development.
+Working first-release application with the current pricing, temporary
+quotation, formal preview and local PDF workflows implemented. Persistent
+data, backend services, authentication, roles and catalog administration are
+not part of the current release.
