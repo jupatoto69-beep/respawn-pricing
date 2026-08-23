@@ -114,6 +114,32 @@ describe("calculateBannerStructurePrice", () => {
     },
   );
 
+  it("rejects an unknown structure option", () => {
+    const calculate = () =>
+      calculateBannerStructurePrice(
+        1,
+        BANNER_STANDARD_VARIANT_ID,
+        80_000,
+        "triple-face" as BannerStructureOptionId,
+      );
+
+    expect(calculate).toThrowError(RangeError);
+    expect(calculate).toThrowError("Banner structure option must be valid.");
+  });
+
+  it("rejects an invalid runtime value passed directly to the domain function", () => {
+    const calculate = () =>
+      calculateBannerStructurePrice(
+        1,
+        BANNER_LAMINATED_VARIANT_ID,
+        85_000,
+        null as unknown as BannerStructureOptionId,
+      );
+
+    expect(calculate).toThrowError(RangeError);
+    expect(calculate).toThrowError("Banner structure option must be valid.");
+  });
+
   it("does not affect products other than Banner", () => {
     expect(
       applyBannerStructurePrice(

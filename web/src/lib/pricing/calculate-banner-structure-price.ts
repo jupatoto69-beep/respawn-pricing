@@ -41,14 +41,25 @@ export function calculateBannerStructurePrice(
       ? areaM2 * BANNER_LAMINATION_RATE_PER_FACE_M2
       : 0;
 
-  const structureMultiplier =
-    structureOptionId === BANNER_STRUCTURE_OPTION_IDS.materialOnly
-      ? 1
-      : structureOptionId === BANNER_STRUCTURE_OPTION_IDS.singleFace
-        ? 4
-        : 5;
-  const laminatedFaces =
-    structureOptionId === BANNER_STRUCTURE_OPTION_IDS.doubleFace ? 2 : 1;
+  let structureMultiplier: 1 | 4 | 5;
+  let laminatedFaces: 1 | 2;
+
+  switch (structureOptionId) {
+    case BANNER_STRUCTURE_OPTION_IDS.materialOnly:
+      structureMultiplier = 1;
+      laminatedFaces = 1;
+      break;
+    case BANNER_STRUCTURE_OPTION_IDS.singleFace:
+      structureMultiplier = 4;
+      laminatedFaces = 1;
+      break;
+    case BANNER_STRUCTURE_OPTION_IDS.doubleFace:
+      structureMultiplier = 5;
+      laminatedFaces = 2;
+      break;
+    default:
+      throw new RangeError("Banner structure option must be valid.");
+  }
 
   return (
     standardMaterialPrice * structureMultiplier +
