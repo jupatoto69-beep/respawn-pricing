@@ -17,6 +17,8 @@ customer-safe temporary quotation.
   tabloids.
 - Price precise 3D-printing jobs from actual slicer grams and printing time,
   or record a manual quick estimate before the model is sliced.
+- Select the initial Security Systems type and quotation presentation while its
+  approved product catalog remains pending.
 - Build an in-memory temporary quotation from accepted commercial results.
 - Capture optional validated customer details and notes.
 - Present a formal customer-safe preview and generate its PDF locally.
@@ -30,7 +32,8 @@ the current calculators use explicit product- or service-specific rules.
 ## 3D printing
 
 `Impresión 3D` is a top-level quotation mode alongside `Productos por área`
-and `Servicios`; it is not part of `Servicios → Impresos`. It exposes two
+and `Servicios`; `Security Systems` is the fourth top-level mode. 3D printing
+is not part of `Servicios → Impresos` and exposes two
 employee-facing submodes: `Cotización precisa` and `Estimación rápida`.
 
 The precise form uses PLA or PETG, actual grams and printing time per unit from
