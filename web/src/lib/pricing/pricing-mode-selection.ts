@@ -2,6 +2,7 @@ export const PRICING_MODE_IDS = {
   areaProducts: "area-products",
   services: "services",
   threeDPrinting: "three-d-printing",
+  securitySystems: "security-systems",
 } as const;
 
 export type PricingModeId =
@@ -29,6 +30,11 @@ export const PRICING_MODE_OPTIONS: readonly PricingModeOption[] = [
     name: "Impresión 3D",
     description: "Cotiza trabajos laminados o registra datos preliminares.",
   },
+  {
+    id: PRICING_MODE_IDS.securitySystems,
+    name: "Sistemas de seguridad",
+    description: "Configura sistemas de seguridad según el catálogo disponible.",
+  },
 ] as const;
 
 export type PricingModeSelection = Readonly<{
@@ -36,6 +42,7 @@ export type PricingModeSelection = Readonly<{
   areaProductsRevision: number;
   servicesRevision: number;
   threeDPrintingRevision: number;
+  securitySystemsRevision: number;
 }>;
 
 export function createInitialPricingModeSelection(
@@ -46,6 +53,7 @@ export function createInitialPricingModeSelection(
     areaProductsRevision: 0,
     servicesRevision: 0,
     threeDPrintingRevision: 0,
+    securitySystemsRevision: 0,
   };
 }
 
@@ -72,5 +80,8 @@ export function changePricingMode(
     threeDPrintingRevision:
       selection.threeDPrintingRevision +
       (modeId === PRICING_MODE_IDS.threeDPrinting ? 1 : 0),
+    securitySystemsRevision:
+      selection.securitySystemsRevision +
+      (modeId === PRICING_MODE_IDS.securitySystems ? 1 : 0),
   };
 }

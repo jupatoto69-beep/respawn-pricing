@@ -19,6 +19,7 @@ describe("pricing mode selection", () => {
       areaProductsRevision: 0,
       servicesRevision: 1,
       threeDPrintingRevision: 0,
+      securitySystemsRevision: 0,
     });
   });
 
@@ -34,6 +35,7 @@ describe("pricing mode selection", () => {
       areaProductsRevision: 1,
       servicesRevision: 0,
       threeDPrintingRevision: 0,
+      securitySystemsRevision: 0,
     });
   });
 
@@ -64,11 +66,12 @@ describe("pricing mode selection", () => {
     );
   });
 
-  it("exposes 3D printing as the third top-level mode", () => {
+  it("exposes all four top-level pricing modes", () => {
     expect(PRICING_MODE_OPTIONS.map(({ id, name }) => ({ id, name }))).toEqual([
       { id: PRICING_MODE_IDS.areaProducts, name: "Productos por área" },
       { id: PRICING_MODE_IDS.services, name: "Servicios" },
       { id: PRICING_MODE_IDS.threeDPrinting, name: "Impresión 3D" },
+      { id: PRICING_MODE_IDS.securitySystems, name: "Sistemas de seguridad" },
     ]);
   });
 
@@ -85,5 +88,23 @@ describe("pricing mode selection", () => {
 
     expect(second.threeDPrintingRevision).toBe(2);
     expect(second.servicesRevision).toBe(1);
+  });
+
+  it("increments the isolated Security Systems revision when re-entered", () => {
+    const first = changePricingMode(
+      createInitialPricingModeSelection(),
+      PRICING_MODE_IDS.securitySystems,
+    );
+    const areaProducts = changePricingMode(
+      first,
+      PRICING_MODE_IDS.areaProducts,
+    );
+    const second = changePricingMode(
+      areaProducts,
+      PRICING_MODE_IDS.securitySystems,
+    );
+
+    expect(second.securitySystemsRevision).toBe(2);
+    expect(second.areaProductsRevision).toBe(1);
   });
 });

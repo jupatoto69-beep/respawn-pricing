@@ -19,10 +19,12 @@ The initial page is located at:
 src/app/page.tsx
 ```
 
-The page exposes `Impresión 3D` as a third top-level mode alongside `Productos
-por área` and `Servicios`; it is not listed under `Servicios → Impresos`. It
-contains `Cotización precisa` and `Estimación rápida` as separate
-employee-facing submodes.
+The page exposes four top-level modes: `Productos por área`, `Servicios`,
+`Impresión 3D` and `Security Systems`. 3D printing is not listed under
+`Servicios → Impresos`; it contains `Cotización precisa` and `Estimación
+rápida` as separate employee-facing submodes. Security Systems currently
+provides only the confirmed system-type and quotation-presentation scaffold;
+its product catalog is still pending.
 
 The precise form accepts PLA or PETG, actual slicer grams and printing
 hours/minutes per unit, quantity, one modeling option per job, color mode,
