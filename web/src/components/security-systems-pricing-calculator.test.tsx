@@ -2,48 +2,325 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
-  SECURITY_SYSTEM_PRESENTATION_IDS,
-  SECURITY_SYSTEM_TYPE_IDS,
-} from "@/lib/pricing/security-system-options";
+  addSecuritySystemCameraGroup,
+  changeSecuritySystemCameraBrand,
+  changeSecuritySystemCameraGroupEnvironment,
+  changeSecuritySystemCameraGroupFormat,
+  changeSecuritySystemCameraGroupModel,
+  changeSecuritySystemCameraGroupQuantity,
+  changeSecuritySystemCameraResolution,
+  changeSecuritySystemRecorder,
+  changeSecuritySystemTotalCameraQuantity,
+  createInitialSecuritySystemCatalogSelection,
+  type CameraEnvironment,
+  type CameraResolutionGroup,
+  type SecuritySystemCatalogSelection,
+} from "@/lib/pricing/security-system-catalog-selection";
+import type {
+  CameraBrand,
+  CameraFormat,
+} from "@/lib/pricing/security-system-catalog/catalog-types";
+import type { SecuritySystemTypeId } from "@/lib/pricing/security-system-options";
 
 import { SecuritySystemsPricingCalculator } from "./security-systems-pricing-calculator";
 
-describe("SecuritySystemsPricingCalculator", () => {
-  it("renders only the confirmed scaffold controls and catalog notice", () => {
-    const markup = renderToStaticMarkup(<SecuritySystemsPricingCalculator />);
+function createSelection({
+  systemTypeId,
+  totalCameraQuantity,
+  brand,
+  resolutionGroup,
+  groups,
+  recorderId,
+}: Readonly<{
+  systemTypeId: SecuritySystemTypeId;
+  totalCameraQuantity: string;
+  brand: CameraBrand;
+  resolutionGroup: CameraResolutionGroup;
+  groups: readonly Readonly<{
+    id: string;
+    environment: CameraEnvironment;
+    format: CameraFormat;
+    quantity: string;
+    cameraId: string;
+  }>[];
+  recorderId?: string;
+}>): SecuritySystemCatalogSelection {
+  let selection = createInitialSecuritySystemCatalogSelection(systemTypeId);
+  selection = changeSecuritySystemTotalCameraQuantity(
+    selection,
+    totalCameraQuantity,
+  );
+  selection = changeSecuritySystemCameraBrand(selection, brand);
+  selection = changeSecuritySystemCameraResolution(selection, resolutionGroup);
 
+  for (const group of groups) {
+    selection = addSecuritySystemCameraGroup(selection, group.id);
+    selection = changeSecuritySystemCameraGroupEnvironment(
+      selection,
+      group.id,
+      group.environment,
+    );
+    selection = changeSecuritySystemCameraGroupFormat(
+      selection,
+      group.id,
+      group.format,
+    );
+    selection = changeSecuritySystemCameraGroupQuantity(
+      selection,
+      group.id,
+      group.quantity,
+    );
+    selection = changeSecuritySystemCameraGroupModel(
+      selection,
+      group.id,
+      group.cameraId,
+    );
+  }
+
+  return recorderId
+    ? changeSecuritySystemRecorder(selection, recorderId)
+    : selection;
+}
+
+describe("SecuritySystemsPricingCalculator", () => {
+  it("starts with only the system type as a commercial choice", () => {
+    const markup = renderToStaticMarkup(<SecuritySystemsPricingCalculator />);
     expect(markup).toContain("Tipo de sistema");
-    expect(markup).toContain('value="analog"');
-    expect(markup).toContain('value="ip"');
-    expect(markup).toContain('value="wifi"');
     expect(markup).toContain("Analógico");
     expect(markup).toContain("IP");
     expect(markup).toContain("Wi-Fi");
-    expect(markup).toContain("Presentación de la cotización");
-    expect(markup).toContain("Desglosada");
-    expect(markup).toContain(
-      "Muestra al cliente el precio individual de cada componente.",
-    );
-    expect(markup).toContain("Agrupada");
-    expect(markup).toContain(
-      "Muestra los componentes del sistema y únicamente el precio total.",
-    );
-    expect(markup).toContain("Catálogo pendiente");
-    expect(markup).toContain(
-      "Por ahora no se incluyen modelos, productos ni precios provisionales.",
-    );
-    expect(markup).not.toContain("Agregar a la cotización");
+    expect(markup).not.toContain("Cantidad total de cámaras");
+    expect(markup).not.toContain("Distribución de cámaras");
+    expect(markup).not.toContain("Precio recomendado");
   });
 
-  it("can initialize the typed system and presentation selection state", () => {
+  it("shows the general fields before camera groups", () => {
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialSystemTypeId="analog" />,
+    );
+    expect(markup).toContain("Cantidad total de cámaras");
+    expect(markup).toContain("Selecciona una marca");
+    expect(markup).toContain('value="Dahua"');
+    expect(markup).not.toContain("Distribución de cámaras");
+  });
+
+  it("renders an empty distribution without auto-selecting a group or model", () => {
+    let selection = createInitialSecuritySystemCatalogSelection("analog");
+    selection = changeSecuritySystemCameraBrand(selection, "HiLook");
+    selection = changeSecuritySystemCameraResolution(selection, "2-mp");
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("Distribución de cámaras");
+    expect(markup).toContain("0 de 1 cámaras asignadas");
+    expect(markup).toContain("1 cámara pendiente");
+    expect(markup).toContain("+ Agregar otro grupo");
+    expect(markup).not.toContain("Selecciona un modelo");
+  });
+
+  it("renders two Analog formats and models together with recorder recommendation by total", () => {
+    const selection = createSelection({
+      systemTypeId: "analog",
+      totalCameraQuantity: "4",
+      brand: "HiLook",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "bullets",
+          environment: "interior",
+          format: "Bala",
+          quantity: "2",
+          cameraId: "analog-camera-thc-b120-pc-2-8mm",
+        },
+        {
+          id: "turrets",
+          environment: "interior",
+          format: "Turret",
+          quantity: "2",
+          cameraId: "analog-camera-thc-t120-pc-2-8mm",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("4 de 4 cámaras asignadas");
+    expect(markup).toContain("Distribución completa");
+    expect(markup).toContain("THC-B120-PC (2.8mm)");
+    expect(markup).toContain("THC-T120-PC (2.8mm)");
+    expect(markup).toContain("Grabador DVR/XVR");
+    expect(markup).toContain("Recomendado · DVR-104G-M1(C) · 4 canales");
+  });
+
+  it("renders Interior and Exterior groups with different compatible Wi-Fi models", () => {
+    const selection = createSelection({
+      systemTypeId: "wifi",
+      totalCameraQuantity: "2",
+      brand: "Hikvision",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "PT",
+          quantity: "1",
+          cameraId: "wifi-camera-ds-2cv2q21g1-idw-w",
+        },
+        {
+          id: "outside",
+          environment: "exterior",
+          format: "Bala",
+          quantity: "1",
+          cameraId: "wifi-camera-ds-2cv2021g2-idw-2-8mm",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("DS-2CV2Q21G1-IDW (W)");
+    expect(markup).toContain("DS-2CV2021G2-IDW(2.8mm)");
+    expect(markup).toContain("Interior");
+    expect(markup).toContain("Exterior");
+    expect(markup).toContain(
+      "Para cámaras Wi-Fi no se selecciona grabador en este flujo.",
+    );
+    expect(markup).not.toContain("Grabador DVR/XVR");
+    expect(markup).not.toContain("Grabador NVR");
+  });
+
+  it("shows only exterior formats backed by approved catalog evidence", () => {
+    let selection = createInitialSecuritySystemCatalogSelection("wifi");
+    selection = changeSecuritySystemCameraBrand(selection, "Hikvision");
+    selection = changeSecuritySystemCameraResolution(selection, "2-mp");
+    selection = addSecuritySystemCameraGroup(selection, "outside");
+    selection = changeSecuritySystemCameraGroupEnvironment(
+      selection,
+      "outside",
+      "exterior",
+    );
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain('value="Bala"');
+    expect(markup).not.toContain('value="Cubo"');
+    expect(markup).not.toContain('value="PT"');
+  });
+
+  it("marks an incomplete sum and withholds the recorder flow", () => {
+    const selection = createSelection({
+      systemTypeId: "ip",
+      totalCameraQuantity: "6",
+      brand: "Hikvision",
+      resolutionGroup: "4-mp",
+      groups: [
+        {
+          id: "group-a",
+          environment: "interior",
+          format: "Bala",
+          quantity: "4",
+          cameraId: "ip-camera-ds-2cd1043g2-liu-2-8mm",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("4 de 6 cámaras asignadas");
+    expect(markup).toContain("2 cámaras pendientes");
+    expect(markup).not.toContain("Grabador NVR");
+  });
+
+  it("marks a sum over the total as invalid", () => {
+    const selection = createSelection({
+      systemTypeId: "ip",
+      totalCameraQuantity: "6",
+      brand: "Hikvision",
+      resolutionGroup: "4-mp",
+      groups: [
+        {
+          id: "group-a",
+          environment: "interior",
+          format: "Bala",
+          quantity: "7",
+          cameraId: "ip-camera-ds-2cd1043g2-liu-2-8mm",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("7 de 6 cámaras asignadas");
+    expect(markup).toContain("1 cámara por encima del total");
+    expect(markup).not.toContain("Grabador NVR");
+  });
+
+  it("shows NVR details and a non-blocking warning for an insufficient recorder", () => {
+    const selection = createSelection({
+      systemTypeId: "ip",
+      totalCameraQuantity: "10",
+      brand: "Hikvision",
+      resolutionGroup: "4-mp",
+      groups: [
+        {
+          id: "all-cameras",
+          environment: "interior",
+          format: "Bala",
+          quantity: "10",
+          cameraId: "ip-camera-ds-2cd1043g2-liu-2-8mm",
+        },
+      ],
+      recorderId: "nvr-ds-7104ni-q1-4p-c",
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("Grabador NVR");
+    expect(markup).toContain("DS-7104NI-Q1/4P (C)");
+    expect(markup).toContain("Puertos PoE");
+    expect(markup).toContain("Advertencia:");
+    expect(markup).toContain("4 canales para 10 cámaras");
+    expect(markup).toContain("no bloquea el flujo");
+  });
+
+  it("keeps published camera information customer-safe", () => {
+    const selection = createSelection({
+      systemTypeId: "analog",
+      totalCameraQuantity: "1",
+      brand: "Dahua",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "Domo",
+          quantity: "1",
+          cameraId: "analog-camera-dh-hac-t1a21n-u-028b",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).toContain("1080p; IR 25 m; plástica; interior");
+    expect(markup).toContain("COP 90.000");
+    expect(markup).toContain("COP 140.000");
+    expect(markup).not.toMatch(
+      /proveedor|costo de compra|margen|markup|ganancia|rentabilidad/i,
+    );
+  });
+
+  it("preserves presentation controls without adding out-of-scope actions", () => {
     const markup = renderToStaticMarkup(
       <SecuritySystemsPricingCalculator
-        initialSystemTypeId={SECURITY_SYSTEM_TYPE_IDS.wifi}
-        initialPresentationId={SECURITY_SYSTEM_PRESENTATION_IDS.bundled}
+        initialSystemTypeId="wifi"
+        initialPresentationId="bundled"
       />,
     );
-
-    expect(markup).toMatch(/checked="" value="wifi"/);
+    expect(markup).toContain("Presentación de la cotización");
     expect(markup).toMatch(/checked="" value="bundled"/);
+    expect(markup).not.toContain("Agregar a la cotización");
+    expect(markup).not.toContain("Total del sistema");
+    expect(markup).not.toContain("Instalación");
   });
 });
