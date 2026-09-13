@@ -138,6 +138,7 @@ export function PricingCalculator({
       ) : (
         <SecuritySystemsPricingCalculator
           key={`security-systems-${selection.securitySystemsRevision}`}
+          onAddQuotationLine={handleAddQuotationLine}
         />
       )}
 

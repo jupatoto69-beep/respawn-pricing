@@ -15,6 +15,18 @@ import {
   createCutVinylColorGroupPricing,
 } from "../pricing/cut-vinyl-color-group";
 import { calculateThreeDPrintingPrice } from "../pricing/calculate-three-d-printing-price";
+import { ANALOG_CAMERA_CATALOG } from "../pricing/security-system-catalog/analog-camera-catalog";
+import { DVR_XVR_CATALOG } from "../pricing/security-system-catalog/dvr-xvr-catalog";
+import { HARD_DRIVE_CATALOG } from "../pricing/security-system-catalog/hard-drive-catalog";
+import {
+  SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
+  SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS,
+} from "../pricing/security-system-options";
+import { createSecuritySystemQuotationLineDraft } from "../pricing/security-system-quotation-line";
+import {
+  calculateSecuritySystemPrice,
+  SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE,
+} from "../pricing/security-system-pricing";
 import {
   THREE_D_PRINTING_MATERIAL_IDS,
   THREE_D_PRINTING_MODELING_IDS,
@@ -425,6 +437,89 @@ describe("quotation PDF document", () => {
     expect(streams).toContain("6.923");
     expect(streams).toContain("3.462");
     expect(streams).toContain("15.000");
+  });
+
+  it("renders a valid Security System quotation through the customer-safe generic PDF pipeline", async () => {
+    const camera = ANALOG_CAMERA_CATALOG[0];
+    const recorder = DVR_XVR_CATALOG.find(
+      (candidate) => candidate.brand === camera.brand,
+    )!;
+    const hardDrive = HARD_DRIVE_CATALOG.find(
+      (candidate) => candidate.pricingStatus === "priced",
+    )!;
+    const pricing = calculateSecuritySystemPrice({
+      systemTypeId: "analog",
+      totalCameraQuantity: 2,
+      cameraGroups: [
+        {
+          id: "group-1",
+          camera,
+          quantity: 2,
+          accessorySelectionId:
+            SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withAccessories,
+          installationTypeId: "standard",
+        },
+      ],
+      recorder,
+      hardDrive,
+      recorderConfigurationId:
+        SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+    });
+    const draft = createSecuritySystemQuotationLineDraft(pricing, "itemized");
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      {
+        ...draft,
+        details: [
+          ...draft.details,
+          { label: "Costo interno", value: "COP privado" },
+          { label: "Margen", value: "Privado" },
+          { label: "Proveedor", value: "Privado" },
+          { label: "Precio de compra", value: "COP privado" },
+        ],
+      },
+      new Date("2026-09-13T12:00:00-05:00"),
+    );
+    const preview = createQuotationPreviewViewModel({
+      quotation,
+      total: calculateQuotationTotal(quotation),
+      businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+    });
+    const serializedPreview = JSON.stringify(preview);
+    const blob = await generateQuotationPdfBlob(preview, {
+      loadLogo: async () => {
+        throw new Error("fictional missing local logo");
+      },
+    });
+    const bytes = await getBytes(blob);
+    const streams = extractInflatedStreams(bytes);
+    const allPdfText = `${getPdfSource(bytes)}\n${streams}`;
+
+    expect(pricing.isPriceComplete).toBe(true);
+    expect(preview.lines).toHaveLength(1);
+    expect(preview.lines[0].lineTotal).toBe(pricing.finalTotalCop);
+    expect(preview.lines[0].details).toContainEqual({
+      label: "Cableado",
+      value: SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE,
+    });
+    expect(blob.type).toBe("application/pdf");
+    expect(Buffer.from(bytes.slice(0, 5)).toString("ascii")).toBe("%PDF-");
+    expect(streams).toContain("Sistema de seguridad");
+    expect(streams).toContain("Analógico");
+    expect(streams).toContain(camera.reference);
+    expect(streams).toContain(pricing.finalTotalCop!.toLocaleString("es-CO"));
+    expect(streams).toContain("El cableado no está incluido");
+    expect(streams).toContain("cantidad real de metros utilizados");
+
+    for (const forbidden of [
+      "Costo interno",
+      "Margen",
+      "Proveedor",
+      "Precio de compra",
+    ]) {
+      expect(serializedPreview).not.toContain(forbidden);
+      expect(allPdfText).not.toContain(forbidden);
+    }
   });
 
   it("renders a precise 3D snapshot as native text without internal pricing", async () => {

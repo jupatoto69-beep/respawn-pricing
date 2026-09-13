@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isSecuritySystemCameraAccessorySelectionId,
   isSecuritySystemCustomPriceReasonId,
   isSecuritySystemInstallationTypeId,
   isSecuritySystemPresentationId,
+  isSecuritySystemRecorderConfigurationId,
   isSecuritySystemTypeId,
+  SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
+  SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS,
   SECURITY_SYSTEM_CUSTOM_PRICE_REASON_IDS,
   SECURITY_SYSTEM_CUSTOM_PRICE_REASON_OPTIONS,
   SECURITY_SYSTEM_INSTALLATION_OPTIONS,
   SECURITY_SYSTEM_INSTALLATION_TYPE_IDS,
   SECURITY_SYSTEM_PRESENTATION_IDS,
   SECURITY_SYSTEM_PRESENTATION_OPTIONS,
+  SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS,
+  SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS,
   SECURITY_SYSTEM_TYPE_IDS,
   SECURITY_SYSTEM_TYPE_OPTIONS,
 } from "./security-system-options";
@@ -67,6 +73,37 @@ describe("Security Systems options", () => {
     expect(isSecuritySystemPresentationId("itemized")).toBe(true);
     expect(isSecuritySystemPresentationId("bundled")).toBe(true);
     expect(isSecuritySystemPresentationId("private")).toBe(false);
+  });
+
+  it("keeps camera accessories and recorder configuration explicit", () => {
+    expect(SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS).toEqual([
+      {
+        id: SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withoutAccessories,
+        name: "Sin accesorios",
+      },
+      {
+        id: SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withAccessories,
+        name: "Con accesorios",
+      },
+    ]);
+    expect(SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS).toEqual([
+      {
+        id: SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.notIncluded,
+        name: "No incluir",
+        priceCop: 0,
+      },
+      {
+        id: SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+        name: "Incluir configuración",
+        priceCop: 50_000,
+      },
+    ]);
+    expect(isSecuritySystemCameraAccessorySelectionId("with-accessories")).toBe(
+      true,
+    );
+    expect(isSecuritySystemCameraAccessorySelectionId("automatic")).toBe(false);
+    expect(isSecuritySystemRecorderConfigurationId("included")).toBe(true);
+    expect(isSecuritySystemRecorderConfigurationId("automatic")).toBe(false);
   });
 
   it("exposes all confirmed custom-price reasons and free text for Other", () => {

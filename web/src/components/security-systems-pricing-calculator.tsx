@@ -31,14 +31,33 @@ import {
   type SecuritySystemCatalogSelection,
 } from "@/lib/pricing/security-system-catalog-selection";
 import {
+  isSecuritySystemCameraAccessorySelectionId,
+  isSecuritySystemInstallationTypeId,
   isSecuritySystemPresentationId,
+  isSecuritySystemRecorderConfigurationId,
   isSecuritySystemTypeId,
+  SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS,
+  SECURITY_SYSTEM_INSTALLATION_OPTIONS,
   SECURITY_SYSTEM_PRESENTATION_OPTIONS,
+  SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS,
   SECURITY_SYSTEM_TYPE_IDS,
   SECURITY_SYSTEM_TYPE_OPTIONS,
+  type SecuritySystemCameraAccessorySelectionId,
+  type SecuritySystemInstallationTypeId,
   type SecuritySystemPresentationId,
+  type SecuritySystemRecorderConfigurationId,
   type SecuritySystemTypeId,
 } from "@/lib/pricing/security-system-options";
+import { HARD_DRIVE_CATALOG } from "@/lib/pricing/security-system-catalog/hard-drive-catalog";
+import { hasPublishedSalePrice } from "@/lib/pricing/security-system-catalog/catalog-types";
+import { createSecuritySystemQuotationLineDraft } from "@/lib/pricing/security-system-quotation-line";
+import {
+  calculateSecuritySystemPrice,
+  SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE,
+  SECURITY_SYSTEM_NO_HARD_DRIVE,
+  type SecuritySystemCameraGroupPrice,
+} from "@/lib/pricing/security-system-pricing";
+import type { QuotationLineDraft } from "@/lib/pricing/temporary-quotation";
 
 import formStyles from "./area-pricing-calculator.module.css";
 import styles from "./security-systems-pricing-calculator.module.css";
@@ -47,13 +66,41 @@ type SecuritySystemsPricingCalculatorProps = Readonly<{
   initialSystemTypeId?: SecuritySystemTypeId;
   initialPresentationId?: SecuritySystemPresentationId;
   initialCatalogSelection?: SecuritySystemCatalogSelection;
+  initialCommercialSelection?: SecuritySystemCommercialSelection;
+  onAddQuotationLine?: (line: QuotationLineDraft) => void;
 }>;
+
+export type SecuritySystemCameraGroupCommercialSelection = Readonly<{
+  accessorySelectionId: SecuritySystemCameraAccessorySelectionId | null;
+  installationTypeId: SecuritySystemInstallationTypeId | null;
+}>;
+
+export type SecuritySystemCommercialSelection = Readonly<{
+  cameraGroups: Readonly<
+    Record<string, SecuritySystemCameraGroupCommercialSelection>
+  >;
+  hardDriveSelectionId: string | null;
+  recorderConfigurationId: SecuritySystemRecorderConfigurationId | null;
+}>;
+
+const EMPTY_GROUP_COMMERCIAL_SELECTION: SecuritySystemCameraGroupCommercialSelection =
+  Object.freeze({ accessorySelectionId: null, installationTypeId: null });
+
+function createInitialCommercialSelection(): SecuritySystemCommercialSelection {
+  return Object.freeze({
+    cameraGroups: Object.freeze({}),
+    hardDriveSelectionId: null,
+    recorderConfigurationId: null,
+  });
+}
 
 type CameraGroupEditorProps = Readonly<{
   idPrefix: string;
   selection: SecuritySystemCatalogSelection;
   group: CameraGroup;
   groupNumber: number;
+  commercialSelection: SecuritySystemCameraGroupCommercialSelection;
+  pricing: SecuritySystemCameraGroupPrice | null;
   onEnvironmentChange: (
     groupId: string,
     event: ChangeEvent<HTMLSelectElement>,
@@ -69,6 +116,14 @@ type CameraGroupEditorProps = Readonly<{
   onModelChange: (
     groupId: string,
     event: ChangeEvent<HTMLSelectElement>,
+  ) => void;
+  onAccessorySelectionChange: (
+    groupId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
+  onInstallationChange: (
+    groupId: string,
+    event: ChangeEvent<HTMLInputElement>,
   ) => void;
   onRemove: (groupId: string) => void;
 }>;
@@ -86,10 +141,14 @@ function CameraGroupEditor({
   selection,
   group,
   groupNumber,
+  commercialSelection,
+  pricing,
   onEnvironmentChange,
   onFormatChange,
   onQuantityChange,
   onModelChange,
+  onAccessorySelectionChange,
+  onInstallationChange,
   onRemove,
 }: CameraGroupEditorProps) {
   if (!selection.systemTypeId || !selection.brand || !selection.resolutionGroup) {
@@ -215,7 +274,52 @@ function CameraGroupEditor({
             ))}
           </select>
         </div>
+
+        {group.cameraId ? (
+          <fieldset className={styles.groupCommercialChoice}>
+            <legend>Accesorios</legend>
+            {SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS.map((option) => (
+              <label key={option.id}>
+                <input
+                  type="radio"
+                  name={`${idPrefix}-${group.id}-accessories`}
+                  value={option.id}
+                  checked={commercialSelection.accessorySelectionId === option.id}
+                  onChange={(event) =>
+                    onAccessorySelectionChange(group.id, event)
+                  }
+                />
+                <span>{option.name}</span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+
+        {group.cameraId ? (
+          <fieldset className={styles.groupCommercialChoice}>
+            <legend>Instalación</legend>
+            {Object.values(SECURITY_SYSTEM_INSTALLATION_OPTIONS).map((option) => (
+              <label key={option.id}>
+                <input
+                  type="radio"
+                  name={`${idPrefix}-${group.id}-installation`}
+                  value={option.id}
+                  checked={commercialSelection.installationTypeId === option.id}
+                  onChange={(event) => onInstallationChange(group.id, event)}
+                />
+                <span>{option.name}</span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
       </div>
+
+      {pricing?.isComplete && pricing.groupSubtotalCop !== null ? (
+        <div className={styles.groupSubtotal} aria-live="polite">
+          <span>Subtotal del grupo</span>
+          <strong>{formatCop(pricing.groupSubtotalCop)}</strong>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -224,6 +328,8 @@ export function SecuritySystemsPricingCalculator({
   initialSystemTypeId,
   initialPresentationId,
   initialCatalogSelection,
+  initialCommercialSelection,
+  onAddQuotationLine,
 }: SecuritySystemsPricingCalculatorProps = {}) {
   const idPrefix = useId();
   const nextGroupSequence = useRef(0);
@@ -236,6 +342,11 @@ export function SecuritySystemsPricingCalculator({
     useState<SecuritySystemPresentationId | null>(
       initialPresentationId ?? null,
     );
+  const [commercialSelection, setCommercialSelection] =
+    useState<SecuritySystemCommercialSelection>(
+      initialCommercialSelection ?? createInitialCommercialSelection,
+    );
+  const [addFeedbackSequence, setAddFeedbackSequence] = useState(0);
 
   const totalCameraQuantity = validateSecuritySystemCameraQuantity(
     catalogSelection.totalCameraQuantity,
@@ -275,6 +386,45 @@ export function SecuritySystemsPricingCalculator({
   const selectedRecorderCandidate = recorderCandidates.find(
     ({ recorder }) => recorder.id === catalogSelection.recorderId,
   );
+  const selectedHardDrive =
+    commercialSelection.hardDriveSelectionId === SECURITY_SYSTEM_NO_HARD_DRIVE
+      ? SECURITY_SYSTEM_NO_HARD_DRIVE
+      : HARD_DRIVE_CATALOG.find(
+          (hardDrive) =>
+            hardDrive.id === commercialSelection.hardDriveSelectionId,
+        ) ?? null;
+  const pricingResult = catalogSelection.systemTypeId
+      ? calculateSecuritySystemPrice({
+        systemTypeId: catalogSelection.systemTypeId,
+        totalCameraQuantity: totalCameraQuantity.isValid
+          ? totalCameraQuantity.value
+          : null,
+        cameraGroups: catalogSelection.cameraGroups.map((group) => {
+          const quantity = validateSecuritySystemCameraQuantity(group.quantity);
+          const groupCommercialSelection =
+            commercialSelection.cameraGroups[group.id] ??
+            EMPTY_GROUP_COMMERCIAL_SELECTION;
+          return {
+            id: group.id,
+            camera: getCameraForGroup(catalogSelection, group),
+            quantity: quantity.isValid ? quantity.value : null,
+            accessorySelectionId:
+              groupCommercialSelection.accessorySelectionId,
+            installationTypeId: groupCommercialSelection.installationTypeId,
+          };
+        }),
+        recorder: selectedRecorderCandidate?.recorder ?? null,
+        hardDrive: selectedHardDrive,
+        recorderConfigurationId: commercialSelection.recorderConfigurationId,
+      })
+    : null;
+  const canAddToQuotation = Boolean(
+    configuration.isComplete &&
+      pricingResult?.isPriceComplete &&
+      pricingResult.finalTotalCop !== null &&
+      presentationId &&
+      onAddQuotationLine,
+  );
 
   function handleSystemTypeChange(event: ChangeEvent<HTMLInputElement>) {
     const nextSystemTypeId = event.currentTarget.value;
@@ -282,6 +432,7 @@ export function SecuritySystemsPricingCalculator({
       setCatalogSelection((selection) =>
         changeSecuritySystemType(selection, nextSystemTypeId),
       );
+      setCommercialSelection(createInitialCommercialSelection());
     }
   }
 
@@ -388,6 +539,54 @@ export function SecuritySystemsPricingCalculator({
     setCatalogSelection((selection) =>
       removeSecuritySystemCameraGroup(selection, groupId),
     );
+    setCommercialSelection((selection) => {
+      if (!(groupId in selection.cameraGroups)) return selection;
+      const cameraGroups = { ...selection.cameraGroups };
+      delete cameraGroups[groupId];
+      return Object.freeze({
+        ...selection,
+        cameraGroups: Object.freeze(cameraGroups),
+      });
+    });
+  }
+
+  function updateGroupCommercialSelection(
+    groupId: string,
+    updates: Partial<SecuritySystemCameraGroupCommercialSelection>,
+  ) {
+    setCommercialSelection((selection) => {
+      const current =
+        selection.cameraGroups[groupId] ?? EMPTY_GROUP_COMMERCIAL_SELECTION;
+      return Object.freeze({
+        ...selection,
+        cameraGroups: Object.freeze({
+          ...selection.cameraGroups,
+          [groupId]: Object.freeze({ ...current, ...updates }),
+        }),
+      });
+    });
+  }
+
+  function handleGroupAccessorySelectionChange(
+    groupId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const accessorySelectionId = event.currentTarget.value;
+    if (isSecuritySystemCameraAccessorySelectionId(accessorySelectionId)) {
+      updateGroupCommercialSelection(groupId, { accessorySelectionId });
+    }
+  }
+
+  function handleGroupInstallationChange(
+    groupId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const installationTypeId = event.currentTarget.value;
+    if (isSecuritySystemInstallationTypeId(installationTypeId)) {
+      updateGroupCommercialSelection(groupId, {
+        installationTypeId,
+      });
+    }
   }
 
   function handleRecorderChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -397,11 +596,57 @@ export function SecuritySystemsPricingCalculator({
     );
   }
 
+  function handleHardDriveChange(event: ChangeEvent<HTMLSelectElement>) {
+    const hardDriveSelectionId = event.currentTarget.value;
+    if (hardDriveSelectionId === "") {
+      setCommercialSelection((selection) =>
+        Object.freeze({ ...selection, hardDriveSelectionId: null }),
+      );
+      return;
+    }
+    if (
+      hardDriveSelectionId === SECURITY_SYSTEM_NO_HARD_DRIVE ||
+      HARD_DRIVE_CATALOG.some(
+        (hardDrive) => hardDrive.id === hardDriveSelectionId,
+      )
+    ) {
+      setCommercialSelection((selection) =>
+        Object.freeze({ ...selection, hardDriveSelectionId }),
+      );
+    }
+  }
+
+  function handleRecorderConfigurationChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const recorderConfigurationId = event.currentTarget.value;
+    if (isSecuritySystemRecorderConfigurationId(recorderConfigurationId)) {
+      setCommercialSelection((selection) =>
+        Object.freeze({ ...selection, recorderConfigurationId }),
+      );
+    }
+  }
+
   function handlePresentationChange(event: ChangeEvent<HTMLInputElement>) {
     const nextPresentationId = event.currentTarget.value;
     if (isSecuritySystemPresentationId(nextPresentationId)) {
       setPresentationId(nextPresentationId);
     }
+  }
+
+  function handleAddQuotationLine() {
+    if (
+      !canAddToQuotation ||
+      !pricingResult ||
+      !presentationId ||
+      !onAddQuotationLine
+    ) {
+      return;
+    }
+    onAddQuotationLine(
+      createSecuritySystemQuotationLineDraft(pricingResult, presentationId),
+    );
+    setAddFeedbackSequence((sequence) => sequence + 1);
   }
 
   const distribution = configuration.distribution;
@@ -547,10 +792,23 @@ export function SecuritySystemsPricingCalculator({
                     selection={catalogSelection}
                     group={group}
                     groupNumber={index + 1}
+                    commercialSelection={
+                      commercialSelection.cameraGroups[group.id] ??
+                      EMPTY_GROUP_COMMERCIAL_SELECTION
+                    }
+                    pricing={
+                      pricingResult?.cameraGroups.find(
+                        (pricedGroup) => pricedGroup.id === group.id,
+                      ) ?? null
+                    }
                     onEnvironmentChange={handleGroupEnvironmentChange}
                     onFormatChange={handleGroupFormatChange}
                     onQuantityChange={handleGroupQuantityChange}
                     onModelChange={handleGroupModelChange}
+                    onAccessorySelectionChange={
+                      handleGroupAccessorySelectionChange
+                    }
+                    onInstallationChange={handleGroupInstallationChange}
                     onRemove={handleRemoveGroup}
                   />
                 ))}
@@ -607,6 +865,65 @@ export function SecuritySystemsPricingCalculator({
             </div>
           ) : null}
 
+          {configuration.isComplete &&
+          catalogSelection.systemTypeId !== SECURITY_SYSTEM_TYPE_IDS.wifi ? (
+            <div className={`${formStyles.field} ${styles.fullWidth}`}>
+              <label htmlFor={`${idPrefix}-hard-drive`}>Disco duro</label>
+              <select
+                id={`${idPrefix}-hard-drive`}
+                value={commercialSelection.hardDriveSelectionId ?? ""}
+                onChange={handleHardDriveChange}
+              >
+                <option value="">Selecciona una opción</option>
+                <option value={SECURITY_SYSTEM_NO_HARD_DRIVE}>Sin disco</option>
+                {HARD_DRIVE_CATALOG.map((hardDrive) => (
+                  <option key={hardDrive.id} value={hardDrive.id}>
+                    {hardDrive.reference} · {hardDrive.capacity}{" "}
+                    {hardDrive.capacityUnit} ·{" "}
+                    {hasPublishedSalePrice(hardDrive)
+                      ? formatCop(hardDrive.salePriceCop)
+                      : "Consultar"}
+                  </option>
+                ))}
+              </select>
+              {pricingResult?.hardDrive.status === "manual-confirmation" ? (
+                <p className={styles.warning} role="status">
+                  <strong>Precio por confirmar:</strong> este disco figura como
+                  “Consultar”. No se asignará COP 0 y el sistema no puede agregarse
+                  a la cotización hasta contar con un precio publicado.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {configuration.isComplete &&
+          catalogSelection.systemTypeId !== SECURITY_SYSTEM_TYPE_IDS.wifi ? (
+            <fieldset className={`${styles.optionGroup} ${styles.fullWidth}`}>
+              <legend>Configuración DVR/NVR</legend>
+              {SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS.map((option) => (
+                <label key={option.id}>
+                  <input
+                    type="radio"
+                    name={`${idPrefix}-recorder-configuration`}
+                    value={option.id}
+                    checked={
+                      commercialSelection.recorderConfigurationId === option.id
+                    }
+                    onChange={handleRecorderConfigurationChange}
+                  />
+                  <span>
+                    <strong>{option.name}</strong>
+                    <small>
+                      {option.id === "included"
+                        ? `${formatCop(option.priceCop)} por sistema. Configuración en celular incluida; acceso remoto no incluido.`
+                        : "No se cobra el servicio de configuración."}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+
           <fieldset className={`${styles.optionGroup} ${styles.presentationGroup}`}>
             <legend>Presentación de la cotización</legend>
             {SECURITY_SYSTEM_PRESENTATION_OPTIONS.map((option) => (
@@ -635,7 +952,7 @@ export function SecuritySystemsPricingCalculator({
       <section className={formStyles.results}>
         <div className={formStyles.resultHeading}>
           <div>
-            <p className={formStyles.kicker}>Selección actual</p>
+            <p className={formStyles.kicker}>Resumen del sistema</p>
             <h3>
               {selectedCameraGroups.length > 0
                 ? `${selectedCameraGroups.length} grupo${
@@ -648,70 +965,107 @@ export function SecuritySystemsPricingCalculator({
 
         {selectedCameraGroups.length > 0 ? (
           <div className={styles.selectedProducts}>
-            {selectedCameraGroups.map(({ group, camera }, index) => (
-              <div className={styles.productCard} key={group.id}>
-                <div className={styles.productHeading}>
-                  <h4>Cámara / grupo {index + 1}</h4>
-                  <span>{group.quantity} unidades</span>
+            {selectedCameraGroups.map(({ group, camera }, index) => {
+              const pricedGroup = pricingResult?.cameraGroups.find(
+                (candidate) => candidate.id === group.id,
+              );
+              return (
+                <div className={styles.productCard} key={group.id}>
+                  <div className={styles.productHeading}>
+                    <h4>Cámara / grupo {index + 1}</h4>
+                    <span>{group.quantity} unidades</span>
+                  </div>
+                  <dl className={styles.detailList}>
+                    <div>
+                      <dt>Ambiente y formato</dt>
+                      <dd>
+                        {CAMERA_ENVIRONMENT_NAMES[group.environment!]} ·{" "}
+                        {camera.format}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Modelo</dt>
+                      <dd>{camera.reference}</dd>
+                    </div>
+                    <div className={styles.descriptionDetail}>
+                      <dt>Descripción técnica publicada</dt>
+                      <dd>{camera.description}</dd>
+                    </div>
+                    <div>
+                      <dt>Precio sin accesorios</dt>
+                      <dd>{formatCop(camera.salePriceCop)}</dd>
+                    </div>
+                    <div>
+                      <dt>Precio con accesorios</dt>
+                      <dd>{formatCop(camera.withAccessoriesSalePriceCop)}</dd>
+                    </div>
+                    {pricedGroup?.cameraSubtotalCop !== null &&
+                    pricedGroup?.cameraSubtotalCop !== undefined ? (
+                      <div>
+                        <dt>Cámaras</dt>
+                        <dd>
+                          {pricedGroup.quantity} ×{" "}
+                          {formatCop(pricedGroup.cameraUnitPriceCop!)} ={" "}
+                          {formatCop(pricedGroup.cameraSubtotalCop)}
+                        </dd>
+                      </div>
+                    ) : (
+                      <div>
+                        <dt>Accesorios</dt>
+                        <dd>Selección pendiente</dd>
+                      </div>
+                    )}
+                    {pricedGroup?.installationSubtotalCop !== null &&
+                    pricedGroup?.installationSubtotalCop !== undefined ? (
+                      <div>
+                        <dt>Instalación</dt>
+                        <dd>
+                          {pricedGroup.installationName}
+                          {pricedGroup.installationSubtotalCop > 0
+                            ? ` · ${formatCop(pricedGroup.installationSubtotalCop)}`
+                            : ""}
+                        </dd>
+                      </div>
+                    ) : (
+                      <div>
+                        <dt>Instalación</dt>
+                        <dd>Selección pendiente</dd>
+                      </div>
+                    )}
+                    {pricedGroup?.groupSubtotalCop !== null &&
+                    pricedGroup?.groupSubtotalCop !== undefined ? (
+                      <div className={styles.totalDetail}>
+                        <dt>Subtotal del grupo</dt>
+                        <dd>{formatCop(pricedGroup.groupSubtotalCop)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
                 </div>
-                <dl className={styles.detailList}>
-                  <div>
-                    <dt>Ambiente</dt>
-                    <dd>{CAMERA_ENVIRONMENT_NAMES[group.environment!]}</dd>
-                  </div>
-                  <div>
-                    <dt>Marca</dt>
-                    <dd>{camera.brand}</dd>
-                  </div>
-                  <div>
-                    <dt>Referencia</dt>
-                    <dd>{camera.reference}</dd>
-                  </div>
-                  <div>
-                    <dt>Formato</dt>
-                    <dd>{camera.format}</dd>
-                  </div>
-                  <div className={styles.descriptionDetail}>
-                    <dt>Descripción técnica publicada</dt>
-                    <dd>{camera.description}</dd>
-                  </div>
-                  <div>
-                    <dt>Precio recomendado</dt>
-                    <dd>{formatCop(camera.salePriceCop)}</dd>
-                  </div>
-                  <div>
-                    <dt>Precio recomendado con accesorios</dt>
-                    <dd>{formatCop(camera.withAccessoriesSalePriceCop)}</dd>
-                  </div>
-                </dl>
-              </div>
-            ))}
+              );
+            })}
 
             {configuration.isComplete &&
             catalogSelection.systemTypeId === SECURITY_SYSTEM_TYPE_IDS.wifi ? (
               <p className={styles.wifiNotice}>
-                Para cámaras Wi-Fi no se selecciona grabador en este flujo.
+                Para cámaras Wi-Fi no se selecciona grabador en este flujo. Tampoco
+                se incluye disco duro ni configuración DVR/NVR.
               </p>
             ) : selectedRecorderCandidate ? (
               <div className={styles.productCard}>
                 <div className={styles.productHeading}>
-                  <h4>Grabador seleccionado</h4>
+                  <h4>Grabador</h4>
                   {selectedRecorderCandidate.isRecommended ? (
                     <span>Recomendado</span>
                   ) : null}
                 </div>
                 <dl className={styles.detailList}>
                   <div>
-                    <dt>Marca</dt>
-                    <dd>{selectedRecorderCandidate.recorder.brand}</dd>
-                  </div>
-                  <div>
-                    <dt>Referencia</dt>
+                    <dt>Modelo</dt>
                     <dd>{selectedRecorderCandidate.recorder.reference}</dd>
                   </div>
                   <div>
-                    <dt>Canales</dt>
-                    <dd>{selectedRecorderCandidate.recorder.channels}</dd>
+                    <dt>Capacidad</dt>
+                    <dd>{selectedRecorderCandidate.recorder.channels} canales</dd>
                   </div>
                   {selectedRecorderCandidate.recorder.recorderType === "nvr" ? (
                     <div>
@@ -719,12 +1073,8 @@ export function SecuritySystemsPricingCalculator({
                       <dd>{selectedRecorderCandidate.recorder.poePorts}</dd>
                     </div>
                   ) : null}
-                  <div className={styles.descriptionDetail}>
-                    <dt>Descripción técnica publicada</dt>
-                    <dd>{selectedRecorderCandidate.recorder.description}</dd>
-                  </div>
                   <div>
-                    <dt>Precio recomendado</dt>
+                    <dt>Precio</dt>
                     <dd>{formatCop(selectedRecorderCandidate.recorder.salePriceCop)}</dd>
                   </div>
                 </dl>
@@ -740,9 +1090,95 @@ export function SecuritySystemsPricingCalculator({
             ) : configuration.isComplete &&
               catalogSelection.systemTypeId !== SECURITY_SYSTEM_TYPE_IDS.wifi ? (
               <p className={styles.recorderNotice}>
-                Selecciona un grabador para consultar sus datos publicados. No se
-                elegirá uno automáticamente.
+                Selecciona explícitamente un grabador para completar el precio.
               </p>
+            ) : null}
+
+            {pricingResult?.hardDrive.status === "priced" ? (
+              <div className={styles.productCard}>
+                <h4>Disco duro</h4>
+                <dl className={styles.detailList}>
+                  <div>
+                    <dt>Modelo y capacidad</dt>
+                    <dd>
+                      {pricingResult.hardDrive.reference} ·{" "}
+                      {pricingResult.hardDrive.capacityLabel}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Precio</dt>
+                    <dd>{formatCop(pricingResult.hardDrive.priceCop!)}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : pricingResult?.hardDrive.status === "none" ? (
+              <p className={styles.recorderNotice}>Disco duro: sin disco.</p>
+            ) : null}
+
+            {pricingResult?.recorderConfiguration.status === "included" ? (
+              <div className={styles.productCard}>
+                <h4>Configuración DVR/NVR</h4>
+                <dl className={styles.detailList}>
+                  <div>
+                    <dt>Servicio</dt>
+                    <dd>
+                      {formatCop(pricingResult.recorderConfiguration.priceCop!)}
+                    </dd>
+                  </div>
+                  <div className={styles.descriptionDetail}>
+                    <dt>Alcance</dt>
+                    <dd>
+                      Configuración del DVR/NVR y configuración en celular incluida.
+                      Acceso remoto no incluido.
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
+
+            <p className={styles.cableNotice}>
+              <strong>Importante:</strong> {SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE}
+            </p>
+
+            {pricingResult?.isPriceComplete &&
+            pricingResult.rawTotalCop !== null &&
+            pricingResult.finalTotalCop !== null ? (
+              <div className={styles.systemTotal} aria-live="polite">
+                <div>
+                  <span>Subtotal antes de redondeo</span>
+                  <strong>{formatCop(pricingResult.rawTotalCop)}</strong>
+                </div>
+                <div>
+                  <span>Total del sistema</span>
+                  <strong>{formatCop(pricingResult.finalTotalCop)}</strong>
+                </div>
+              </div>
+            ) : (
+              <p className={styles.recorderNotice}>
+                Completa todas las decisiones comerciales para obtener el total.
+              </p>
+            )}
+
+            {canAddToQuotation ? (
+              <div className={formStyles.quotationAction}>
+                <button
+                  className={formStyles.primaryButton}
+                  type="button"
+                  aria-label="Agregar sistema de seguridad a la cotización"
+                  onClick={handleAddQuotationLine}
+                >
+                  Agregar a la cotización
+                </button>
+                <p
+                  key={addFeedbackSequence}
+                  className={formStyles.quotationFeedback}
+                  aria-live="polite"
+                >
+                  {addFeedbackSequence > 0
+                    ? "Sistema agregado a la cotización."
+                    : ""}
+                </p>
+              </div>
             ) : null}
           </div>
         ) : (

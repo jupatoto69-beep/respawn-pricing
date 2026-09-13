@@ -21,6 +21,10 @@ import type {
   CameraFormat,
 } from "@/lib/pricing/security-system-catalog/catalog-types";
 import type { SecuritySystemTypeId } from "@/lib/pricing/security-system-options";
+import {
+  SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
+  SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS,
+} from "@/lib/pricing/security-system-options";
 
 import { SecuritySystemsPricingCalculator } from "./security-systems-pricing-calculator";
 
@@ -322,5 +326,144 @@ describe("SecuritySystemsPricingCalculator", () => {
     expect(markup).not.toContain("Agregar a la cotización");
     expect(markup).not.toContain("Total del sistema");
     expect(markup).not.toContain("Instalación");
+  });
+
+  it("shows group commercial choices without selecting them automatically", () => {
+    const selection = createSelection({
+      systemTypeId: "wifi",
+      totalCameraQuantity: "1",
+      brand: "Hikvision",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "PT",
+          quantity: "1",
+          cameraId: "wifi-camera-ds-2cv2q21g1-idw-w",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator
+        initialCatalogSelection={selection}
+        onAddQuotationLine={() => undefined}
+      />,
+    );
+    expect(markup).toContain("Accesorios");
+    expect(markup).toContain("Sin accesorios");
+    expect(markup).toContain("Con accesorios");
+    expect(markup).toContain("Sin instalación");
+    expect(markup).toContain("Especial / difícil");
+    expect(markup).not.toContain("Agregar a la cotización");
+  });
+
+  it("shows a complete Analog total and quotation action", () => {
+    const selection = createSelection({
+      systemTypeId: "analog",
+      totalCameraQuantity: "1",
+      brand: "Dahua",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "Domo",
+          quantity: "1",
+          cameraId: "analog-camera-dh-hac-t1a21n-u-028b",
+        },
+      ],
+      recorderId: "dvr-xvr-dh-xvr1b04-i-t",
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator
+        initialCatalogSelection={selection}
+        initialPresentationId="itemized"
+        initialCommercialSelection={{
+          cameraGroups: {
+            inside: {
+              accessorySelectionId:
+                SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withAccessories,
+              installationTypeId: "standard",
+            },
+          },
+          hardDriveSelectionId: "none",
+          recorderConfigurationId:
+            SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.notIncluded,
+        }}
+        onAddQuotationLine={() => undefined}
+      />,
+    );
+    expect(markup).toContain("Subtotal del grupo");
+    expect(markup).toContain("Total del sistema");
+    expect(markup).toContain("Agregar a la cotización");
+    expect(markup).toContain(
+      "El cableado no está incluido en esta cotización.",
+    );
+  });
+
+  it("keeps manual-confirmation hard drives visibly pending and non-addable", () => {
+    const selection = createSelection({
+      systemTypeId: "analog",
+      totalCameraQuantity: "1",
+      brand: "Dahua",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "Domo",
+          quantity: "1",
+          cameraId: "analog-camera-dh-hac-t1a21n-u-028b",
+        },
+      ],
+      recorderId: "dvr-xvr-dh-xvr1b04-i-t",
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator
+        initialCatalogSelection={selection}
+        initialPresentationId="bundled"
+        initialCommercialSelection={{
+          cameraGroups: {
+            inside: {
+              accessorySelectionId:
+                SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withoutAccessories,
+              installationTypeId: "none",
+            },
+          },
+          hardDriveSelectionId: "hard-drive-wd60pur",
+          recorderConfigurationId:
+            SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+        }}
+        onAddQuotationLine={() => undefined}
+      />,
+    );
+    expect(markup).toContain("Precio por confirmar:");
+    expect(markup).toContain("Consultar");
+    expect(markup).not.toContain("Agregar a la cotización");
+  });
+
+  it("keeps Wi-Fi free of recorder, disk and configuration selectors", () => {
+    const selection = createSelection({
+      systemTypeId: "wifi",
+      totalCameraQuantity: "1",
+      brand: "Hikvision",
+      resolutionGroup: "2-mp",
+      groups: [
+        {
+          id: "inside",
+          environment: "interior",
+          format: "PT",
+          quantity: "1",
+          cameraId: "wifi-camera-ds-2cv2q21g1-idw-w",
+        },
+      ],
+    });
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialCatalogSelection={selection} />,
+    );
+    expect(markup).not.toContain("Grabador NVR");
+    expect(markup).not.toContain(">Disco duro</label>");
+    expect(markup).not.toContain("<legend>Configuración DVR/NVR</legend>");
   });
 });
