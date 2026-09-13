@@ -176,6 +176,60 @@
   gap: 14px;
 }
 
+.groupCommercialChoice {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  border-radius: 9px;
+}
+
+.groupCommercialChoice legend {
+  padding: 0 5px;
+  color: #dce8f7;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.groupCommercialChoice label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #d4dde8;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.groupCommercialChoice input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--color-blue);
+}
+
+.groupCommercialChoice input:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.groupSubtotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(122, 170, 229, 0.2);
+  color: #c7d2df;
+  font-size: 0.78rem;
+}
+
+.groupSubtotal strong {
+  color: var(--color-white);
+  font-size: 0.9rem;
+}
+
 .removeGroupButton,
 .addGroupButton {
   min-height: 38px;
@@ -302,6 +356,17 @@
   text-align: left;
 }
 
+.detailList .totalDetail {
+  padding-top: 3px;
+  color: var(--color-white);
+}
+
+.detailList .totalDetail dt,
+.detailList .totalDetail dd {
+  color: var(--color-white);
+  font-size: 0.84rem;
+}
+
 .warning,
 .wifiNotice,
 .recorderNotice {
@@ -329,6 +394,51 @@
   margin-top: 0;
 }
 
+.cableNotice {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid rgba(139, 184, 255, 0.45);
+  border-radius: 9px;
+  background: rgba(61, 139, 255, 0.09);
+  color: #d8e7fb;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.systemTotal {
+  display: grid;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid rgba(82, 211, 142, 0.55);
+  border-radius: 12px;
+  background: rgba(82, 211, 142, 0.09);
+}
+
+.systemTotal > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: #b7c8d8;
+  font-size: 0.76rem;
+}
+
+.systemTotal > div:last-child {
+  padding-top: 10px;
+  border-top: 1px solid rgba(82, 211, 142, 0.28);
+  color: var(--color-white);
+  font-size: 0.92rem;
+}
+
+.systemTotal strong {
+  color: #a8efc6;
+  font-size: 0.96rem;
+}
+
+.systemTotal > div:last-child strong {
+  font-size: 1.22rem;
+}
+
 @media (max-width: 560px) {
   .selectionFlow {
     grid-template-columns: 1fr;
@@ -343,6 +453,13 @@
 
   .detailList dd {
     text-align: left;
+  }
+
+  .groupSubtotal,
+  .systemTotal > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
   }
 
   .distributionSection {

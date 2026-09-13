@@ -26,7 +26,10 @@ export {
   formatQuotationPhoneE164,
 } from "./quotation-phone";
 
-export type QuotationLineSource = "area-product" | "service";
+export type QuotationLineSource =
+  | "area-product"
+  | "service"
+  | "security-system";
 
 export type QuotationLineDetail = Readonly<{
   label: string;

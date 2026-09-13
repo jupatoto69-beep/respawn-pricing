@@ -86,6 +86,74 @@ export function getSecuritySystemInstallationOption(
   return SECURITY_SYSTEM_INSTALLATION_OPTIONS[installationTypeId];
 }
 
+export const SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS = {
+  withoutAccessories: "without-accessories",
+  withAccessories: "with-accessories",
+} as const;
+
+export type SecuritySystemCameraAccessorySelectionId =
+  (typeof SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS)[keyof typeof SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS];
+
+export const SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS = Object.freeze([
+  Object.freeze({
+    id: SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withoutAccessories,
+    name: "Sin accesorios",
+  }),
+  Object.freeze({
+    id: SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS.withAccessories,
+    name: "Con accesorios",
+  }),
+] as const);
+
+export function isSecuritySystemCameraAccessorySelectionId(
+  value: string,
+): value is SecuritySystemCameraAccessorySelectionId {
+  return SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_OPTIONS.some(
+    (option) => option.id === value,
+  );
+}
+
+export const SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS = {
+  notIncluded: "not-included",
+  included: "included",
+} as const;
+
+export type SecuritySystemRecorderConfigurationId =
+  (typeof SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS)[keyof typeof SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS];
+
+export const SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS = Object.freeze([
+  Object.freeze({
+    id: SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.notIncluded,
+    name: "No incluir",
+    priceCop: 0,
+  }),
+  Object.freeze({
+    id: SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+    name: "Incluir configuración",
+    priceCop: 50_000,
+  }),
+] as const);
+
+export function isSecuritySystemRecorderConfigurationId(
+  value: string,
+): value is SecuritySystemRecorderConfigurationId {
+  return SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS.some(
+    (option) => option.id === value,
+  );
+}
+
+export function getSecuritySystemRecorderConfigurationOption(
+  configurationId: string,
+) {
+  const option = SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS.find(
+    (candidate) => candidate.id === configurationId,
+  );
+  if (!option) {
+    throw new RangeError("Security system recorder configuration must be valid.");
+  }
+  return option;
+}
+
 export const SECURITY_SYSTEM_PRESENTATION_IDS = {
   itemized: "itemized",
   bundled: "bundled",

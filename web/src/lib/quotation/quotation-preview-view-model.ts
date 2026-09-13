@@ -83,6 +83,14 @@ const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
   "Tamaño aproximado",
   "Producción",
   "Condición",
+  "Sistema",
+  "Presentación",
+  "Cámaras",
+  "Instalación",
+  "Grabador",
+  "Disco duro",
+  "Configuración DVR/NVR",
+  "Cableado",
 ]);
 
 function hasUsefulText(value: string | undefined): value is string {
