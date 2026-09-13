@@ -1,10 +1,12 @@
-.fields {
+.selectionFlow {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
 .optionGroup {
   display: grid;
+  grid-column: 1 / -1;
   gap: 9px;
   min-width: 0;
   margin: 0;
@@ -65,21 +67,303 @@
   line-height: 1.45;
 }
 
-.catalogNotice {
+.presentationGroup {
+  margin-top: 4px;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.fieldError {
+  margin: 8px 0 0;
+  color: #ff9b98;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.distributionSection {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 15px;
+  padding: 17px;
+  border: 1px solid rgba(122, 170, 229, 0.34);
+  border-radius: 12px;
+  background: rgba(4, 13, 24, 0.52);
+}
+
+.distributionHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.distributionHeading h4,
+.cameraGroupHeading h4 {
+  margin: 0;
+  color: var(--color-white);
+}
+
+.distributionHeading h4 {
+  font-size: 1rem;
+}
+
+.sectionKicker {
+  margin: 0 0 4px;
+  color: #8bb8ff;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.distributionStatus {
+  display: grid;
+  gap: 3px;
+  min-width: 184px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.distributionStatus strong {
+  color: var(--color-white);
+  font-size: 0.78rem;
+}
+
+.distributionStatusValid {
+  border: 1px solid rgba(82, 211, 142, 0.58);
+  background: rgba(82, 211, 142, 0.1);
+  color: #9ce8bc;
+}
+
+.distributionStatusPending {
+  border: 1px solid rgba(255, 183, 77, 0.58);
+  background: rgba(255, 183, 77, 0.1);
+  color: #ffd18c;
+}
+
+.cameraGroupList {
+  display: grid;
+  gap: 13px;
+}
+
+.cameraGroupCard {
   display: grid;
   gap: 14px;
-  margin: auto 0;
-  color: #cbd7e5;
-  line-height: 1.6;
+  padding: 15px;
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  border-radius: 10px;
+  background: rgba(10, 24, 42, 0.68);
 }
 
-.catalogNotice span {
-  color: #8bb8ff;
-  font-size: clamp(2.4rem, 7vw, 4.8rem);
-  font-weight: 850;
-  letter-spacing: 0.08em;
+.cameraGroupHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.catalogNotice p {
+.cameraGroupHeading h4 {
+  font-size: 0.88rem;
+}
+
+.cameraGroupFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.removeGroupButton,
+.addGroupButton {
+  min-height: 38px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.removeGroupButton {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 132, 128, 0.48);
+  background: rgba(255, 107, 103, 0.08);
+  color: #ffb0ad;
+}
+
+.addGroupButton {
+  justify-self: start;
+  padding: 8px 13px;
+  border: 1px solid rgba(139, 184, 255, 0.7);
+  background: rgba(61, 139, 255, 0.14);
+  color: #c8dcff;
+}
+
+.removeGroupButton:hover,
+.addGroupButton:hover {
+  filter: brightness(1.15);
+}
+
+.removeGroupButton:focus-visible,
+.addGroupButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.emptyGroups {
   margin: 0;
+  color: #aeb9c7;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.selectedProducts {
+  display: grid;
+  gap: 16px;
+}
+
+.productCard {
+  padding: 17px;
+  border: 1px solid rgba(122, 170, 229, 0.28);
+  border-radius: 12px;
+  background: rgba(5, 15, 28, 0.62);
+}
+
+.productCard h4 {
+  margin: 0 0 14px;
+  color: var(--color-white);
+  font-size: 0.96rem;
+}
+
+.productHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.productHeading span {
+  padding: 4px 8px;
+  border: 1px solid rgba(61, 139, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(61, 139, 255, 0.12);
+  color: #8bb8ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.detailList {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.detailList > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(122, 170, 229, 0.14);
+}
+
+.detailList > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detailList dt {
+  color: #aeb9c7;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.detailList dd {
+  margin: 0;
+  color: var(--color-white);
+  font-size: 0.8rem;
+  font-weight: 720;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.detailList .descriptionDetail {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.detailList .descriptionDetail dd {
+  color: #d4dde8;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.warning,
+.wifiNotice,
+.recorderNotice {
+  margin: 14px 0 0;
+  padding: 12px 13px;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.warning {
+  border: 1px solid rgba(255, 183, 77, 0.58);
+  background: rgba(255, 183, 77, 0.1);
+  color: #ffd18c;
+}
+
+.wifiNotice,
+.recorderNotice {
+  border: 1px solid rgba(61, 139, 255, 0.45);
+  background: rgba(61, 139, 255, 0.09);
+  color: #d8e7fb;
+}
+
+.recorderNotice {
+  margin-top: 0;
+}
+
+@media (max-width: 560px) {
+  .selectionFlow {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .detailList > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .detailList dd {
+    text-align: left;
+  }
+
+  .distributionSection {
+    padding: 14px;
+  }
+
+  .distributionHeading,
+  .cameraGroupHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .distributionStatus {
+    min-width: 0;
+  }
+
+  .cameraGroupFields {
+    grid-template-columns: 1fr;
+  }
+
+  .removeGroupButton {
+    align-self: flex-start;
+  }
 }
