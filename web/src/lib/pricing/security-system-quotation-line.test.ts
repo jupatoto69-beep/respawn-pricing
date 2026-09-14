@@ -6,6 +6,8 @@ import { HARD_DRIVE_CATALOG } from "./security-system-catalog/hard-drive-catalog
 import { IP_CAMERA_CATALOG } from "./security-system-catalog/ip-camera-catalog";
 import { NVR_CATALOG } from "./security-system-catalog/nvr-catalog";
 import { WIFI_CAMERA_CATALOG } from "./security-system-catalog/wifi-camera-catalog";
+import { ACCESSORY_CATALOG } from "./security-system-catalog/accessory-catalog";
+import { POWER_SUPPLY_CATALOG } from "./security-system-catalog/power-supply-catalog";
 import {
   SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
   SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS,
@@ -50,6 +52,20 @@ function createPricing() {
     hardDrive,
     recorderConfigurationId:
       SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+    optionalComponents: [
+      {
+        id: "power-supply-1",
+        componentType: "centralized-power-supply",
+        product: POWER_SUPPLY_CATALOG[0],
+        quantity: 2,
+      },
+      {
+        id: "accessory-1",
+        componentType: "additional-accessory",
+        product: ACCESSORY_CATALOG[0],
+        quantity: 1,
+      },
+    ],
   });
 }
 
@@ -74,6 +90,18 @@ describe("createSecuritySystemQuotationLineDraft", () => {
     );
     expect(bundled.details.map((detail) => detail.value).join(" ")).toContain(
       pricing.cameraGroups[0].cameraReference,
+    );
+    expect(itemized.details).toContainEqual(
+      expect.objectContaining({
+        label: "Fuente centralizada",
+        value: expect.stringContaining(POWER_SUPPLY_CATALOG[0].reference),
+      }),
+    );
+    expect(bundled.details).toContainEqual(
+      expect.objectContaining({
+        label: "Accesorio adicional",
+        value: expect.stringContaining(ACCESSORY_CATALOG[0].reference),
+      }),
     );
   });
 
@@ -105,6 +133,12 @@ describe("createSecuritySystemQuotationLineDraft", () => {
       label: "Cableado",
       value: SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE,
     });
+    expect(preview.lines[0].details).toContainEqual(
+      expect.objectContaining({
+        label: "Fuente centralizada",
+        value: expect.stringContaining(POWER_SUPPLY_CATALOG[0].description),
+      }),
+    );
   });
 
   it("adds valid IP and Wi-Fi systems through the same quotation domain", () => {

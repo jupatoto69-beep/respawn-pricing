@@ -90,6 +90,9 @@ const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
   "Grabador",
   "Disco duro",
   "Configuración DVR/NVR",
+  "Switch PoE",
+  "Fuente centralizada",
+  "Accesorio adicional",
   "Cableado",
 ]);
 

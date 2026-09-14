@@ -117,6 +117,40 @@ function createRecorderDetails(
   return details;
 }
 
+const OPTIONAL_COMPONENT_LABELS = Object.freeze({
+  "poe-switch": "Switch PoE",
+  "centralized-power-supply": "Fuente centralizada",
+  "additional-accessory": "Accesorio adicional",
+} as const);
+
+function createOptionalComponentDetails(
+  pricing: SecuritySystemPricingResult,
+  includePrices: boolean,
+): QuotationLineDetail[] {
+  return pricing.optionalComponents.flatMap((component) => {
+    if (
+      component.status !== "priced" ||
+      component.reference === null ||
+      component.description === null ||
+      component.quantity === null ||
+      component.unitPriceCop === null ||
+      component.subtotalCop === null
+    ) {
+      return [];
+    }
+
+    const description = `${component.quantity} × ${component.reference} · ${component.description}`;
+    return [
+      {
+        label: OPTIONAL_COMPONENT_LABELS[component.componentType],
+        value: includePrices
+          ? `${description} — ${formatCop(component.unitPriceCop)} c/u · ${formatCop(component.subtotalCop)}`
+          : description,
+      },
+    ];
+  });
+}
+
 export function createSecuritySystemQuotationLineDraft(
   pricing: SecuritySystemPricingResult,
   presentationId: SecuritySystemPresentationId,
@@ -140,6 +174,7 @@ export function createSecuritySystemQuotationLineDraft(
     },
     ...createCameraDetails(pricing, includePrices),
     ...createRecorderDetails(pricing, includePrices),
+    ...createOptionalComponentDetails(pricing, includePrices),
     {
       label: "Cableado",
       value: pricing.customerNotes[0],

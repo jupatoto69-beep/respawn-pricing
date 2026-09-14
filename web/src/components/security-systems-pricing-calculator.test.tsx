@@ -20,6 +20,9 @@ import type {
   CameraBrand,
   CameraFormat,
 } from "@/lib/pricing/security-system-catalog/catalog-types";
+import { ACCESSORY_CATALOG } from "@/lib/pricing/security-system-catalog/accessory-catalog";
+import { POE_SWITCH_CATALOG } from "@/lib/pricing/security-system-catalog/poe-switch-catalog";
+import { POWER_SUPPLY_CATALOG } from "@/lib/pricing/security-system-catalog/power-supply-catalog";
 import type { SecuritySystemTypeId } from "@/lib/pricing/security-system-options";
 import {
   SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
@@ -96,6 +99,83 @@ describe("SecuritySystemsPricingCalculator", () => {
     expect(markup).not.toContain("Cantidad total de cámaras");
     expect(markup).not.toContain("Distribución de cámaras");
     expect(markup).not.toContain("Precio recomendado");
+  });
+
+  it("shows manual IP optional families without selecting a paid product", () => {
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator initialSystemTypeId="ip" />,
+    );
+    expect(markup).toContain("Componentes opcionales");
+    expect(markup).toContain("Switches PoE");
+    expect(markup).toContain("Accesorios adicionales");
+    expect(markup).toContain("Ningún componente agregado.");
+    expect(markup).not.toContain("data-optional-component-type");
+    expect(markup).not.toContain("Fuentes centralizadas");
+  });
+
+  it("renders selected IP switch quantity, published price and subtotal", () => {
+    const selectedSwitch = POE_SWITCH_CATALOG[0];
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator
+        initialSystemTypeId="ip"
+        initialCommercialSelection={{
+          cameraGroups: {},
+          hardDriveSelectionId: null,
+          recorderConfigurationId: null,
+          optionalComponents: [
+            {
+              id: "switch-row",
+              componentType: "poe-switch",
+              productId: selectedSwitch.id,
+              quantity: "2",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(markup).toContain('data-optional-component-type="poe-switch"');
+    expect(markup).toContain(selectedSwitch.reference);
+    expect(markup).toContain(selectedSwitch.description);
+    expect(markup).toContain(formatExpectedCop(selectedSwitch.salePriceCop * 2));
+  });
+
+  it("renders Analog power supplies and multiple additional accessories", () => {
+    const markup = renderToStaticMarkup(
+      <SecuritySystemsPricingCalculator
+        initialSystemTypeId="analog"
+        initialCommercialSelection={{
+          cameraGroups: {},
+          hardDriveSelectionId: null,
+          recorderConfigurationId: null,
+          optionalComponents: [
+            {
+              id: "supply-row",
+              componentType: "centralized-power-supply",
+              productId: POWER_SUPPLY_CATALOG[0].id,
+              quantity: "1",
+            },
+            {
+              id: "accessory-row-1",
+              componentType: "additional-accessory",
+              productId: ACCESSORY_CATALOG[0].id,
+              quantity: "2",
+            },
+            {
+              id: "accessory-row-2",
+              componentType: "additional-accessory",
+              productId: ACCESSORY_CATALOG[1].id,
+              quantity: "3",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(markup).toContain("Fuentes centralizadas");
+    expect(markup).not.toContain("Switches PoE");
+    expect(markup.match(/data-optional-component-type=/g)).toHaveLength(3);
+    expect(markup).toContain(POWER_SUPPLY_CATALOG[0].description);
+    expect(markup).toContain(ACCESSORY_CATALOG[0].name);
+    expect(markup).toContain(ACCESSORY_CATALOG[1].name);
   });
 
   it("shows the general fields before camera groups", () => {
@@ -390,6 +470,7 @@ describe("SecuritySystemsPricingCalculator", () => {
           hardDriveSelectionId: "none",
           recorderConfigurationId:
             SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.notIncluded,
+          optionalComponents: [],
         }}
         onAddQuotationLine={() => undefined}
       />,
@@ -434,6 +515,7 @@ describe("SecuritySystemsPricingCalculator", () => {
           hardDriveSelectionId: "hard-drive-wd60pur",
           recorderConfigurationId:
             SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+          optionalComponents: [],
         }}
         onAddQuotationLine={() => undefined}
       />,
@@ -465,5 +547,14 @@ describe("SecuritySystemsPricingCalculator", () => {
     expect(markup).not.toContain("Grabador NVR");
     expect(markup).not.toContain(">Disco duro</label>");
     expect(markup).not.toContain("<legend>Configuración DVR/NVR</legend>");
+    expect(markup).toContain("Accesorios adicionales");
+    expect(markup).not.toContain("Switches PoE");
+    expect(markup).not.toContain("Fuentes centralizadas");
   });
 });
+
+function formatExpectedCop(value: number): string {
+  return `COP ${new Intl.NumberFormat("es-CO", {
+    maximumFractionDigits: 0,
+  }).format(value)}`;
+}

@@ -1,6 +1,11 @@
 import { calculateSecuritySystemInstallationPrice } from "./calculate-security-system-installation-price";
 import { roundUpSecuritySystemTotal } from "./round-up-security-system-total";
 import type {
+  SecuritySystemOptionalComponentPricingInput,
+  SecuritySystemOptionalComponentType,
+} from "./security-system-commercial-selection";
+import { isSecuritySystemOptionalComponentTypeAllowed } from "./security-system-commercial-selection";
+import type {
   SecuritySystemCameraAccessorySelectionId,
   SecuritySystemInstallationTypeId,
   SecuritySystemRecorderConfigurationId,
@@ -45,6 +50,7 @@ export type SecuritySystemPricingInput = Readonly<{
   recorder: Recorder | null;
   hardDrive: SecuritySystemHardDriveSelection;
   recorderConfigurationId: SecuritySystemRecorderConfigurationId | null;
+  optionalComponents?: readonly SecuritySystemOptionalComponentPricingInput[];
 }>;
 
 export type SecuritySystemCameraGroupPrice = Readonly<{
@@ -86,12 +92,25 @@ export type SecuritySystemRecorderConfigurationPrice = Readonly<{
   priceCop: number | null;
 }>;
 
+export type SecuritySystemOptionalComponentPrice = Readonly<{
+  id: string;
+  componentType: SecuritySystemOptionalComponentType;
+  status: "unresolved" | "invalid" | "priced";
+  productId: string | null;
+  reference: string | null;
+  description: string | null;
+  quantity: number | null;
+  unitPriceCop: number | null;
+  subtotalCop: number | null;
+}>;
+
 export type SecuritySystemPricingResult = Readonly<{
   systemTypeId: SecuritySystemTypeId;
   cameraGroups: readonly SecuritySystemCameraGroupPrice[];
   recorder: SecuritySystemRecorderPrice;
   hardDrive: SecuritySystemHardDrivePrice;
   recorderConfiguration: SecuritySystemRecorderConfigurationPrice;
+  optionalComponents: readonly SecuritySystemOptionalComponentPrice[];
   rawTotalCop: number | null;
   finalTotalCop: number | null;
   isPriceComplete: boolean;
@@ -270,6 +289,50 @@ function priceRecorderConfiguration(
   });
 }
 
+function getOptionalComponentDescription(
+  component: SecuritySystemOptionalComponentPricingInput,
+): string | null {
+  if (!component.product) return null;
+  return component.componentType === "additional-accessory"
+    ? component.product.name
+    : component.product.description;
+}
+
+function priceOptionalComponent(
+  systemTypeId: SecuritySystemTypeId,
+  component: SecuritySystemOptionalComponentPricingInput,
+): SecuritySystemOptionalComponentPrice {
+  const isApplicable = isSecuritySystemOptionalComponentTypeAllowed(
+    systemTypeId,
+    component.componentType,
+  );
+  const quantityIsValid =
+    component.quantity !== null &&
+    Number.isSafeInteger(component.quantity) &&
+    component.quantity > 0;
+  const hasUsablePrice =
+    component.product !== null && hasPublishedSalePrice(component.product);
+  const isPriced = isApplicable && quantityIsValid && hasUsablePrice;
+
+  return Object.freeze({
+    id: component.id,
+    componentType: component.componentType,
+    status: isPriced
+      ? "priced"
+      : component.product === null
+        ? "unresolved"
+        : "invalid",
+    productId: component.product?.id ?? null,
+    reference: component.product?.reference ?? null,
+    description: getOptionalComponentDescription(component),
+    quantity: quantityIsValid ? component.quantity : null,
+    unitPriceCop: hasUsablePrice ? component.product.salePriceCop : null,
+    subtotalCop: isPriced
+      ? safeMultiply(component.product!.salePriceCop, component.quantity!)
+      : null,
+  });
+}
+
 export function calculateSecuritySystemPrice(
   input: SecuritySystemPricingInput,
 ): SecuritySystemPricingResult {
@@ -279,6 +342,11 @@ export function calculateSecuritySystemPrice(
   const recorderConfiguration = priceRecorderConfiguration(
     input.systemTypeId,
     input.recorderConfigurationId,
+  );
+  const optionalComponents = Object.freeze(
+    (input.optionalComponents ?? []).map((component) =>
+      priceOptionalComponent(input.systemTypeId, component),
+    ),
   );
   const blockingReasons: string[] = [];
 
@@ -310,6 +378,9 @@ export function calculateSecuritySystemPrice(
   if (recorderConfiguration.status === "unresolved") {
     blockingReasons.push("recorder-configuration-unresolved");
   }
+  if (optionalComponents.some(({ status }) => status !== "priced")) {
+    blockingReasons.push("optional-components-incomplete");
+  }
 
   const isPriceComplete = blockingReasons.length === 0;
   const rawTotalCop = isPriceComplete
@@ -322,6 +393,9 @@ export function calculateSecuritySystemPrice(
         ...(recorderConfiguration.priceCop === null
           ? []
           : [recorderConfiguration.priceCop]),
+        ...optionalComponents.flatMap((component) =>
+          component.subtotalCop === null ? [] : [component.subtotalCop],
+        ),
       ])
     : null;
 
@@ -331,6 +405,7 @@ export function calculateSecuritySystemPrice(
     recorder,
     hardDrive,
     recorderConfiguration,
+    optionalComponents,
     rawTotalCop,
     finalTotalCop:
       rawTotalCop === null ? null : roundUpSecuritySystemTotal(rawTotalCop),
