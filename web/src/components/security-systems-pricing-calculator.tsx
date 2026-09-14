@@ -3,6 +3,20 @@
 import { type ChangeEvent, useId, useRef, useState } from "react";
 
 import {
+  addSecuritySystemOptionalComponent,
+  changeSecuritySystemOptionalComponentProduct,
+  changeSecuritySystemOptionalComponentQuantity,
+  createInitialSecuritySystemCommercialSelection,
+  removeSecuritySystemOptionalComponent,
+  resetSecuritySystemCommercialSelectionForSystemType,
+  resolveSecuritySystemOptionalComponentPricingInputs,
+  SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES,
+  type SecuritySystemCameraGroupCommercialSelection,
+  type SecuritySystemCommercialSelection,
+  type SecuritySystemOptionalComponentSelection,
+  type SecuritySystemOptionalComponentType,
+} from "@/lib/pricing/security-system-commercial-selection";
+import {
   addSecuritySystemCameraGroup,
   CAMERA_ENVIRONMENT_NAMES,
   CAMERA_RESOLUTION_GROUP_NAMES,
@@ -42,13 +56,13 @@ import {
   SECURITY_SYSTEM_RECORDER_CONFIGURATION_OPTIONS,
   SECURITY_SYSTEM_TYPE_IDS,
   SECURITY_SYSTEM_TYPE_OPTIONS,
-  type SecuritySystemCameraAccessorySelectionId,
-  type SecuritySystemInstallationTypeId,
   type SecuritySystemPresentationId,
-  type SecuritySystemRecorderConfigurationId,
   type SecuritySystemTypeId,
 } from "@/lib/pricing/security-system-options";
 import { HARD_DRIVE_CATALOG } from "@/lib/pricing/security-system-catalog/hard-drive-catalog";
+import { ACCESSORY_CATALOG } from "@/lib/pricing/security-system-catalog/accessory-catalog";
+import { POE_SWITCH_CATALOG } from "@/lib/pricing/security-system-catalog/poe-switch-catalog";
+import { POWER_SUPPLY_CATALOG } from "@/lib/pricing/security-system-catalog/power-supply-catalog";
 import { hasPublishedSalePrice } from "@/lib/pricing/security-system-catalog/catalog-types";
 import { createSecuritySystemQuotationLineDraft } from "@/lib/pricing/security-system-quotation-line";
 import {
@@ -56,6 +70,7 @@ import {
   SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE,
   SECURITY_SYSTEM_NO_HARD_DRIVE,
   type SecuritySystemCameraGroupPrice,
+  type SecuritySystemOptionalComponentPrice,
 } from "@/lib/pricing/security-system-pricing";
 import type { QuotationLineDraft } from "@/lib/pricing/temporary-quotation";
 
@@ -70,29 +85,13 @@ type SecuritySystemsPricingCalculatorProps = Readonly<{
   onAddQuotationLine?: (line: QuotationLineDraft) => void;
 }>;
 
-export type SecuritySystemCameraGroupCommercialSelection = Readonly<{
-  accessorySelectionId: SecuritySystemCameraAccessorySelectionId | null;
-  installationTypeId: SecuritySystemInstallationTypeId | null;
-}>;
-
-export type SecuritySystemCommercialSelection = Readonly<{
-  cameraGroups: Readonly<
-    Record<string, SecuritySystemCameraGroupCommercialSelection>
-  >;
-  hardDriveSelectionId: string | null;
-  recorderConfigurationId: SecuritySystemRecorderConfigurationId | null;
-}>;
+export type {
+  SecuritySystemCameraGroupCommercialSelection,
+  SecuritySystemCommercialSelection,
+} from "@/lib/pricing/security-system-commercial-selection";
 
 const EMPTY_GROUP_COMMERCIAL_SELECTION: SecuritySystemCameraGroupCommercialSelection =
   Object.freeze({ accessorySelectionId: null, installationTypeId: null });
-
-function createInitialCommercialSelection(): SecuritySystemCommercialSelection {
-  return Object.freeze({
-    cameraGroups: Object.freeze({}),
-    hardDriveSelectionId: null,
-    recorderConfigurationId: null,
-  });
-}
 
 type CameraGroupEditorProps = Readonly<{
   idPrefix: string;
@@ -324,6 +323,152 @@ function CameraGroupEditor({
   );
 }
 
+type OptionalComponentEditorProps = Readonly<{
+  idPrefix: string;
+  row: SecuritySystemOptionalComponentSelection;
+  rowNumber: number;
+  pricing: SecuritySystemOptionalComponentPrice | null;
+  onProductChange: (
+    rowId: string,
+    event: ChangeEvent<HTMLSelectElement>,
+  ) => void;
+  onQuantityChange: (
+    rowId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
+  onRemove: (rowId: string) => void;
+}>;
+
+function getOptionalComponentCatalog(
+  componentType: SecuritySystemOptionalComponentType,
+) {
+  if (componentType === SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES.poeSwitch) {
+    return POE_SWITCH_CATALOG;
+  }
+  if (
+    componentType ===
+    SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES.centralizedPowerSupply
+  ) {
+    return POWER_SUPPLY_CATALOG;
+  }
+  return ACCESSORY_CATALOG;
+}
+
+function getOptionalComponentDescription(
+  entry:
+    | (typeof POE_SWITCH_CATALOG)[number]
+    | (typeof POWER_SUPPLY_CATALOG)[number]
+    | (typeof ACCESSORY_CATALOG)[number],
+): string {
+  return "name" in entry ? entry.name : entry.description;
+}
+
+function OptionalComponentEditor({
+  idPrefix,
+  row,
+  rowNumber,
+  pricing,
+  onProductChange,
+  onQuantityChange,
+  onRemove,
+}: OptionalComponentEditorProps) {
+  const catalog = getOptionalComponentCatalog(row.componentType);
+  const selectedProduct = catalog.find(({ id }) => id === row.productId);
+  const quantity = validateSecuritySystemCameraQuantity(row.quantity);
+
+  return (
+    <article
+      className={styles.optionalComponentRow}
+      data-optional-component-type={row.componentType}
+    >
+      <div className={styles.optionalComponentHeading}>
+        <h5>Componente {rowNumber}</h5>
+        <button
+          type="button"
+          className={styles.removeGroupButton}
+          onClick={() => onRemove(row.id)}
+        >
+          Eliminar componente
+        </button>
+      </div>
+
+      <div className={styles.optionalComponentFields}>
+        <div className={formStyles.field}>
+          <label htmlFor={`${idPrefix}-${row.id}-product`}>Producto</label>
+          <select
+            id={`${idPrefix}-${row.id}-product`}
+            value={row.productId ?? ""}
+            onChange={(event) => onProductChange(row.id, event)}
+          >
+            <option value="">Selecciona un producto</option>
+            {catalog.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.reference} · {formatCop(product.salePriceCop)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={formStyles.field}>
+          <label htmlFor={`${idPrefix}-${row.id}-quantity`}>Cantidad</label>
+          <div className={formStyles.inputShell}>
+            <input
+              id={`${idPrefix}-${row.id}-quantity`}
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={row.quantity}
+              aria-invalid={!quantity.isValid}
+              aria-describedby={
+                quantity.isValid
+                  ? undefined
+                  : `${idPrefix}-${row.id}-quantity-error`
+              }
+              onChange={(event) => onQuantityChange(row.id, event)}
+            />
+            <span>unidades</span>
+          </div>
+          {!quantity.isValid ? (
+            <p
+              id={`${idPrefix}-${row.id}-quantity-error`}
+              className={styles.fieldError}
+              role="alert"
+            >
+              {quantity.errorMessage}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {selectedProduct ? (
+        <dl className={styles.optionalComponentDetails}>
+          <div>
+            <dt>Referencia</dt>
+            <dd>{selectedProduct.reference}</dd>
+          </div>
+          <div>
+            <dt>Descripción publicada</dt>
+            <dd>{getOptionalComponentDescription(selectedProduct)}</dd>
+          </div>
+          <div>
+            <dt>Precio unitario</dt>
+            <dd>{formatCop(selectedProduct.salePriceCop)}</dd>
+          </div>
+          <div>
+            <dt>Subtotal</dt>
+            <dd>
+              {pricing?.status === "priced" && pricing.subtotalCop !== null
+                ? formatCop(pricing.subtotalCop)
+                : "Cantidad válida pendiente"}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+    </article>
+  );
+}
+
 export function SecuritySystemsPricingCalculator({
   initialSystemTypeId,
   initialPresentationId,
@@ -333,6 +478,7 @@ export function SecuritySystemsPricingCalculator({
 }: SecuritySystemsPricingCalculatorProps = {}) {
   const idPrefix = useId();
   const nextGroupSequence = useRef(0);
+  const nextOptionalComponentSequence = useRef(0);
   const [catalogSelection, setCatalogSelection] =
     useState<SecuritySystemCatalogSelection>(() =>
       initialCatalogSelection ??
@@ -344,7 +490,7 @@ export function SecuritySystemsPricingCalculator({
     );
   const [commercialSelection, setCommercialSelection] =
     useState<SecuritySystemCommercialSelection>(
-      initialCommercialSelection ?? createInitialCommercialSelection,
+      initialCommercialSelection ?? createInitialSecuritySystemCommercialSelection,
     );
   const [addFeedbackSequence, setAddFeedbackSequence] = useState(0);
 
@@ -416,6 +562,9 @@ export function SecuritySystemsPricingCalculator({
         recorder: selectedRecorderCandidate?.recorder ?? null,
         hardDrive: selectedHardDrive,
         recorderConfigurationId: commercialSelection.recorderConfigurationId,
+        optionalComponents: resolveSecuritySystemOptionalComponentPricingInputs(
+          commercialSelection.optionalComponents,
+        ),
       })
     : null;
   const canAddToQuotation = Boolean(
@@ -432,7 +581,9 @@ export function SecuritySystemsPricingCalculator({
       setCatalogSelection((selection) =>
         changeSecuritySystemType(selection, nextSystemTypeId),
       );
-      setCommercialSelection(createInitialCommercialSelection());
+      setCommercialSelection((selection) =>
+        resetSecuritySystemCommercialSelectionForSystemType(selection),
+      );
     }
   }
 
@@ -627,6 +778,54 @@ export function SecuritySystemsPricingCalculator({
     }
   }
 
+  function handleAddOptionalComponent(
+    componentType: SecuritySystemOptionalComponentType,
+  ) {
+    const systemTypeId = catalogSelection.systemTypeId;
+    if (!systemTypeId) return;
+    let rowId: string;
+    do {
+      nextOptionalComponentSequence.current += 1;
+      rowId = `${idPrefix}-optional-component-${nextOptionalComponentSequence.current}`;
+    } while (
+      commercialSelection.optionalComponents.some(({ id }) => id === rowId)
+    );
+    setCommercialSelection((selection) =>
+      addSecuritySystemOptionalComponent(
+        selection,
+        systemTypeId,
+        rowId,
+        componentType,
+      ),
+    );
+  }
+
+  function handleOptionalComponentProductChange(
+    rowId: string,
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    const productId = event.currentTarget.value;
+    setCommercialSelection((selection) =>
+      changeSecuritySystemOptionalComponentProduct(selection, rowId, productId),
+    );
+  }
+
+  function handleOptionalComponentQuantityChange(
+    rowId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const quantity = event.currentTarget.value;
+    setCommercialSelection((selection) =>
+      changeSecuritySystemOptionalComponentQuantity(selection, rowId, quantity),
+    );
+  }
+
+  function handleRemoveOptionalComponent(rowId: string) {
+    setCommercialSelection((selection) =>
+      removeSecuritySystemOptionalComponent(selection, rowId),
+    );
+  }
+
   function handlePresentationChange(event: ChangeEvent<HTMLInputElement>) {
     const nextPresentationId = event.currentTarget.value;
     if (isSecuritySystemPresentationId(nextPresentationId)) {
@@ -650,6 +849,42 @@ export function SecuritySystemsPricingCalculator({
   }
 
   const distribution = configuration.distribution;
+  const optionalComponentGroups = catalogSelection.systemTypeId
+    ? [
+        ...(catalogSelection.systemTypeId === SECURITY_SYSTEM_TYPE_IDS.ip
+          ? [
+              {
+                componentType:
+                  SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES.poeSwitch,
+                title: "Switches PoE",
+                description:
+                  "Selección comercial manual. Verifica puertos, potencia y compatibilidad antes de agregar.",
+                addLabel: "Agregar switch PoE",
+              } as const,
+            ]
+          : []),
+        ...(catalogSelection.systemTypeId === SECURITY_SYSTEM_TYPE_IDS.analog
+          ? [
+              {
+                componentType:
+                  SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES.centralizedPowerSupply,
+                title: "Fuentes centralizadas",
+                description:
+                  "Selección comercial manual. Verifica amperaje, salidas y compatibilidad antes de agregar.",
+                addLabel: "Agregar fuente centralizada",
+              } as const,
+            ]
+          : []),
+        {
+          componentType:
+            SECURITY_SYSTEM_OPTIONAL_COMPONENT_TYPES.additionalAccessory,
+          title: "Accesorios adicionales",
+          description:
+            "Elementos adicionales elegidos manualmente. No reemplazan ni duplican la opción de accesorios de las cámaras.",
+          addLabel: "Agregar accesorio",
+        } as const,
+      ]
+    : [];
 
   return (
     <div className={formStyles.calculator}>
@@ -924,6 +1159,85 @@ export function SecuritySystemsPricingCalculator({
             </fieldset>
           ) : null}
 
+          {catalogSelection.systemTypeId ? (
+            <section
+              className={styles.optionalComponentsSection}
+              aria-labelledby={`${idPrefix}-optional-components-title`}
+            >
+              <div className={styles.optionalComponentsTitle}>
+                <p className={styles.sectionKicker}>Selección manual</p>
+                <h4 id={`${idPrefix}-optional-components-title`}>
+                  Componentes opcionales
+                </h4>
+                <p>
+                  No se agrega ningún componente pagado automáticamente. Elige solo
+                  los productos adicionales confirmados para esta cotización.
+                </p>
+              </div>
+
+              {optionalComponentGroups.map((group) => {
+                const rows = commercialSelection.optionalComponents.filter(
+                  ({ componentType }) =>
+                    componentType === group.componentType,
+                );
+                return (
+                  <section
+                    key={group.componentType}
+                    className={styles.optionalComponentGroup}
+                    aria-labelledby={`${idPrefix}-${group.componentType}-title`}
+                  >
+                    <div className={styles.optionalComponentGroupHeading}>
+                      <div>
+                        <h5 id={`${idPrefix}-${group.componentType}-title`}>
+                          {group.title}
+                        </h5>
+                        <p>{group.description}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.addGroupButton}
+                        onClick={() =>
+                          handleAddOptionalComponent(group.componentType)
+                        }
+                      >
+                        + {group.addLabel}
+                      </button>
+                    </div>
+
+                    {rows.length > 0 ? (
+                      <div className={styles.optionalComponentList}>
+                        {rows.map((row, index) => (
+                          <OptionalComponentEditor
+                            key={row.id}
+                            idPrefix={idPrefix}
+                            row={row}
+                            rowNumber={index + 1}
+                            pricing={
+                              pricingResult?.optionalComponents.find(
+                                ({ id }) => id === row.id,
+                              ) ?? null
+                            }
+                            onProductChange={
+                              handleOptionalComponentProductChange
+                            }
+                            onQuantityChange={
+                              handleOptionalComponentQuantityChange
+                            }
+                            onRemove={handleRemoveOptionalComponent}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={styles.emptyOptionalComponents}>
+                        Ningún componente agregado.
+                      </p>
+                    )}
+                  </section>
+                );
+              })}
+            </section>
+          ) : null}
+
           <fieldset className={`${styles.optionGroup} ${styles.presentationGroup}`}>
             <legend>Presentación de la cotización</legend>
             {SECURITY_SYSTEM_PRESENTATION_OPTIONS.map((option) => (
@@ -1135,6 +1449,47 @@ export function SecuritySystemsPricingCalculator({
                 </dl>
               </div>
             ) : null}
+
+            {pricingResult?.optionalComponents.map((component) =>
+              component.status === "priced" &&
+              component.reference !== null &&
+              component.description !== null &&
+              component.quantity !== null &&
+              component.unitPriceCop !== null &&
+              component.subtotalCop !== null ? (
+                <div className={styles.productCard} key={component.id}>
+                  <div className={styles.productHeading}>
+                    <h4>
+                      {component.componentType === "poe-switch"
+                        ? "Switch PoE"
+                        : component.componentType ===
+                            "centralized-power-supply"
+                          ? "Fuente centralizada"
+                          : "Accesorio adicional"}
+                    </h4>
+                    <span>{component.quantity} unidades</span>
+                  </div>
+                  <dl className={styles.detailList}>
+                    <div>
+                      <dt>Referencia</dt>
+                      <dd>{component.reference}</dd>
+                    </div>
+                    <div className={styles.descriptionDetail}>
+                      <dt>Descripción publicada</dt>
+                      <dd>{component.description}</dd>
+                    </div>
+                    <div>
+                      <dt>Precio unitario</dt>
+                      <dd>{formatCop(component.unitPriceCop)}</dd>
+                    </div>
+                    <div className={styles.totalDetail}>
+                      <dt>Subtotal</dt>
+                      <dd>{formatCop(component.subtotalCop)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : null,
+            )}
 
             <p className={styles.cableNotice}>
               <strong>Importante:</strong> {SECURITY_SYSTEM_CABLE_EXCLUSION_NOTE}

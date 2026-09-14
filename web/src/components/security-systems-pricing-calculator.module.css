@@ -273,6 +273,117 @@
   line-height: 1.5;
 }
 
+.optionalComponentsSection {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 15px;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid rgba(122, 170, 229, 0.34);
+  border-radius: 12px;
+  background: rgba(4, 13, 24, 0.52);
+}
+
+.optionalComponentsTitle h4,
+.optionalComponentGroupHeading h5,
+.optionalComponentHeading h5 {
+  margin: 0;
+  color: var(--color-white);
+}
+
+.optionalComponentsTitle h4 {
+  font-size: 1rem;
+}
+
+.optionalComponentsTitle > p:last-child,
+.optionalComponentGroupHeading p {
+  margin: 6px 0 0;
+  color: #aeb9c7;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.optionalComponentGroup {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  border-radius: 10px;
+  background: rgba(10, 24, 42, 0.54);
+}
+
+.optionalComponentGroupHeading,
+.optionalComponentHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.optionalComponentGroupHeading > div {
+  min-width: 0;
+}
+
+.optionalComponentGroupHeading h5,
+.optionalComponentHeading h5 {
+  font-size: 0.86rem;
+}
+
+.optionalComponentList {
+  display: grid;
+  gap: 12px;
+}
+
+.optionalComponentRow {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(139, 184, 255, 0.25);
+  border-radius: 9px;
+  background: rgba(5, 15, 28, 0.68);
+}
+
+.optionalComponentFields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr);
+  gap: 14px;
+}
+
+.optionalComponentDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(122, 170, 229, 0.18);
+}
+
+.optionalComponentDetails > div {
+  min-width: 0;
+}
+
+.optionalComponentDetails dt {
+  color: #aeb9c7;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.optionalComponentDetails dd {
+  margin: 3px 0 0;
+  color: var(--color-white);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.emptyOptionalComponents {
+  margin: 0;
+  color: #aeb9c7;
+  font-size: 0.76rem;
+}
+
 .selectedProducts {
   display: grid;
   gap: 16px;
@@ -467,7 +578,9 @@
   }
 
   .distributionHeading,
-  .cameraGroupHeading {
+  .cameraGroupHeading,
+  .optionalComponentGroupHeading,
+  .optionalComponentHeading {
     align-items: stretch;
     flex-direction: column;
   }
@@ -477,6 +590,17 @@
   }
 
   .cameraGroupFields {
+    grid-template-columns: 1fr;
+  }
+
+  .optionalComponentsSection,
+  .optionalComponentGroup,
+  .optionalComponentRow {
+    padding: 12px;
+  }
+
+  .optionalComponentFields,
+  .optionalComponentDetails {
     grid-template-columns: 1fr;
   }
 

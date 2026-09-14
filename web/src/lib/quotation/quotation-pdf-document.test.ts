@@ -18,6 +18,7 @@ import { calculateThreeDPrintingPrice } from "../pricing/calculate-three-d-print
 import { ANALOG_CAMERA_CATALOG } from "../pricing/security-system-catalog/analog-camera-catalog";
 import { DVR_XVR_CATALOG } from "../pricing/security-system-catalog/dvr-xvr-catalog";
 import { HARD_DRIVE_CATALOG } from "../pricing/security-system-catalog/hard-drive-catalog";
+import { POWER_SUPPLY_CATALOG } from "../pricing/security-system-catalog/power-supply-catalog";
 import {
   SECURITY_SYSTEM_CAMERA_ACCESSORY_SELECTION_IDS,
   SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS,
@@ -464,6 +465,14 @@ describe("quotation PDF document", () => {
       hardDrive,
       recorderConfigurationId:
         SECURITY_SYSTEM_RECORDER_CONFIGURATION_IDS.included,
+      optionalComponents: [
+        {
+          id: "power-supply-1",
+          componentType: "centralized-power-supply",
+          product: POWER_SUPPLY_CATALOG[0],
+          quantity: 2,
+        },
+      ],
     });
     const draft = createSecuritySystemQuotationLineDraft(pricing, "itemized");
     const quotation = addQuotationLine(
@@ -507,6 +516,9 @@ describe("quotation PDF document", () => {
     expect(streams).toContain("Sistema de seguridad");
     expect(streams).toContain("Analógico");
     expect(streams).toContain(camera.reference);
+    expect(streams).toContain("Fuente centralizada");
+    expect(streams).toContain(POWER_SUPPLY_CATALOG[0].reference);
+    expect(streams).toContain(POWER_SUPPLY_CATALOG[0].description);
     expect(streams).toContain(pricing.finalTotalCop!.toLocaleString("es-CO"));
     expect(streams).toContain("El cableado no está incluido");
     expect(streams).toContain("cantidad real de metros utilizados");
