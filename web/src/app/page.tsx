@@ -1,8 +1,22 @@
+import { redirect } from "next/navigation";
+
+import { LogoutButton } from "@/components/logout-button";
 import { PricingCalculator } from "@/components/pricing-calculator";
+import { LOGIN_PATH } from "@/lib/auth/route-access";
+import { createClient } from "@/lib/supabase/server";
 
 import styles from "./page.module.css";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+
+  if (!data?.claims) {
+    redirect(LOGIN_PATH);
+  }
+
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
@@ -11,7 +25,10 @@ export default function Home() {
             <p className={styles.brand}>Respawn Pricing</p>
             <p className={styles.brandContext}>Digital Respawn</p>
           </div>
-          <p className={styles.internalLabel}>Herramienta interna</p>
+          <div className={styles.headerActions}>
+            <p className={styles.internalLabel}>Herramienta interna</p>
+            <LogoutButton />
+          </div>
         </header>
 
         <section className={styles.hero} aria-labelledby="page-title">

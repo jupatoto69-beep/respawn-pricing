@@ -16,6 +16,12 @@
   border-bottom: 1px solid rgba(154, 164, 178, 0.18);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand,
 .brandContext,
 .internalLabel,
@@ -142,8 +148,7 @@
   }
 
   .internalLabel {
-    padding: 6px 9px;
-    font-size: 0.65rem;
+    display: none;
   }
 
   .hero {

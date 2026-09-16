@@ -1,0 +1,51 @@
+.container {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid rgba(61, 139, 255, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: #b9d5ff;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-blue-bright);
+  color: var(--color-white);
+}
+
+.button:focus-visible {
+  outline: 3px solid rgba(61, 139, 255, 0.35);
+  outline-offset: 3px;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.error {
+  max-width: 250px;
+  margin: 0;
+  color: #ffd5d4;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .button {
+    padding: 7px 10px;
+    font-size: 0.7rem;
+  }
+
+  .error {
+    max-width: 170px;
+  }
+}
