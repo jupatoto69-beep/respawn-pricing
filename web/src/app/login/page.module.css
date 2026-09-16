@@ -1,0 +1,135 @@
+.page {
+  min-height: 100vh;
+  border-top: 4px solid var(--color-blue);
+}
+
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: min(960px, calc(100% - 48px));
+  min-height: calc(100vh - 4px);
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 92px;
+  border-bottom: 1px solid rgba(154, 164, 178, 0.18);
+}
+
+.brand,
+.brandContext,
+.internalLabel,
+.eyebrow,
+.lead,
+.footer p {
+  margin: 0;
+}
+
+.brand {
+  color: var(--color-white);
+  font-size: 1rem;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+
+.brandContext {
+  margin-top: 2px;
+  color: var(--color-gray);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.internalLabel {
+  padding: 7px 11px;
+  border: 1px solid rgba(61, 139, 255, 0.45);
+  border-radius: 999px;
+  color: #b9d5ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
+  gap: clamp(40px, 8vw, 88px);
+  align-items: center;
+  padding: 64px 0;
+}
+
+.introduction {
+  min-width: 0;
+}
+
+.eyebrow {
+  color: var(--color-blue-bright);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.introduction h1 {
+  margin: 14px 0 18px;
+  font-size: clamp(3.2rem, 8vw, 5.8rem);
+  font-weight: 790;
+  letter-spacing: -0.06em;
+  line-height: 0.96;
+}
+
+.lead {
+  max-width: 520px;
+  color: #c2cad5;
+  font-size: 1rem;
+}
+
+.card {
+  min-width: 0;
+  padding: clamp(24px, 4vw, 38px);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-blue-dark);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+.footer {
+  padding: 24px 0 36px;
+  color: var(--color-gray);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    width: min(100% - 28px, 960px);
+  }
+
+  .header {
+    min-height: 82px;
+  }
+
+  .internalLabel {
+    padding: 6px 9px;
+    font-size: 0.65rem;
+  }
+
+  .content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+    align-content: center;
+    padding: 46px 0;
+  }
+
+  .introduction h1 {
+    font-size: clamp(3rem, 15vw, 4.5rem);
+  }
+
+  .card {
+    padding: 24px 18px;
+    border-radius: 17px;
+  }
+}
