@@ -2,6 +2,8 @@
 
 import { type ChangeEvent, useId, useState } from "react";
 
+import type { Customer } from "@/lib/customers/customer";
+import { applyCustomerSnapshotToQuotation } from "@/lib/customers/customer-quotation-snapshot";
 import {
   changePricingMode,
   createInitialPricingModeSelection,
@@ -24,6 +26,7 @@ import {
 import type { PhoneCountryIso2 } from "@/lib/pricing/phone-country-catalog";
 
 import { AreaPricingCalculator } from "./area-pricing-calculator";
+import { CustomerManagement } from "./customer-management";
 import styles from "./pricing-calculator.module.css";
 import { SecuritySystemsPricingCalculator } from "./security-systems-pricing-calculator";
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
@@ -87,12 +90,20 @@ export function PricingCalculator({
     setQuotation((currentQuotation) => clearQuotation(currentQuotation));
   }
 
+  function handleSelectCustomer(customer: Customer) {
+    setQuotation((currentQuotation) =>
+      applyCustomerSnapshotToQuotation(currentQuotation, customer),
+    );
+  }
+
   const selectedOption = PRICING_MODE_OPTIONS.find(
     (option) => option.id === selection.modeId,
   )!;
 
   return (
     <div>
+      <CustomerManagement onSelectCustomer={handleSelectCustomer} />
+
       <fieldset className={styles.modeSelector}>
         <legend>Tipo de cotización</legend>
         <div className={styles.modeOptions}>
