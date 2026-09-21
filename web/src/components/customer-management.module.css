@@ -1,0 +1,206 @@
+.container {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin-bottom: 26px;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid rgba(122, 170, 229, 0.38);
+  border-radius: 16px;
+  background: #071426;
+}
+
+.heading,
+.editorHeading,
+.customerItem,
+.itemActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.heading h3,
+.heading p,
+.editorHeading h4,
+.status,
+.error,
+.emptyState,
+.feedback {
+  margin: 0;
+}
+
+.heading h3 {
+  margin-top: 4px;
+  color: #f1f5fa;
+  font-size: 1.25rem;
+}
+
+.kicker {
+  color: var(--color-blue-bright);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.primaryButton,
+.saveButton,
+.editorHeading button,
+.itemActions button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid #5e86b5;
+  border-radius: 8px;
+  background: transparent;
+  color: #e7eef7;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.primaryButton,
+.saveButton {
+  border-color: #8bb8ff;
+  background: #2d75d5;
+  color: #fff;
+}
+
+.searchField,
+.fields label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #dce5ef;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.searchField input,
+.fields input,
+.fields select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 11px;
+  border: 1px solid #405875;
+  border-radius: 8px;
+  background: #08182b;
+  color: #f1f5fa;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.searchField input:focus-visible,
+.fields input:focus-visible,
+.fields select:focus-visible,
+.primaryButton:focus-visible,
+.saveButton:focus-visible,
+.editorHeading button:focus-visible,
+.itemActions button:focus-visible {
+  outline: 3px solid rgba(139, 184, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.customerList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.customerItem {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  border-radius: 10px;
+  background: rgba(5, 15, 28, 0.72);
+}
+
+.customerItem > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.customerItem strong,
+.customerItem span {
+  overflow-wrap: anywhere;
+}
+
+.customerItem span,
+.status,
+.emptyState {
+  color: #aeb9c7;
+  font-size: 0.8rem;
+}
+
+.editor {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(139, 184, 255, 0.36);
+  border-radius: 12px;
+  background: rgba(5, 15, 28, 0.7);
+}
+
+.editorHeading h4 {
+  color: #f1f5fa;
+  font-size: 1rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fields small,
+.error {
+  color: #ffb7b7;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.feedback {
+  color: #b8e3c4;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.saveButton {
+  justify-self: start;
+}
+
+.container button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+@media (max-width: 700px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .heading,
+  .customerItem {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .itemActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primaryButton,
+  .saveButton,
+  .itemActions button {
+    width: 100%;
+  }
+}
