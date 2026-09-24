@@ -1,10 +1,12 @@
 import {
   formatQuotationPhoneDisplay,
-  type QuotationLineDetail,
   type TemporaryQuotationState,
 } from "@/lib/pricing/temporary-quotation";
+import { getPhoneCountryDefinition } from "@/lib/pricing/phone-country-catalog";
+import type { HistoricalQuotation } from "@/lib/quotations/quotation-snapshot";
 
 import type { BusinessProfile } from "./business-profile";
+import { createCustomerSafeLineDetails } from "./customer-safe-line-details";
 import {
   formatQuotationCalendarDate,
   formatQuotationValidity,
@@ -44,6 +46,11 @@ type CreateQuotationPreviewViewModelInput = Readonly<{
   businessProfile: BusinessProfile;
 }>;
 
+type CreateHistoricalQuotationPreviewViewModelInput = Readonly<{
+  quotation: HistoricalQuotation;
+  businessProfile: BusinessProfile;
+}>;
+
 const quotationCopFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -51,52 +58,6 @@ const quotationCopFormatter = new Intl.NumberFormat("es-CO", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
-
-const CUSTOMER_SAFE_LINE_DETAIL_LABELS = new Set([
-  "Producto",
-  "Servicio",
-  "Categoría",
-  "Descripción",
-  "Configuración",
-  "Variante",
-  "Color",
-  "Dimensiones",
-  "Área por unidad",
-  "Estructura",
-  "Opción de Panaflex",
-  "Clasificación de medida",
-  "Opción seleccionada",
-  "Paquete",
-  "Unidad",
-  "Cantidad de programas",
-  "Alcance",
-  "Duración ingresada",
-  "Minutos facturables",
-  "Tipo",
-  "Cantidad en millares",
-  "Acabado adhesivo",
-  "Laminado",
-  "Material",
-  "Gramos por unidad",
-  "Tiempo de impresión por unidad",
-  "Modelado",
-  "Tipo de impresión",
-  "Impresora",
-  "Tamaño aproximado",
-  "Producción",
-  "Condición",
-  "Sistema",
-  "Presentación",
-  "Cámaras",
-  "Instalación",
-  "Grabador",
-  "Disco duro",
-  "Configuración DVR/NVR",
-  "Switch PoE",
-  "Fuente centralizada",
-  "Accesorio adicional",
-  "Cableado",
-]);
 
 function hasUsefulText(value: string | undefined): value is string {
   return value !== undefined && value.trim().length > 0;
@@ -161,13 +122,6 @@ function createCustomerFields(
   );
 }
 
-function isCustomerSafeLineDetail(detail: QuotationLineDetail): boolean {
-  return (
-    CUSTOMER_SAFE_LINE_DETAIL_LABELS.has(detail.label) &&
-    hasUsefulText(detail.value)
-  );
-}
-
 export function formatQuotationCop(value: number): string {
   return quotationCopFormatter.format(value);
 }
@@ -181,9 +135,9 @@ export function createQuotationPreviewViewModel({
     Object.freeze({
       title: line.title,
       details: Object.freeze(
-        line.details
-          .filter(isCustomerSafeLineDetail)
-          .map((detail) => freezeField(detail.label, detail.value)),
+        createCustomerSafeLineDetails(line.details).map((detail) =>
+          freezeField(detail.label, detail.value),
+        ),
       ),
       quantity: line.quantity,
       ...(line.source === "custom"
@@ -214,5 +168,71 @@ export function createQuotationPreviewViewModel({
     notes: hasUsefulText(quotation.details.notes)
       ? quotation.details.notes
       : null,
+  });
+}
+
+function formatStoredQuotationDate(value: string): string {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+export function createHistoricalQuotationPreviewViewModel({
+  quotation,
+  businessProfile,
+}: CreateHistoricalQuotationPreviewViewModelInput): QuotationPreviewViewModel {
+  const phone =
+    quotation.customerPhoneCountryIso2 === null ||
+    quotation.customerPhoneNumber === null
+      ? null
+      : `${getPhoneCountryDefinition(quotation.customerPhoneCountryIso2).callingCode} ${quotation.customerPhoneNumber}`;
+  const customerFields = [
+    ["Nombre o empresa", quotation.customerName],
+    ["Documento o NIT", quotation.customerDocument],
+    ["Teléfono", phone],
+    ["Correo electrónico", quotation.customerEmail],
+    ["Ciudad", quotation.customerCity],
+  ] as const;
+  const lines = quotation.lines.map((line) =>
+    Object.freeze({
+      title: line.title,
+      details: Object.freeze(
+        line.details.map((detail) => freezeField(detail.label, detail.value)),
+      ),
+      quantity: line.quantity,
+      ...(line.source === "custom"
+        ? {
+            unitPriceCop: line.unitPriceCop,
+            formattedUnitPrice: formatQuotationCop(line.unitPriceCop),
+          }
+        : {}),
+      lineTotal: line.lineTotalCop,
+      formattedLineTotal: formatQuotationCop(line.lineTotalCop),
+    }),
+  );
+
+  return Object.freeze({
+    businessName: businessProfile.businessName,
+    logoOnDarkPath: hasUsefulText(businessProfile.logoOnDarkPath)
+      ? businessProfile.logoOnDarkPath
+      : null,
+    logoOnLightPath: hasUsefulText(businessProfile.logoOnLightPath)
+      ? businessProfile.logoOnLightPath
+      : null,
+    quotationFields: Object.freeze([
+      freezeField("Fecha", formatStoredQuotationDate(quotation.quotationDate)),
+      freezeField("Vigencia", `${quotation.validityDays} días`),
+    ]),
+    businessFields: createBusinessFields(businessProfile),
+    customerFields: Object.freeze(
+      customerFields.flatMap(([label, value]) =>
+        value !== null && hasUsefulText(value)
+          ? [freezeField(label, value)]
+          : [],
+      ),
+    ),
+    lines: Object.freeze(lines),
+    total: quotation.totalCop,
+    formattedTotal: formatQuotationCop(quotation.totalCop),
+    notes: quotation.notes,
   });
 }
