@@ -7,9 +7,11 @@ import {
   removeQuotationLine,
   updateQuotationDetails,
   type QuotationLineDraft,
+  type StandardQuotationLineDraft,
   type TemporaryQuotationState,
 } from "@/lib/pricing/temporary-quotation";
 import { calculateThreeDPrintingPrice } from "@/lib/pricing/calculate-three-d-printing-price";
+import { createCustomQuotationLineDraft } from "@/lib/pricing/custom-quotation-line";
 import {
   calculateCutVinylColorGroupPrice,
   createCutVinylColorGroupPricing,
@@ -39,8 +41,8 @@ import {
 } from "./quotation-preview-view-model";
 
 function createDraft(
-  overrides: Partial<QuotationLineDraft> = {},
-): QuotationLineDraft {
+  overrides: Partial<StandardQuotationLineDraft> = {},
+): StandardQuotationLineDraft {
   return {
     source: "area-product",
     title: "Banner",
@@ -493,6 +495,53 @@ describe("quotation preview view-model", () => {
     );
 
     expect(createPreview(quotation).total).toBe(888_000);
+  });
+
+  it("projects a custom commercial snapshot with unit price and no private fields", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_350,
+      }),
+    );
+    const customLineWithInjectedPrivateData = Object.freeze({
+      ...quotation.lines[0],
+      internalCost: 10_000,
+      margin: 0.8,
+      supplier: "Dato privado",
+      purchasePrice: 8_000,
+    });
+    const unsafeQuotation = Object.freeze({
+      ...quotation,
+      lines: Object.freeze([customLineWithInjectedPrivateData]),
+    });
+    const preview = createPreview(unsafeQuotation);
+    const serialized = JSON.stringify(preview).toLocaleLowerCase("es-CO");
+
+    expect(preview.lines).toEqual([
+      {
+        title: "Medio metro de lámina sublimada",
+        details: [],
+        quantity: 3,
+        unitPriceCop: 58_350,
+        formattedUnitPrice: "COP 58.350",
+        lineTotal: 175_050,
+        formattedLineTotal: "COP 175.050",
+      },
+    ]);
+    expect(preview.total).toBe(175_050);
+
+    for (const forbidden of [
+      "internalcost",
+      "margin",
+      "supplier",
+      "purchaseprice",
+      "dato privado",
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
   });
 
   it("keeps Banner 80 × 300 plus Office-only installation at COP 818,000", () => {

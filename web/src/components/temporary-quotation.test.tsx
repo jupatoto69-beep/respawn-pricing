@@ -20,6 +20,7 @@ import {
   PHONE_COUNTRY_DEFINITIONS,
   type PhoneCountryIso2,
 } from "@/lib/pricing/phone-country-catalog";
+import { createCustomQuotationLineDraft } from "@/lib/pricing/custom-quotation-line";
 
 import {
   TemporaryQuotation,
@@ -72,6 +73,7 @@ describe("TemporaryQuotation", () => {
         onUpdateDetail={noopUpdate}
         onUpdatePhoneCountry={noopCountryUpdate}
         onRemoveLine={noop}
+        onUpdateCustomLine={noop}
         onClear={noop}
       />,
     );
@@ -140,6 +142,7 @@ describe("TemporaryQuotation", () => {
         onUpdateDetail={noopUpdate}
         onUpdatePhoneCountry={noopCountryUpdate}
         onRemoveLine={noop}
+        onUpdateCustomLine={noop}
         onClear={noop}
       />,
     );
@@ -167,6 +170,7 @@ describe("TemporaryQuotation", () => {
         onUpdateDetail={noopUpdate}
         onUpdatePhoneCountry={noopCountryUpdate}
         onRemoveLine={noop}
+        onUpdateCustomLine={noop}
         onClear={noop}
       />,
     );
@@ -249,6 +253,7 @@ describe("TemporaryQuotation", () => {
         onUpdateDetail={noopUpdate}
         onUpdatePhoneCountry={noopCountryUpdate}
         onRemoveLine={noop}
+        onUpdateCustomLine={noop}
         onClear={noop}
       />,
     );
@@ -289,6 +294,7 @@ describe("TemporaryQuotation", () => {
         onUpdateDetail={noopUpdate}
         onUpdatePhoneCountry={noopCountryUpdate}
         onRemoveLine={noop}
+        onUpdateCustomLine={noop}
         onClear={noop}
       />,
     );
@@ -303,5 +309,40 @@ describe("TemporaryQuotation", () => {
     expect(markup).toContain("COP 6.923");
     expect(markup).toContain("COP 3.462");
     expect(markup).toContain("COP 15.000");
+  });
+
+  it("renders a custom line with commercial values and normal edit/removal actions", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const markup = renderToStaticMarkup(
+      <TemporaryQuotation
+        quotation={quotation}
+        total={calculateQuotationTotal(quotation)}
+        onUpdateDetail={noopUpdate}
+        onUpdatePhoneCountry={noopCountryUpdate}
+        onRemoveLine={noop}
+        onUpdateCustomLine={noop}
+        onClear={noop}
+      />,
+    );
+
+    expect(markup).toContain("Medio metro de lámina sublimada");
+    expect(markup).toContain("Cantidad");
+    expect(markup).toContain(">3</dd>");
+    expect(markup).toContain("Precio unitario");
+    expect(markup).toContain("COP 58.000");
+    expect(markup).toContain("COP 174.000");
+    expect(markup).toContain(
+      "Editar Medio metro de lámina sublimada (línea 1)",
+    );
+    expect(markup).toContain(
+      "Eliminar Medio metro de lámina sublimada de la cotización (línea 1)",
+    );
   });
 });

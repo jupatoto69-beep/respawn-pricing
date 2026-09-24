@@ -32,6 +32,8 @@ describe("PricingCalculator", () => {
       "Esta información es temporal y se perderá al recargar la página.",
     );
     expect(markup).toContain("Aún no has agregado productos o servicios.");
+    expect(markup).toContain("Ítem personalizado");
+    expect(markup).toContain("Agregar a cotización");
     expect(markup).not.toContain("Categoría, servicio y datos");
   });
 

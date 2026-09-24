@@ -13,12 +13,12 @@ import {
 } from "./three-d-printing-quick-selection";
 import type {
   QuotationLineDetail,
-  QuotationLineDraft,
+  StandardQuotationLineDraft,
 } from "./temporary-quotation";
 
 export function createThreeDPrintingQuickQuotationLineDraft(
   resolvedForm: ResolvedThreeDPrintingQuickForm,
-): QuotationLineDraft {
+): StandardQuotationLineDraft {
   const details: QuotationLineDetail[] = [
     { label: "Tipo", value: "Estimación preliminar" },
     { label: "Tamaño aproximado", value: resolvedForm.approximateSize },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CUT_VINYL_PRODUCT_ID } from "./area-product-catalog";
+import { createCustomQuotationLineDraft } from "./custom-quotation-line";
 import {
   calculateCutVinylColorGroupPrice,
   createCutVinylColorGroupPricing,
@@ -14,17 +15,19 @@ import {
   hasQuotationDetailsInformation,
   hasQuotationInformation,
   removeQuotationLine,
+  updateCustomQuotationLine,
   updateQuotationDetail,
   updateQuotationDetails,
   updateQuotationPhoneCountry,
   type QuotationLineDraft,
+  type StandardQuotationLineDraft,
   type TemporaryQuotationDetails,
   type TemporaryQuotationTextDetailField,
 } from "./temporary-quotation";
 
 function createDraft(
-  overrides: Partial<QuotationLineDraft> = {},
-): QuotationLineDraft {
+  overrides: Partial<StandardQuotationLineDraft> = {},
+): StandardQuotationLineDraft {
   return {
     source: "area-product",
     title: "Banner",
@@ -307,6 +310,227 @@ describe("temporary quotation", () => {
     expect(second.lines).toHaveLength(2);
     expect(second.lines[0].id).not.toBe(second.lines[1].id);
     expect(second.lines[0].lineTotal).toBe(second.lines[1].lineTotal);
+  });
+
+  it("adds a custom line snapshot and includes its exact total", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: " Medio metro de lámina sublimada ",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+
+    expect(quotation.lines[0]).toEqual({
+      id: "quotation-line-1",
+      source: "custom",
+      title: "Medio metro de lámina sublimada",
+      description: "Medio metro de lámina sublimada",
+      quantity: 3,
+      unitPriceCop: 58_000,
+      details: [],
+      lineTotal: 174_000,
+    });
+    expect(calculateQuotationTotal(quotation)).toBe(174_000);
+  });
+
+  it("rejects a custom draft whose stored total is not exact multiplication", () => {
+    const validDraft = createCustomQuotationLineDraft({
+      description: "Ítem protegido",
+      quantity: 3,
+      unitPriceCop: 58_000,
+    });
+
+    expect(() =>
+      addQuotationLine(createEmptyQuotation(), {
+        ...validDraft,
+        lineTotal: 174_500,
+      }),
+    ).toThrowError("must equal quantity times unit price");
+  });
+
+  it("coexists with existing line types and preserves their stored totals", () => {
+    const existing = addQuotationLine(
+      createEmptyQuotation(),
+      createDraft({ lineTotal: 768_000 }),
+    );
+    const quotation = addQuotationLine(
+      existing,
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+
+    expect(quotation.lines.map((line) => line.source)).toEqual([
+      "area-product",
+      "custom",
+    ]);
+    expect(quotation.lines[0]).toBe(existing.lines[0]);
+    expect(calculateQuotationTotal(quotation)).toBe(942_000);
+  });
+
+  it("edits only the selected custom snapshot and recalculates exactly", () => {
+    const existing = addQuotationLine(createEmptyQuotation(), createDraft());
+    const withFirstCustom = addQuotationLine(
+      existing,
+      createCustomQuotationLineDraft({
+        description: "Primer ítem",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const quotation = addQuotationLine(
+      withFirstCustom,
+      createCustomQuotationLineDraft({
+        description: "Segundo ítem",
+        quantity: 1,
+        unitPriceCop: 20_000,
+      }),
+    );
+    const updated = updateCustomQuotationLine(
+      quotation,
+      "quotation-line-2",
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada editada",
+        quantity: 2,
+        unitPriceCop: 58_350,
+      }),
+    );
+
+    expect(updated.lines[0]).toBe(quotation.lines[0]);
+    expect(updated.lines[2]).toBe(quotation.lines[2]);
+    expect(updated.lines[1]).toEqual({
+      id: "quotation-line-2",
+      source: "custom",
+      title: "Medio metro de lámina sublimada editada",
+      description: "Medio metro de lámina sublimada editada",
+      quantity: 2,
+      unitPriceCop: 58_350,
+      details: [],
+      lineTotal: 116_700,
+    });
+    expect(calculateQuotationTotal(updated)).toBe(904_700);
+  });
+
+  it("recalculates the manual QA sequence when quantity and unit price change", () => {
+    const original = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const quantityEdited = updateCustomQuotationLine(
+      original,
+      "quotation-line-1",
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 2,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const unitPriceEdited = updateCustomQuotationLine(
+      quantityEdited,
+      "quotation-line-1",
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 2,
+        unitPriceCop: 58_350,
+      }),
+    );
+    const descriptionEdited = updateCustomQuotationLine(
+      unitPriceEdited,
+      "quotation-line-1",
+      createCustomQuotationLineDraft({
+        description: "Lámina sublimada personalizada",
+        quantity: 2,
+        unitPriceCop: 58_350,
+      }),
+    );
+
+    expect(original.lines[0]).toMatchObject({
+      description: "Medio metro de lámina sublimada",
+      quantity: 3,
+      unitPriceCop: 58_000,
+      lineTotal: 174_000,
+    });
+    expect(quantityEdited.lines[0]).toMatchObject({
+      quantity: 2,
+      unitPriceCop: 58_000,
+      lineTotal: 116_000,
+    });
+    expect(unitPriceEdited.lines[0]).toMatchObject({
+      quantity: 2,
+      unitPriceCop: 58_350,
+      lineTotal: 116_700,
+    });
+    expect(descriptionEdited.lines[0]).toMatchObject({
+      title: "Lámina sublimada personalizada",
+      description: "Lámina sublimada personalizada",
+      lineTotal: 116_700,
+    });
+  });
+
+  it("preserves the original custom line when an edit is canceled", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const detachedEditDraft = createCustomQuotationLineDraft({
+      description: "Cambio no guardado",
+      quantity: 2,
+      unitPriceCop: 70_000,
+    });
+
+    expect(detachedEditDraft.lineTotal).toBe(140_000);
+    expect(quotation.lines[0]).toMatchObject({
+      description: "Medio metro de lámina sublimada",
+      quantity: 3,
+      unitPriceCop: 58_000,
+      lineTotal: 174_000,
+    });
+    expect(calculateQuotationTotal(quotation)).toBe(174_000);
+  });
+
+  it("removes a custom line without affecting existing lines", () => {
+    const existing = addQuotationLine(createEmptyQuotation(), createDraft());
+    const quotation = addQuotationLine(
+      existing,
+      createCustomQuotationLineDraft({
+        description: "Ítem removible",
+        quantity: 1,
+        unitPriceCop: 58_350,
+      }),
+    );
+    const removed = removeQuotationLine(quotation, "quotation-line-2");
+
+    expect(removed.lines).toEqual(existing.lines);
+    expect(removed.lines[0]).toBe(existing.lines[0]);
+    expect(calculateQuotationTotal(removed)).toBe(768_000);
+  });
+
+  it("does not update a non-custom line or an unknown id", () => {
+    const quotation = addQuotationLine(createEmptyQuotation(), createDraft());
+    const customDraft = createCustomQuotationLineDraft({
+      description: "Ítem no aplicado",
+      quantity: 1,
+      unitPriceCop: 58_000,
+    });
+
+    expect(
+      updateCustomQuotationLine(quotation, "quotation-line-1", customDraft),
+    ).toBe(quotation);
+    expect(
+      updateCustomQuotationLine(quotation, "quotation-line-99", customDraft),
+    ).toBe(quotation);
   });
 
   it("applies COP 15,000 to one Cut vinyl piece below the group minimum", () => {

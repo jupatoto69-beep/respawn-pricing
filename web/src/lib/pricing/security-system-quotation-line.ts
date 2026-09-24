@@ -6,7 +6,7 @@ import {
 import type { SecuritySystemPricingResult } from "./security-system-pricing";
 import type {
   QuotationLineDetail,
-  QuotationLineDraft,
+  StandardQuotationLineDraft,
 } from "./temporary-quotation";
 
 const copFormatter = new Intl.NumberFormat("es-CO", {
@@ -154,7 +154,7 @@ function createOptionalComponentDetails(
 export function createSecuritySystemQuotationLineDraft(
   pricing: SecuritySystemPricingResult,
   presentationId: SecuritySystemPresentationId,
-): QuotationLineDraft {
+): StandardQuotationLineDraft {
   if (!pricing.isPriceComplete || pricing.finalTotalCop === null) {
     throw new RangeError(
       "Security system quotation requires a complete published price.",

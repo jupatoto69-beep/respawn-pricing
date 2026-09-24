@@ -132,6 +132,17 @@ export function QuotationPreview({
                     <dt>Cantidad</dt>
                     <dd>{line.quantity}</dd>
                   </div>
+                  {line.unitPriceCop === undefined ||
+                  line.formattedUnitPrice === undefined ? null : (
+                    <div>
+                      <dt>Precio unitario</dt>
+                      <dd>
+                        <data value={line.unitPriceCop}>
+                          {line.formattedUnitPrice}
+                        </data>
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt>Total de línea</dt>
                     <dd>

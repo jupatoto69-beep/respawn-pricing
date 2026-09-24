@@ -18,8 +18,10 @@ import {
   clearQuotation,
   createEmptyQuotation,
   removeQuotationLine,
+  updateCustomQuotationLine,
   updateQuotationDetail,
   updateQuotationPhoneCountry,
+  type CustomQuotationLineDraft,
   type QuotationLineDraft,
   type TemporaryQuotationTextDetailField,
 } from "@/lib/pricing/temporary-quotation";
@@ -27,6 +29,7 @@ import type { PhoneCountryIso2 } from "@/lib/pricing/phone-country-catalog";
 
 import { AreaPricingCalculator } from "./area-pricing-calculator";
 import { CustomerManagement } from "./customer-management";
+import { CustomQuotationItemForm } from "./custom-quotation-item-form";
 import styles from "./pricing-calculator.module.css";
 import { SecuritySystemsPricingCalculator } from "./security-systems-pricing-calculator";
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
@@ -68,6 +71,15 @@ export function PricingCalculator({
   function handleRemoveQuotationLine(lineId: string) {
     setQuotation((currentQuotation) =>
       removeQuotationLine(currentQuotation, lineId),
+    );
+  }
+
+  function handleUpdateCustomQuotationLine(
+    lineId: string,
+    draft: CustomQuotationLineDraft,
+  ) {
+    setQuotation((currentQuotation) =>
+      updateCustomQuotationLine(currentQuotation, lineId, draft),
     );
   }
 
@@ -153,12 +165,15 @@ export function PricingCalculator({
         />
       )}
 
+      <CustomQuotationItemForm onSubmit={handleAddQuotationLine} />
+
       <TemporaryQuotation
         quotation={quotation}
         total={quotationTotal}
         onUpdateDetail={handleUpdateQuotationDetail}
         onUpdatePhoneCountry={handleUpdateQuotationPhoneCountry}
         onRemoveLine={handleRemoveQuotationLine}
+        onUpdateCustomLine={handleUpdateCustomQuotationLine}
         onClear={handleClearQuotation}
       />
     </div>

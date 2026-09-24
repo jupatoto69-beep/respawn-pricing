@@ -11,7 +11,7 @@ import { getThreeDPrintingPrinter } from "./three-d-printing-printer";
 import type { ResolvedThreeDPrintingForm } from "./three-d-printing-selection";
 import type {
   QuotationLineDetail,
-  QuotationLineDraft,
+  StandardQuotationLineDraft,
 } from "./temporary-quotation";
 
 export type ThreeDPrintingQuotationLineInput = Readonly<{
@@ -61,7 +61,7 @@ function createDetails(
 export function createThreeDPrintingQuotationLineDraft({
   calculation,
   resolvedForm,
-}: ThreeDPrintingQuotationLineInput): QuotationLineDraft {
+}: ThreeDPrintingQuotationLineInput): StandardQuotationLineDraft {
   const details = createDetails(calculation, resolvedForm);
 
   return Object.freeze({

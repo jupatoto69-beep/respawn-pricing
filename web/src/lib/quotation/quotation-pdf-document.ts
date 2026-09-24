@@ -561,6 +561,14 @@ function createLineFields(
   return Object.freeze([
     ...line.details,
     Object.freeze({ label: "Cantidad", value: String(line.quantity) }),
+    ...(line.formattedUnitPrice === undefined
+      ? []
+      : [
+          Object.freeze({
+            label: "Precio unitario",
+            value: line.formattedUnitPrice,
+          }),
+        ]),
   ]);
 }
 
