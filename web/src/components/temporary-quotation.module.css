@@ -206,6 +206,12 @@
   align-items: flex-start;
 }
 
+.lineActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .lineHeading h3 {
   min-width: 0;
   color: #f1f5fa;
@@ -346,6 +352,7 @@
   text-align: right;
 }
 
+.editButton,
 .removeButton,
 .clearButton,
 .confirmClearButton,
@@ -356,6 +363,22 @@
   font-size: 0.8rem;
   font-weight: 760;
   cursor: pointer;
+}
+
+.editButton {
+  border: 1px solid #7aaae5;
+  background: rgba(61, 139, 255, 0.12);
+  color: #cfe2fa;
+}
+
+.editButton:hover {
+  border-color: #a8ccf7;
+  background: rgba(61, 139, 255, 0.2);
+}
+
+.editButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
 }
 
 .removeButton,
@@ -473,6 +496,7 @@
   }
 
   .removeButton,
+  .editButton,
   .previewButton,
   .clearButton,
   .confirmClearButton,
@@ -482,6 +506,12 @@
 
   .removeButton {
     align-self: stretch;
+  }
+
+  .lineActions {
+    align-self: stretch;
+    flex-direction: column;
+    width: 100%;
   }
 
   .previewButton {

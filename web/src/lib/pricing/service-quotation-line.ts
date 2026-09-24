@@ -30,7 +30,7 @@ import {
 } from "./tabloid-pricing";
 import type {
   QuotationLineDetail,
-  QuotationLineDraft,
+  StandardQuotationLineDraft,
 } from "./temporary-quotation";
 
 type ResultBase = Readonly<{
@@ -111,7 +111,7 @@ function createBaseDetails(
 
 export function createServiceQuotationLineDraft(
   result: ServiceCalculationResult,
-): QuotationLineDraft {
+): StandardQuotationLineDraft {
   const details = createBaseDetails(result);
   let quantity: number;
 

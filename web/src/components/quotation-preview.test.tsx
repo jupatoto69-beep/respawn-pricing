@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "@/lib/quotation/business-profile";
 import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
+import { createCustomQuotationLineDraft } from "@/lib/pricing/custom-quotation-line";
 import {
   addQuotationLine,
   calculateQuotationTotal,
@@ -117,6 +118,27 @@ describe("QuotationPreview", () => {
     expect(markup).toContain("15 días");
     expect(markup).not.toContain("Costo base");
     expect(markup).not.toContain("Umbral");
+  });
+
+  it("renders a custom item description, quantity, unit price and exact total", () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_000,
+      }),
+    );
+    const markup = renderPreview(quotation);
+
+    expect(markup).toContain("Medio metro de lámina sublimada");
+    expect(markup).toContain("Cantidad");
+    expect(markup).toContain(">3</dd>");
+    expect(markup).toContain("Precio unitario");
+    expect(markup).toContain('data value="58000"');
+    expect(markup).toContain("COP 58.000");
+    expect(markup).toContain('data value="174000"');
+    expect(markup).toContain("COP 174.000");
   });
 
   it("keeps a preliminary 3D warning visibly associated with its line", () => {

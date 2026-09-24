@@ -1,0 +1,285 @@
+.section {
+  min-width: 0;
+  margin-top: 26px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid rgba(122, 170, 229, 0.3);
+  border-radius: 16px;
+  background: #08172b;
+}
+
+.editing {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.8);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.heading h2,
+.heading h4,
+.heading p,
+.helperText,
+.fieldHelp,
+.error,
+.total,
+.liveRegion {
+  margin: 0;
+}
+
+.heading h2,
+.heading h4 {
+  margin-top: 4px;
+  color: var(--color-white);
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  letter-spacing: -0.025em;
+}
+
+.editing .heading h4 {
+  font-size: 1.05rem;
+}
+
+.kicker {
+  color: var(--color-blue-bright);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.requiredNote {
+  max-width: 160px;
+  color: var(--color-gray);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.helperText {
+  max-width: 760px;
+  margin-top: 12px;
+  color: #b8c7d8;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.5fr) minmax(210px, 0.7fr);
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e5ebf2;
+  font-size: 0.84rem;
+  font-weight: 680;
+}
+
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid #31557d;
+  border-radius: 9px;
+  outline: none;
+  background: #080f1a;
+  color: var(--color-white);
+  font: inherit;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.field input::placeholder {
+  color: #687587;
+}
+
+.field input:hover {
+  border-color: #4d76a8;
+  background: #0a1321;
+}
+
+.field input:focus-visible {
+  border-color: #8bb8ff;
+  outline: 3px solid #8bb8ff;
+  outline-offset: 2px;
+}
+
+.field input[aria-invalid="true"] {
+  border-color: #ff9b9b;
+}
+
+.currencyInput {
+  position: relative;
+}
+
+.currencyInput input {
+  padding-right: 52px;
+}
+
+.currencyInput span {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  color: var(--color-gray);
+  font-size: 0.72rem;
+  font-weight: 800;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.fieldHelp {
+  margin-top: 7px;
+  color: var(--color-gray);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.error {
+  margin-top: 7px;
+  color: #ffb7b7;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.error strong {
+  font-weight: 800;
+}
+
+.total {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(61, 139, 255, 0.42);
+  border-radius: 10px;
+  background: rgba(61, 139, 255, 0.08);
+}
+
+.total span {
+  color: #b6c1ce;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.total strong {
+  color: #97a7ba;
+  font-size: 0.8rem;
+}
+
+.total data {
+  color: #8bb8ff;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.actions {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.primaryButton,
+.cancelButton {
+  min-height: 44px;
+  padding: 10px 17px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primaryButton {
+  border: 1px solid #8bb8ff;
+  background: #2d75d5;
+  color: #ffffff;
+}
+
+.primaryButton:hover {
+  border-color: #b9d5f7;
+  background: #3b84e3;
+}
+
+.cancelButton {
+  border: 1px solid #526d8c;
+  background: #132338;
+  color: #dce5ef;
+}
+
+.cancelButton:hover {
+  border-color: #7d9bbd;
+  background: #1b3049;
+}
+
+.primaryButton:focus-visible,
+.cancelButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 3px;
+}
+
+.liveRegion {
+  min-height: 1px;
+  color: #a8d6b6;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+@media (max-width: 820px) {
+  .form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .descriptionField {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .section {
+    padding: 19px 15px;
+    border-radius: 13px;
+  }
+
+  .heading,
+  .total,
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .requiredNote {
+    max-width: none;
+    text-align: left;
+  }
+
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .descriptionField,
+  .total,
+  .actions {
+    grid-column: auto;
+  }
+
+  .primaryButton,
+  .cancelButton {
+    width: 100%;
+  }
+}

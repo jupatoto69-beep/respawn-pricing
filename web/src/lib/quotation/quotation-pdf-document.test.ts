@@ -10,6 +10,7 @@ import {
   updateQuotationDetails,
   type TemporaryQuotationState,
 } from "../pricing/temporary-quotation";
+import { createCustomQuotationLineDraft } from "../pricing/custom-quotation-line";
 import {
   calculateCutVinylColorGroupPrice,
   createCutVinylColorGroupPricing,
@@ -522,6 +523,53 @@ describe("quotation PDF document", () => {
     expect(streams).toContain(pricing.finalTotalCop!.toLocaleString("es-CO"));
     expect(streams).toContain("El cableado no está incluido");
     expect(streams).toContain("cantidad real de metros utilizados");
+
+    for (const forbidden of [
+      "Costo interno",
+      "Margen",
+      "Proveedor",
+      "Precio de compra",
+    ]) {
+      expect(serializedPreview).not.toContain(forbidden);
+      expect(allPdfText).not.toContain(forbidden);
+    }
+  });
+
+  it("renders a custom item through the customer-safe generic PDF pipeline", async () => {
+    const quotation = addQuotationLine(
+      createEmptyQuotation(),
+      createCustomQuotationLineDraft({
+        description: "Medio metro de lámina sublimada",
+        quantity: 3,
+        unitPriceCop: 58_350,
+      }),
+    );
+    const preview = createQuotationPreviewViewModel({
+      quotation,
+      total: calculateQuotationTotal(quotation),
+      businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+    });
+    const blob = await generateQuotationPdfBlob(preview, {
+      loadLogo: async () => {
+        throw new Error("fictional missing local logo");
+      },
+    });
+    const bytes = await getBytes(blob);
+    const allPdfText = `${getPdfSource(bytes)}\n${extractInflatedStreams(bytes)}`;
+    const serializedPreview = JSON.stringify(preview);
+
+    expect(blob.type).toBe("application/pdf");
+    expect(preview.lines[0]).toMatchObject({
+      title: "Medio metro de lámina sublimada",
+      quantity: 3,
+      unitPriceCop: 58_350,
+      lineTotal: 175_050,
+    });
+    expect(allPdfText).toContain("Medio metro de lámina sublimada");
+    expect(allPdfText).toContain("Cantidad");
+    expect(allPdfText).toContain("Precio unitario");
+    expect(allPdfText).toContain("58.350");
+    expect(allPdfText).toContain("175.050");
 
     for (const forbidden of [
       "Costo interno",

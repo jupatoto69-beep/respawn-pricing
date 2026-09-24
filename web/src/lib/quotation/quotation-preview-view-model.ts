@@ -19,6 +19,8 @@ export type QuotationPreviewLine = Readonly<{
   title: string;
   details: readonly QuotationPreviewField[];
   quantity: number;
+  unitPriceCop?: number;
+  formattedUnitPrice?: string;
   lineTotal: number;
   formattedLineTotal: string;
 }>;
@@ -184,6 +186,12 @@ export function createQuotationPreviewViewModel({
           .map((detail) => freezeField(detail.label, detail.value)),
       ),
       quantity: line.quantity,
+      ...(line.source === "custom"
+        ? {
+            unitPriceCop: line.unitPriceCop,
+            formattedUnitPrice: formatQuotationCop(line.unitPriceCop),
+          }
+        : {}),
       lineTotal: line.lineTotal,
       formattedLineTotal: formatQuotationCop(line.lineTotal),
     }),

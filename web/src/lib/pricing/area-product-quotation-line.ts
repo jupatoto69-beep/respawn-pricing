@@ -4,7 +4,7 @@ import {
   createCutVinylColorGroupPricing,
   normalizeCutVinylColor,
 } from "./cut-vinyl-color-group";
-import type { QuotationLineDraft } from "./temporary-quotation";
+import type { StandardQuotationLineDraft } from "./temporary-quotation";
 
 export type AreaProductQuotationLineInput = Readonly<{
   productId: string;
@@ -47,7 +47,7 @@ const MEASURE_CLASSIFICATION_LABELS: Readonly<
 
 export function createAreaProductQuotationLineDraft(
   input: AreaProductQuotationLineInput,
-): QuotationLineDraft {
+): StandardQuotationLineDraft {
   const commercialGroup = createCutVinylColorGroupPricing(
     input.productId,
     input.cutVinylColor ?? "",

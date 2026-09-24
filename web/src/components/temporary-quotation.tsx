@@ -23,6 +23,8 @@ import {
 
 import {
   hasQuotationInformation,
+  type CustomQuotationLine,
+  type CustomQuotationLineDraft,
   type QuotationLine,
   type TemporaryQuotationDetails,
   type TemporaryQuotationState,
@@ -30,6 +32,7 @@ import {
 } from "@/lib/pricing/temporary-quotation";
 
 import styles from "./temporary-quotation.module.css";
+import { CustomQuotationItemForm } from "./custom-quotation-item-form";
 import { QuotationPreviewModal } from "./quotation-preview-modal";
 
 type TemporaryQuotationProps = Readonly<{
@@ -41,6 +44,10 @@ type TemporaryQuotationProps = Readonly<{
   ) => void;
   onUpdatePhoneCountry: (countryIso2: PhoneCountryIso2) => void;
   onRemoveLine: (lineId: string) => void;
+  onUpdateCustomLine: (
+    lineId: string,
+    draft: CustomQuotationLineDraft,
+  ) => void;
   onClear: () => void;
 }>;
 
@@ -303,6 +310,7 @@ export function TemporaryQuotation({
   onUpdateDetail,
   onUpdatePhoneCountry,
   onRemoveLine,
+  onUpdateCustomLine,
   onClear,
 }: TemporaryQuotationProps) {
   const titleId = useId();
@@ -318,6 +326,9 @@ export function TemporaryQuotation({
   const [touchedDetailFields, setTouchedDetailFields] =
     useState<TouchedQuotationDetailFields>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [editingCustomLineId, setEditingCustomLineId] = useState<string | null>(
+    null,
+  );
   const currentLineIdentity = getLineIdentity(quotation.lines);
   const hasInformation = hasQuotationInformation(quotation);
   const detailErrors = validateTemporaryQuotationDetails(quotation.details);
@@ -330,12 +341,35 @@ export function TemporaryQuotation({
 
   function handleRemove(line: QuotationLine) {
     onRemoveLine(line.id);
+    setEditingCustomLineId((currentLineId) =>
+      currentLineId === line.id ? null : currentLineId,
+    );
     setConfirmationLineIdentity(null);
     setAnnouncement({
       lineIdentity: getLineIdentity(
         quotation.lines.filter((candidate) => candidate.id !== line.id),
       ),
       message: `${line.title} fue eliminado de la cotización.`,
+    });
+  }
+
+  function handleSaveCustomLine(
+    line: CustomQuotationLine,
+    draft: CustomQuotationLineDraft,
+  ) {
+    onUpdateCustomLine(line.id, draft);
+    setEditingCustomLineId(null);
+    setAnnouncement({
+      lineIdentity: currentLineIdentity,
+      message: `${draft.description} fue actualizado en la cotización.`,
+    });
+  }
+
+  function handleCancelCustomLineEdit(line: CustomQuotationLine) {
+    setEditingCustomLineId(null);
+    setAnnouncement({
+      lineIdentity: currentLineIdentity,
+      message: `Se canceló la edición de ${line.description}.`,
     });
   }
 
@@ -355,6 +389,7 @@ export function TemporaryQuotation({
   function handleConfirmClear() {
     onClear();
     setConfirmationLineIdentity(null);
+    setEditingCustomLineId(null);
     setTouchedDetailFields({});
     setAnnouncement({
       lineIdentity: "",
@@ -485,42 +520,76 @@ export function TemporaryQuotation({
               <article>
                 <div className={styles.lineHeading}>
                   <h3>{line.title}</h3>
-                  <button
-                    className={styles.removeButton}
-                    type="button"
-                    aria-label={`Eliminar ${line.title} de la cotización (línea ${index + 1})`}
-                    onClick={() => handleRemove(line)}
-                  >
-                    Eliminar
-                  </button>
+                  <div className={styles.lineActions}>
+                    {line.source === "custom" &&
+                    editingCustomLineId !== line.id ? (
+                      <button
+                        className={styles.editButton}
+                        type="button"
+                        aria-label={`Editar ${line.description} (línea ${index + 1})`}
+                        onClick={() => {
+                          setEditingCustomLineId(line.id);
+                          setAnnouncement(null);
+                        }}
+                      >
+                        Editar
+                      </button>
+                    ) : null}
+                    <button
+                      className={styles.removeButton}
+                      type="button"
+                      aria-label={`Eliminar ${line.title} de la cotización (línea ${index + 1})`}
+                      onClick={() => handleRemove(line)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
 
-                <dl className={styles.details}>
-                  {line.details.map((detail, detailIndex) => (
-                    <div
-                      key={`${detail.label}-${detailIndex}`}
-                      className={
-                        detail.label === "Condición"
-                          ? styles.conditionDetail
-                          : undefined
-                      }
-                    >
-                      <dt>{detail.label}</dt>
-                      <dd>{detail.value}</dd>
-                    </div>
-                  ))}
-                  <div>
-                    <dt>Cantidad</dt>
-                    <dd>{line.quantity}</dd>
-                  </div>
-                </dl>
+                {line.source === "custom" &&
+                editingCustomLineId === line.id ? (
+                  <CustomQuotationItemForm
+                    key={line.id}
+                    initialLine={line}
+                    onSubmit={(draft) => handleSaveCustomLine(line, draft)}
+                    onCancel={() => handleCancelCustomLineEdit(line)}
+                  />
+                ) : (
+                  <>
+                    <dl className={styles.details}>
+                      {line.details.map((detail, detailIndex) => (
+                        <div
+                          key={`${detail.label}-${detailIndex}`}
+                          className={
+                            detail.label === "Condición"
+                              ? styles.conditionDetail
+                              : undefined
+                          }
+                        >
+                          <dt>{detail.label}</dt>
+                          <dd>{detail.value}</dd>
+                        </div>
+                      ))}
+                      <div>
+                        <dt>Cantidad</dt>
+                        <dd>{line.quantity}</dd>
+                      </div>
+                      {line.source === "custom" ? (
+                        <div>
+                          <dt>Precio unitario</dt>
+                          <dd>{priceFormatter.format(line.unitPriceCop)}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
 
-                <p className={styles.lineTotal}>
-                  <span>Total de línea</span>
-                  <data value={line.lineTotal}>
-                    {priceFormatter.format(line.lineTotal)}
-                  </data>
-                </p>
+                    <p className={styles.lineTotal}>
+                      <span>Total de línea</span>
+                      <data value={line.lineTotal}>
+                        {priceFormatter.format(line.lineTotal)}
+                      </data>
+                    </p>
+                  </>
+                )}
               </article>
             </li>
           ))}

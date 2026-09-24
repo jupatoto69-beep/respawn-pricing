@@ -26,18 +26,20 @@ export {
   formatQuotationPhoneE164,
 } from "./quotation-phone";
 
-export type QuotationLineSource =
+export type StandardQuotationLineSource =
   | "area-product"
   | "service"
   | "security-system";
+
+export type QuotationLineSource = StandardQuotationLineSource | "custom";
 
 export type QuotationLineDetail = Readonly<{
   label: string;
   value: string;
 }>;
 
-export type QuotationLineDraft = Readonly<{
-  source: QuotationLineSource;
+export type StandardQuotationLineDraft = Readonly<{
+  source: StandardQuotationLineSource;
   title: string;
   quantity: number;
   details: readonly QuotationLineDetail[];
@@ -45,10 +47,30 @@ export type QuotationLineDraft = Readonly<{
   commercialGroup?: CutVinylColorGroupPricing;
 }>;
 
-export type QuotationLine = QuotationLineDraft &
-  Readonly<{
-    id: string;
-  }>;
+export type CustomQuotationLineDraft = Readonly<{
+  source: "custom";
+  title: string;
+  description: string;
+  quantity: number;
+  unitPriceCop: number;
+  details: readonly QuotationLineDetail[];
+  lineTotal: number;
+  commercialGroup?: never;
+}>;
+
+export type QuotationLineDraft =
+  | StandardQuotationLineDraft
+  | CustomQuotationLineDraft;
+
+export type StandardQuotationLine = StandardQuotationLineDraft &
+  Readonly<{ id: string }>;
+
+export type CustomQuotationLine = CustomQuotationLineDraft &
+  Readonly<{ id: string }>;
+
+export type QuotationLine =
+  | StandardQuotationLine
+  | CustomQuotationLine;
 
 export type TemporaryQuotationDetails = Readonly<{
   customerName: string;
@@ -145,6 +167,44 @@ function assertValidLineTotal(lineTotal: number): void {
   }
 }
 
+function assertValidCustomQuotationLine(
+  line: CustomQuotationLineDraft,
+): void {
+  if (line.description.trim().length === 0) {
+    throw new RangeError("Custom quotation line description is required.");
+  }
+
+  if (line.description !== line.description.trim()) {
+    throw new RangeError("Custom quotation line description must be trimmed.");
+  }
+
+  if (line.title !== line.description || line.details.length > 0) {
+    throw new RangeError(
+      "Custom quotation line presentation must match its description.",
+    );
+  }
+
+  if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) {
+    throw new RangeError(
+      "Custom quotation line quantity must be a positive safe integer.",
+    );
+  }
+
+  if (!Number.isSafeInteger(line.unitPriceCop) || line.unitPriceCop <= 0) {
+    throw new RangeError(
+      "Custom quotation line unit price must be a positive safe integer.",
+    );
+  }
+
+  const expectedTotal = line.quantity * line.unitPriceCop;
+
+  if (!Number.isSafeInteger(expectedTotal) || line.lineTotal !== expectedTotal) {
+    throw new RangeError(
+      "Custom quotation line total must equal quantity times unit price.",
+    );
+  }
+}
+
 function addSafeTotals(currentTotal: number, lineTotal: number): number {
   if (lineTotal > Number.MAX_SAFE_INTEGER - currentTotal) {
     throw new RangeError("Quotation total exceeds the safe integer range.");
@@ -183,6 +243,7 @@ function repriceCutVinylColorGroups(
 ): readonly QuotationLine[] {
   const allocations = allocateCutVinylColorGroupLineTotals(
     lines.flatMap((line) =>
+      line.source !== "custom" &&
       line.commercialGroup?.kind === CUT_VINYL_COLOR_GROUP_PRICING_KIND
         ? [{ lineId: line.id, pricing: line.commercialGroup }]
         : [],
@@ -302,6 +363,10 @@ export function addQuotationLine(
 ): TemporaryQuotationState {
   assertValidLineTotal(draft.lineTotal);
 
+  if (draft.source === "custom") {
+    assertValidCustomQuotationLine(draft);
+  }
+
   if (
     !Number.isSafeInteger(quotation.nextLineSequence) ||
     quotation.nextLineSequence < 1 ||
@@ -310,17 +375,29 @@ export function addQuotationLine(
     throw new RangeError("Quotation line sequence is outside the safe range.");
   }
 
-  const line: QuotationLine = Object.freeze({
-    id: `quotation-line-${quotation.nextLineSequence}`,
-    source: draft.source,
-    title: draft.title,
-    quantity: draft.quantity,
-    details: copyDetails(draft.details),
-    lineTotal: draft.lineTotal,
-    ...(draft.commercialGroup
-      ? { commercialGroup: copyCommercialGroup(draft.commercialGroup) }
-      : {}),
-  });
+  const line: QuotationLine =
+    draft.source === "custom"
+      ? Object.freeze({
+          id: `quotation-line-${quotation.nextLineSequence}`,
+          source: draft.source,
+          title: draft.title,
+          description: draft.description,
+          quantity: draft.quantity,
+          unitPriceCop: draft.unitPriceCop,
+          details: Object.freeze([]),
+          lineTotal: draft.lineTotal,
+        })
+      : Object.freeze({
+          id: `quotation-line-${quotation.nextLineSequence}`,
+          source: draft.source,
+          title: draft.title,
+          quantity: draft.quantity,
+          details: copyDetails(draft.details),
+          lineTotal: draft.lineTotal,
+          ...(draft.commercialGroup
+            ? { commercialGroup: copyCommercialGroup(draft.commercialGroup) }
+            : {}),
+        });
   const repricedLines = repriceCutVinylColorGroups([
     ...quotation.lines,
     line,
@@ -334,6 +411,53 @@ export function addQuotationLine(
     quotation.details,
     quotation.quotationDate ??
       createQuotationCalendarDate(addedAt ?? new Date()),
+  );
+}
+
+export function updateCustomQuotationLine(
+  quotation: TemporaryQuotationState,
+  lineId: string,
+  draft: CustomQuotationLineDraft,
+): TemporaryQuotationState {
+  const currentLine = quotation.lines.find((line) => line.id === lineId);
+
+  if (currentLine === undefined || currentLine.source !== "custom") {
+    return quotation;
+  }
+
+  assertValidLineTotal(draft.lineTotal);
+  assertValidCustomQuotationLine(draft);
+
+  if (
+    currentLine.description === draft.description &&
+    currentLine.quantity === draft.quantity &&
+    currentLine.unitPriceCop === draft.unitPriceCop &&
+    currentLine.lineTotal === draft.lineTotal
+  ) {
+    return quotation;
+  }
+
+  const updatedLine: CustomQuotationLine = Object.freeze({
+    id: currentLine.id,
+    source: "custom",
+    title: draft.title,
+    description: draft.description,
+    quantity: draft.quantity,
+    unitPriceCop: draft.unitPriceCop,
+    details: Object.freeze([]),
+    lineTotal: draft.lineTotal,
+  });
+  const lines = quotation.lines.map((line) =>
+    line.id === lineId ? updatedLine : line,
+  );
+
+  calculateLinesTotal(lines);
+
+  return freezeState(
+    lines,
+    quotation.nextLineSequence,
+    quotation.details,
+    quotation.quotationDate,
   );
 }
 
