@@ -283,12 +283,15 @@ describe("QuotationPreview", () => {
 describe("QuotationPreviewModal", () => {
   it("renders a labelled modal dialog and an accessible close button", () => {
     const quotation = createFictionalQuotation();
+    const preview = createQuotationPreviewViewModel({
+      quotation,
+      total: calculateQuotationTotal(quotation),
+      businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+    });
     const markup = renderToStaticMarkup(
       <QuotationPreviewModal
         isOpen
-        quotation={quotation}
-        total={calculateQuotationTotal(quotation)}
-        businessProfile={DIGITAL_RESPAWN_BUSINESS_PROFILE}
+        preview={preview}
         returnFocusRef={createRef<HTMLButtonElement>()}
         onRequestClose={() => undefined}
       />,
@@ -310,12 +313,15 @@ describe("QuotationPreviewModal", () => {
 
   it("does not render the dialog while closed", () => {
     const quotation = createFictionalQuotation();
+    const preview = createQuotationPreviewViewModel({
+      quotation,
+      total: calculateQuotationTotal(quotation),
+      businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+    });
     const markup = renderToStaticMarkup(
       <QuotationPreviewModal
         isOpen={false}
-        quotation={quotation}
-        total={calculateQuotationTotal(quotation)}
-        businessProfile={DIGITAL_RESPAWN_BUSINESS_PROFILE}
+        preview={preview}
         returnFocusRef={createRef<HTMLButtonElement>()}
         onRequestClose={() => undefined}
       />,

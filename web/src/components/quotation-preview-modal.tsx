@@ -4,28 +4,23 @@ import {
   type RefObject,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
 } from "react";
 
-import type { BusinessProfile } from "@/lib/quotation/business-profile";
 import {
   exportQuotationPreviewPdf,
   runQuotationPdfExport,
   type QuotationPdfExporter,
 } from "@/lib/quotation/quotation-pdf-export";
-import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
-import type { TemporaryQuotationState } from "@/lib/pricing/temporary-quotation";
+import type { QuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
 
 import { QuotationPreview } from "./quotation-preview";
 import styles from "./quotation-preview-modal.module.css";
 
 type QuotationPreviewModalProps = Readonly<{
   isOpen: boolean;
-  quotation: TemporaryQuotationState;
-  total: number;
-  businessProfile: BusinessProfile;
+  preview: QuotationPreviewViewModel;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
   onRequestClose: () => void;
   pdfExporter?: QuotationPdfExporter;
@@ -57,9 +52,7 @@ export function QuotationPdfDownloadButton({
 
 export function QuotationPreviewModal({
   isOpen,
-  quotation,
-  total,
-  businessProfile,
+  preview,
   returnFocusRef,
   onRequestClose,
   pdfExporter = exportQuotationPreviewPdf,
@@ -71,15 +64,6 @@ export function QuotationPreviewModal({
   const exportLockRef = useRef({ current: false });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const preview = useMemo(
-    () =>
-      createQuotationPreviewViewModel({
-        quotation,
-        total,
-        businessProfile,
-      }),
-    [quotation, total, businessProfile],
-  );
 
   useEffect(() => {
     onRequestCloseRef.current = onRequestClose;
@@ -146,7 +130,6 @@ export function QuotationPreviewModal({
         event.preventDefault();
         onRequestCloseRef.current();
       }}
-      onClose={() => onRequestCloseRef.current()}
     >
       <div className={styles.dialogHeader}>
         <QuotationPdfDownloadButton

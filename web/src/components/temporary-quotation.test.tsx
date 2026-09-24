@@ -117,6 +117,10 @@ describe("TemporaryQuotation", () => {
     expect(markup).not.toContain("aria-invalid");
     expect(markup).toContain("Aún no has agregado productos o servicios.");
     expect(markup).toContain("Vista previa de la cotización");
+    expect(markup).toContain("Guardar cotización");
+    expect(markup).toMatch(
+      /<button[^>]*disabled=""[^>]*>Guardar cotización<\/button>/,
+    );
     expect(markup).toMatch(
       /<button[^>]*disabled=""[^>]*>Vista previa de la cotización<\/button>/,
     );
@@ -269,6 +273,9 @@ describe("TemporaryQuotation", () => {
     expect(markup).not.toContain("Confirmar vaciado");
     expect(markup).toMatch(
       /<button(?![^>]*disabled)[^>]*>Vista previa de la cotización<\/button>/,
+    );
+    expect(markup).toMatch(
+      /<button(?![^>]*disabled)[^>]*>Guardar cotización<\/button>/,
     );
     expect(markup).not.toContain("Mínimo autorizado");
     const lineListMarkup = markup.match(/<ol[^>]*>([\s\S]*?)<\/ol>/)?.[1];

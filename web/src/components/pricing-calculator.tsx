@@ -35,6 +35,7 @@ import { SecuritySystemsPricingCalculator } from "./security-systems-pricing-cal
 import { ServicesPricingCalculator } from "./services-pricing-calculator";
 import { ThreeDPrintingPricingCalculator } from "./three-d-printing-pricing-calculator";
 import { TemporaryQuotation } from "./temporary-quotation";
+import { QuotationHistory } from "./quotation-history";
 
 type PricingCalculatorProps = Readonly<{
   initialModeId?: PricingModeId;
@@ -48,6 +49,7 @@ export function PricingCalculator({
     createInitialPricingModeSelection(initialModeId),
   );
   const [quotation, setQuotation] = useState(createEmptyQuotation);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const quotationTotal = calculateQuotationTotal(quotation);
 
   function handleModeChange(event: ChangeEvent<HTMLInputElement>) {
@@ -175,7 +177,9 @@ export function PricingCalculator({
         onRemoveLine={handleRemoveQuotationLine}
         onUpdateCustomLine={handleUpdateCustomQuotationLine}
         onClear={handleClearQuotation}
+        onSaved={() => setHistoryRevision((revision) => revision + 1)}
       />
+      <QuotationHistory refreshRevision={historyRevision} />
     </div>
   );
 }

@@ -4,12 +4,14 @@ import {
   type ChangeEvent,
   type FocusEvent,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
 import { DIGITAL_RESPAWN_BUSINESS_PROFILE } from "@/lib/quotation/business-profile";
 import { evaluateQuotationPreviewOpening } from "@/lib/quotation/quotation-preview-opening";
+import { createQuotationPreviewViewModel } from "@/lib/quotation/quotation-preview-view-model";
 import {
   isCustomerPhoneNumberInput,
   validateTemporaryQuotationDetails,
@@ -30,6 +32,12 @@ import {
   type TemporaryQuotationState,
   type TemporaryQuotationTextDetailField,
 } from "@/lib/pricing/temporary-quotation";
+import {
+  createSupabaseQuotationRepository,
+  type QuotationRepository,
+} from "@/lib/quotations/quotation-repository";
+import { createQuotationPersistenceSnapshot } from "@/lib/quotations/quotation-snapshot";
+import { createClient } from "@/lib/supabase/client";
 
 import styles from "./temporary-quotation.module.css";
 import { CustomQuotationItemForm } from "./custom-quotation-item-form";
@@ -49,6 +57,7 @@ type TemporaryQuotationProps = Readonly<{
     draft: CustomQuotationLineDraft,
   ) => void;
   onClear: () => void;
+  onSaved?: () => void;
 }>;
 
 type QuotationAnnouncement = Readonly<{
@@ -312,12 +321,15 @@ export function TemporaryQuotation({
   onRemoveLine,
   onUpdateCustomLine,
   onClear,
+  onSaved,
 }: TemporaryQuotationProps) {
   const titleId = useId();
   const detailsTitleId = useId();
   const previewHintId = useId();
   const detailsFormRef = useRef<HTMLDivElement>(null);
   const previewTriggerRef = useRef<HTMLButtonElement>(null);
+  const repositoryRef = useRef<QuotationRepository | null>(null);
+  const saveLockRef = useRef(false);
   const [confirmationLineIdentity, setConfirmationLineIdentity] = useState<
     string | null
   >(null);
@@ -326,6 +338,10 @@ export function TemporaryQuotation({
   const [touchedDetailFields, setTouchedDetailFields] =
     useState<TouchedQuotationDetailFields>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<
+    Readonly<{ kind: "success" | "error"; message: string }> | null
+  >(null);
   const [editingCustomLineId, setEditingCustomLineId] = useState<string | null>(
     null,
   );
@@ -338,6 +354,22 @@ export function TemporaryQuotation({
   );
   const isClearConfirmationOpen =
     hasInformation && confirmationLineIdentity === currentLineIdentity;
+  const canSave =
+    quotation.lines.length > 0 && Object.keys(detailErrors).length === 0;
+  const preview = useMemo(
+    () =>
+      createQuotationPreviewViewModel({
+        quotation,
+        total,
+        businessProfile: DIGITAL_RESPAWN_BUSINESS_PROFILE,
+      }),
+    [quotation, total],
+  );
+
+  function getRepository(): QuotationRepository {
+    repositoryRef.current ??= createSupabaseQuotationRepository(createClient());
+    return repositoryRef.current;
+  }
 
   function handleRemove(line: QuotationLine) {
     onRemoveLine(line.id);
@@ -472,6 +504,46 @@ export function TemporaryQuotation({
     setIsPreviewOpen(true);
   }
 
+  async function handleSaveRequest() {
+    if (saveLockRef.current) {
+      return;
+    }
+
+    const snapshot = createQuotationPersistenceSnapshot(quotation);
+
+    if (!snapshot.ok) {
+      setSaveFeedback({ kind: "error", message: snapshot.message });
+      return;
+    }
+
+    saveLockRef.current = true;
+    setIsSaving(true);
+    setSaveFeedback(null);
+
+    try {
+      const result = await getRepository().save(snapshot.value);
+
+      if (!result.ok) {
+        setSaveFeedback({ kind: "error", message: result.message });
+        return;
+      }
+
+      setSaveFeedback({
+        kind: "success",
+        message: "Cotización guardada correctamente.",
+      });
+      onSaved?.();
+    } catch {
+      setSaveFeedback({
+        kind: "error",
+        message: "No pudimos guardar la cotización. Inténtalo de nuevo.",
+      });
+    } finally {
+      saveLockRef.current = false;
+      setIsSaving(false);
+    }
+  }
+
   return (
     <section className={styles.quotation} aria-labelledby={titleId}>
       <div className={styles.heading}>
@@ -598,6 +670,15 @@ export function TemporaryQuotation({
 
       <div className={styles.previewAction}>
         <button
+          className={styles.saveQuotationButton}
+          type="button"
+          disabled={!canSave || isSaving}
+          aria-busy={isSaving}
+          onClick={() => void handleSaveRequest()}
+        >
+          {isSaving ? "Guardando cotización…" : "Guardar cotización"}
+        </button>
+        <button
           ref={previewTriggerRef}
           className={styles.previewButton}
           type="button"
@@ -614,7 +695,23 @@ export function TemporaryQuotation({
             Agrega al menos una línea para abrir la vista previa.
           </p>
         ) : null}
+        {quotation.lines.length > 0 && !canSave ? (
+          <p>Revisa los datos de la cotización antes de guardarla.</p>
+        ) : null}
       </div>
+
+      {saveFeedback ? (
+        <p
+          className={
+            saveFeedback.kind === "error"
+              ? styles.saveError
+              : styles.saveSuccess
+          }
+          role={saveFeedback.kind === "error" ? "alert" : "status"}
+        >
+          {saveFeedback.message}
+        </p>
+      ) : null}
 
       {hasInformation ? (
         <div className={styles.summary}>
@@ -676,9 +773,7 @@ export function TemporaryQuotation({
 
       <QuotationPreviewModal
         isOpen={isPreviewOpen}
-        quotation={quotation}
-        total={total}
-        businessProfile={DIGITAL_RESPAWN_BUSINESS_PROFILE}
+        preview={preview}
         returnFocusRef={previewTriggerRef}
         onRequestClose={() => setIsPreviewOpen(false)}
       />

@@ -307,7 +307,8 @@
   line-height: 1.45;
 }
 
-.previewButton {
+.previewButton,
+.saveQuotationButton {
   min-height: 46px;
   justify-self: start;
   padding: 10px 17px;
@@ -320,21 +321,47 @@
   cursor: pointer;
 }
 
-.previewButton:hover:not(:disabled) {
+.previewButton:hover:not(:disabled),
+.saveQuotationButton:hover:not(:disabled) {
   border-color: #b9d5f7;
   background: #3b84e3;
 }
 
-.previewButton:focus-visible {
+.previewButton:focus-visible,
+.saveQuotationButton:focus-visible {
   outline: 3px solid #8bb8ff;
   outline-offset: 3px;
 }
 
-.previewButton:disabled {
+.previewButton:disabled,
+.saveQuotationButton:disabled {
   border-color: #405875;
   background: #26384e;
   color: #98a7b8;
   cursor: not-allowed;
+}
+
+.saveQuotationButton {
+  background: #197341;
+}
+
+.saveQuotationButton:hover:not(:disabled) {
+  background: #23874f;
+}
+
+.saveSuccess,
+.saveError {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.saveSuccess {
+  color: #b8e3c4;
+}
+
+.saveError {
+  color: #ffb7b7;
 }
 
 .grandTotal span {
@@ -498,6 +525,7 @@
   .removeButton,
   .editButton,
   .previewButton,
+  .saveQuotationButton,
   .clearButton,
   .confirmClearButton,
   .cancelButton {
@@ -514,7 +542,8 @@
     width: 100%;
   }
 
-  .previewButton {
+  .previewButton,
+  .saveQuotationButton {
     justify-self: stretch;
   }
 
