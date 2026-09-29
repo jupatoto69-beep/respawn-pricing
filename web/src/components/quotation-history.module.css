@@ -81,6 +81,32 @@
   white-space: nowrap;
 }
 
+.statusControl {
+  display: grid;
+  gap: 4px;
+  color: #aeb9c7;
+  font-size: 0.75rem;
+}
+
+.statusControl select {
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid #8bb8ff;
+  border-radius: 8px;
+  background: #071426;
+  color: #f1f5fa;
+  font: inherit;
+}
+
+.statusControl select:disabled {
+  opacity: 0.68;
+}
+
+.statusControl select:focus-visible {
+  outline: 3px solid rgba(139, 184, 255, 0.6);
+  outline-offset: 2px;
+}
+
 .historyActions button {
   min-height: 42px;
   padding: 9px 14px;

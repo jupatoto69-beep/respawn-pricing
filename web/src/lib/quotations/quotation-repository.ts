@@ -10,7 +10,9 @@ import {
   type QuotationPersistenceSnapshot,
   type QuotationSnapshotDetail,
   type QuotationSnapshotLine,
+  type QuotationStatus,
 } from "./quotation-snapshot";
+import { isQuotationNumber, isQuotationStatus } from "./quotation-status";
 
 export const QUOTATION_HISTORY_LIMIT = 50;
 export const QUOTATION_SAVE_FAILURE_MESSAGE =
@@ -21,11 +23,13 @@ export const QUOTATION_OPEN_FAILURE_MESSAGE =
   "No pudimos abrir la cotización guardada. Inténtalo de nuevo.";
 export const QUOTATION_SESSION_FAILURE_MESSAGE =
   "Tu sesión venció o ya no es válida. Inicia sesión de nuevo.";
+export const QUOTATION_STATUS_FAILURE_MESSAGE =
+  "No pudimos cambiar el estado de la cotización. Inténtalo de nuevo.";
 
 const QUOTATION_COLUMNS =
-  "id,quotation_date,validity_days,customer_name,customer_document,customer_phone_country_iso2,customer_phone_number,customer_email,customer_city,notes,total_cop,created_at,created_by";
+  "id,quotation_number,status,quotation_date,validity_days,customer_name,customer_document,customer_phone_country_iso2,customer_phone_number,customer_email,customer_city,notes,total_cop,created_at,created_by";
 const QUOTATION_SUMMARY_COLUMNS =
-  "id,quotation_date,customer_name,total_cop,created_at";
+  "id,quotation_number,status,quotation_date,validity_days,customer_name,total_cop,created_at";
 const QUOTATION_LINE_COLUMNS =
   "id,quotation_id,position,source,title,quantity,details,description,unit_price_cop,line_total_cop";
 
@@ -34,7 +38,8 @@ type QuotationFailureKind =
   | "invalid"
   | "save"
   | "list"
-  | "load";
+  | "load"
+  | "status";
 
 export type QuotationRepositoryResult<T> =
   | Readonly<{ ok: true; value: T }>
@@ -54,10 +59,16 @@ export type QuotationRepository = Readonly<{
   load: (
     quotationId: string,
   ) => Promise<QuotationRepositoryResult<HistoricalQuotation>>;
+  changeStatus: (
+    quotationId: string,
+    status: QuotationStatus,
+  ) => Promise<QuotationRepositoryResult<QuotationStatus>>;
 }>;
 
 type QuotationHeader = Readonly<{
   id: string;
+  quotationNumber: string;
+  status: QuotationStatus;
   quotationDate: string;
   validityDays: number;
   customerName: string | null;
@@ -87,6 +98,20 @@ function readRequiredString(
   }
 
   return value;
+}
+
+function readQuotationNumber(row: Record<string, unknown>): string {
+  if (!isQuotationNumber(row.quotation_number)) {
+    throw new TypeError("Invalid quotation number.");
+  }
+  return row.quotation_number;
+}
+
+function readQuotationStatus(row: Record<string, unknown>): QuotationStatus {
+  if (!isQuotationStatus(row.status)) {
+    throw new TypeError("Invalid quotation status.");
+  }
+  return row.status;
 }
 
 function readOptionalString(
@@ -192,6 +217,8 @@ function mapQuotationHeader(row: unknown): QuotationHeader {
 
   return Object.freeze({
     id: readRequiredString(row, "id"),
+    quotationNumber: readQuotationNumber(row),
+    status: readQuotationStatus(row),
     quotationDate,
     validityDays: readSafeInteger(row, "validity_days", false),
     customerName: readOptionalString(row, "customer_name"),
@@ -303,6 +330,8 @@ export function mapHistoricalQuotationRows(
 
   return Object.freeze({
     id: header.id,
+    quotationNumber: header.quotationNumber,
+    status: header.status,
     ...snapshot,
     createdAt: header.createdAt,
     createdBy: header.createdBy,
@@ -324,7 +353,10 @@ export function mapHistoricalQuotationSummary(
 
   return Object.freeze({
     id: readRequiredString(row, "id"),
+    quotationNumber: readQuotationNumber(row),
+    status: readQuotationStatus(row),
     quotationDate,
+    validityDays: readSafeInteger(row, "validity_days", false),
     customerName: readOptionalString(row, "customer_name"),
     totalCop: readSafeInteger(row, "total_cop", true),
     createdAt: readRequiredString(row, "created_at"),
@@ -437,6 +469,31 @@ export function createSupabaseQuotationRepository(
         });
       } catch {
         return failure("load", QUOTATION_OPEN_FAILURE_MESSAGE);
+      }
+    },
+
+    async changeStatus(quotationId, status) {
+      if (!(await hasAuthenticatedSession())) {
+        return failure("unauthenticated", QUOTATION_SESSION_FAILURE_MESSAGE);
+      }
+
+      if (quotationId.length === 0 || !isQuotationStatus(status)) {
+        return failure("status", QUOTATION_STATUS_FAILURE_MESSAGE);
+      }
+
+      try {
+        const { data, error } = await supabase.rpc("change_quotation_status", {
+          quotation_id: quotationId,
+          new_status: status,
+        });
+
+        if (error || !isQuotationStatus(data)) {
+          return failure("status", QUOTATION_STATUS_FAILURE_MESSAGE);
+        }
+
+        return Object.freeze({ ok: true as const, value: data });
+      } catch {
+        return failure("status", QUOTATION_STATUS_FAILURE_MESSAGE);
       }
     },
   });

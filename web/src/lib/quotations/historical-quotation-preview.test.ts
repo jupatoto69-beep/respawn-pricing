@@ -10,6 +10,8 @@ import type { HistoricalQuotation } from "./quotation-snapshot";
 
 const HISTORICAL_QUOTATION: HistoricalQuotation = Object.freeze({
   id: "11111111-1111-4111-8111-111111111111",
+  quotationNumber: "DR-2026-0001",
+  status: "sent",
   quotationDate: "2026-09-24",
   validityDays: 15,
   customerName: "Empresa Histórica Ejemplo SAS",
@@ -80,6 +82,10 @@ describe("historical quotation preview and PDF", () => {
     });
 
     expect(preview.quotationFields).toContainEqual({
+      label: "Consecutivo",
+      value: "DR-2026-0001",
+    });
+    expect(preview.quotationFields).toContainEqual({
       label: "Fecha",
       value: "24/09/2026",
     });
@@ -124,6 +130,7 @@ describe("historical quotation preview and PDF", () => {
     expect(streams).toContain("58.350");
     expect(streams).toContain("116.700");
     expect(streams).toContain("616.700");
+    expect(streams).toContain("DR-2026-0001");
     expect(streams).toContain("Cotizaci");
     expect(streams).not.toContain("Costo interno");
     expect(streams).not.toContain("Margen");
