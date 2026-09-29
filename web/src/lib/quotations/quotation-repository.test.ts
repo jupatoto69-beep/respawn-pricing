@@ -9,6 +9,7 @@ import {
   QUOTATION_OPEN_FAILURE_MESSAGE,
   QUOTATION_SAVE_FAILURE_MESSAGE,
   QUOTATION_SESSION_FAILURE_MESSAGE,
+  QUOTATION_STATUS_FAILURE_MESSAGE,
 } from "./quotation-repository";
 import type { QuotationPersistenceSnapshot } from "./quotation-snapshot";
 
@@ -50,6 +51,8 @@ const SNAPSHOT: QuotationPersistenceSnapshot = Object.freeze({
 
 const HEADER_ROW = {
   id: QUOTATION_ID,
+  quotation_number: "DR-2026-0001",
+  status: "sent",
   quotation_date: SNAPSHOT.quotationDate,
   validity_days: SNAPSHOT.validityDays,
   customer_name: SNAPSHOT.customerName,
@@ -123,6 +126,31 @@ describe("quotation repository", () => {
     expect(JSON.stringify(rpc.mock.calls)).not.toContain("margin");
   });
 
+  it("distinguishes a failed numbering trigger from a successful UUID RPC response", async () => {
+    const rpc = vi.fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: "42702", message: 'column reference "business_year" is ambiguous' },
+      })
+      .mockResolvedValueOnce({ data: QUOTATION_ID, error: null });
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(),
+      rpc,
+      from: vi.fn(),
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+
+    expect(await repository.save(SNAPSHOT)).toEqual({
+      ok: false,
+      kind: "save",
+      message: QUOTATION_SAVE_FAILURE_MESSAGE,
+    });
+    expect(await repository.save(SNAPSHOT)).toEqual({
+      ok: true,
+      value: QUOTATION_ID,
+    });
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects malformed totals before calling the database", async () => {
     const rpc = vi.fn();
     const repository = createSupabaseQuotationRepository({
@@ -145,14 +173,20 @@ describe("quotation repository", () => {
     const rows = [
       {
         id: QUOTATION_ID,
+        quotation_number: "DR-2026-0002",
+        status: "sent",
         quotation_date: "2026-09-24",
+        validity_days: 15,
         customer_name: "Empresa Nueva SAS",
         total_cop: "200000",
         created_at: "2026-09-24T14:30:00.000Z",
       },
       {
         id: "55555555-5555-4555-8555-555555555555",
+        quotation_number: "DR-2026-0001",
+        status: "accepted",
         quotation_date: "2026-09-23",
+        validity_days: 15,
         customer_name: null,
         total_cop: 50_000,
         created_at: "2026-09-23T14:30:00.000Z",
@@ -175,6 +209,10 @@ describe("quotation repository", () => {
         rows[0].id,
         rows[1].id,
       ]);
+      expect(result.value.map((quotation) => quotation.quotationNumber)).toEqual([
+        "DR-2026-0002", "DR-2026-0001",
+      ]);
+      expect(result.value[1].status).toBe("accepted");
     }
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
     expect(limit).toHaveBeenCalledWith(QUOTATION_HISTORY_LIMIT);
@@ -202,6 +240,8 @@ describe("quotation repository", () => {
     if (result.ok) {
       expect(result.value).toMatchObject({
         id: QUOTATION_ID,
+        quotationNumber: "DR-2026-0001",
+        status: "sent",
         ...SNAPSHOT,
         createdBy: USER_ID,
       });
@@ -303,5 +343,37 @@ describe("quotation repository", () => {
       message: QUOTATION_OPEN_FAILURE_MESSAGE,
     });
     expect(JSON.stringify(result)).not.toContain("constraint-private");
+  });
+
+  it("changes only status through the dedicated RPC", async () => {
+    const rpc = vi.fn(async () => ({ data: "accepted", error: null }));
+    const from = vi.fn();
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from,
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+
+    expect(await repository.changeStatus(QUOTATION_ID, "accepted")).toEqual({
+      ok: true, value: "accepted",
+    });
+    expect(rpc).toHaveBeenCalledWith("change_quotation_status", {
+      quotation_id: QUOTATION_ID,
+      new_status: "accepted",
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("does not expose database errors or attempt invalid status changes", async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: new Error("private-db-detail") }));
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from: vi.fn(),
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+
+    const invalid = await repository.changeStatus(QUOTATION_ID, "draft" as "sent");
+    expect(invalid).toEqual({ ok: false, kind: "status", message: QUOTATION_STATUS_FAILURE_MESSAGE });
+    expect(rpc).not.toHaveBeenCalled();
+
+    const failed = await repository.changeStatus(QUOTATION_ID, "rejected");
+    expect(failed).toEqual({ ok: false, kind: "status", message: QUOTATION_STATUS_FAILURE_MESSAGE });
+    expect(JSON.stringify(failed)).not.toContain("private-db-detail");
   });
 });

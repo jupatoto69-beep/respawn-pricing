@@ -4,6 +4,7 @@ import {
 } from "@/lib/pricing/temporary-quotation";
 import { getPhoneCountryDefinition } from "@/lib/pricing/phone-country-catalog";
 import type { HistoricalQuotation } from "@/lib/quotations/quotation-snapshot";
+import { quotationDisplayStatus } from "@/lib/quotations/quotation-status";
 
 import type { BusinessProfile } from "./business-profile";
 import { createCustomerSafeLineDetails } from "./customer-safe-line-details";
@@ -28,6 +29,7 @@ export type QuotationPreviewLine = Readonly<{
 }>;
 
 export type QuotationPreviewViewModel = Readonly<{
+  quotationNumber?: string;
   businessName: string;
   logoOnDarkPath: string | null;
   logoOnLightPath: string | null;
@@ -211,6 +213,7 @@ export function createHistoricalQuotationPreviewViewModel({
   );
 
   return Object.freeze({
+    quotationNumber: quotation.quotationNumber,
     businessName: businessProfile.businessName,
     logoOnDarkPath: hasUsefulText(businessProfile.logoOnDarkPath)
       ? businessProfile.logoOnDarkPath
@@ -219,8 +222,10 @@ export function createHistoricalQuotationPreviewViewModel({
       ? businessProfile.logoOnLightPath
       : null,
     quotationFields: Object.freeze([
+      freezeField("Consecutivo", quotation.quotationNumber),
       freezeField("Fecha", formatStoredQuotationDate(quotation.quotationDate)),
       freezeField("Vigencia", `${quotation.validityDays} días`),
+      freezeField("Estado", quotationDisplayStatus(quotation.status, quotation.quotationDate, quotation.validityDays)),
     ]),
     businessFields: createBusinessFields(businessProfile),
     customerFields: Object.freeze(

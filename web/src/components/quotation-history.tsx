@@ -22,7 +22,9 @@ import {
 import type {
   HistoricalQuotation,
   HistoricalQuotationSummary,
+  QuotationStatus,
 } from "@/lib/quotations/quotation-snapshot";
+import { quotationDisplayStatus } from "@/lib/quotations/quotation-status";
 import { createClient } from "@/lib/supabase/client";
 
 import { QuotationPreviewModal } from "./quotation-preview-modal";
@@ -36,6 +38,8 @@ type QuotationHistoryProps = Readonly<{
 type QuotationHistoryListProps = Readonly<{
   quotations: readonly HistoricalQuotationSummary[];
   openingQuotationId: string | null;
+  changingQuotationId: string | null;
+  onChangeStatus: (quotationId: string, status: QuotationStatus) => void;
   onOpen: (
     quotationId: string,
     event: MouseEvent<HTMLButtonElement>,
@@ -61,6 +65,8 @@ function formatSavedAt(value: string): string {
 export function QuotationHistoryList({
   quotations,
   openingQuotationId,
+  changingQuotationId,
+  onChangeStatus,
   onOpen,
 }: QuotationHistoryListProps) {
   if (quotations.length === 0) {
@@ -73,15 +79,31 @@ export function QuotationHistoryList({
         <li key={quotation.id} className={styles.historyItem}>
           <div>
             <strong>
-              {quotation.customerName ?? "Cotización sin nombre de cliente"}
+              {quotation.quotationNumber}
             </strong>
+            <span>{quotation.customerName ?? "Cotización sin nombre de cliente"}</span>
             <span>Fecha de cotización: {formatStoredDate(quotation.quotationDate)}</span>
             <span>Guardada: {formatSavedAt(quotation.createdAt)}</span>
+            <span>Estado: {quotationDisplayStatus(quotation.status, quotation.quotationDate, quotation.validityDays)}</span>
           </div>
           <div className={styles.historyActions}>
             <data value={quotation.totalCop}>
               {formatQuotationCop(quotation.totalCop)}
             </data>
+            <label className={styles.statusControl}>
+              Cambiar estado
+              <select
+                aria-label={`Cambiar estado de ${quotation.quotationNumber}`}
+                value={quotation.status}
+                disabled={changingQuotationId !== null}
+                aria-busy={changingQuotationId === quotation.id}
+                onChange={(event) => onChangeStatus(quotation.id, event.currentTarget.value as QuotationStatus)}
+              >
+                <option value="sent">Enviada</option>
+                <option value="accepted">Aceptada</option>
+                <option value="rejected">Rechazada</option>
+              </select>
+            </label>
             <button
               type="button"
               disabled={openingQuotationId !== null}
@@ -104,6 +126,7 @@ export function QuotationHistory({
   const titleId = useId();
   const repositoryRef = useRef<QuotationRepository | null>(repository ?? null);
   const openTriggerRef = useRef<HTMLButtonElement>(null);
+  const statusChangeLockRef = useRef(false);
   const [quotations, setQuotations] = useState<
     readonly HistoricalQuotationSummary[]
   >([]);
@@ -113,6 +136,7 @@ export function QuotationHistory({
   const [openingQuotationId, setOpeningQuotationId] = useState<string | null>(
     null,
   );
+  const [changingQuotationId, setChangingQuotationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isLoading = loadedRevision !== refreshRevision;
 
@@ -187,6 +211,40 @@ export function QuotationHistory({
     }
   }
 
+  async function handleChangeStatus(quotationId: string, status: QuotationStatus) {
+    if (statusChangeLockRef.current) {
+      return;
+    }
+
+    statusChangeLockRef.current = true;
+    setChangingQuotationId(quotationId);
+    setError(null);
+
+    try {
+      const result = await getRepository().changeStatus(quotationId, status);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      setQuotations((current) => current.map((quotation) =>
+        quotation.id === quotationId
+          ? Object.freeze({ ...quotation, status: result.value })
+          : quotation,
+      ));
+      setSelectedQuotation((current) =>
+        current?.id === quotationId
+          ? Object.freeze({ ...current, status: result.value })
+          : current,
+      );
+    } catch {
+      setError("No pudimos cambiar el estado de la cotización. Inténtalo de nuevo.");
+    } finally {
+      statusChangeLockRef.current = false;
+      setChangingQuotationId(null);
+    }
+  }
+
   const { selectedPreview, selectedPreviewError } = useMemo(() => {
     if (selectedQuotation === null) {
       return { selectedPreview: null, selectedPreviewError: null };
@@ -230,6 +288,8 @@ export function QuotationHistory({
         <QuotationHistoryList
           quotations={quotations}
           openingQuotationId={openingQuotationId}
+          changingQuotationId={changingQuotationId}
+          onChangeStatus={handleChangeStatus}
           onOpen={handleOpen}
         />
       )}

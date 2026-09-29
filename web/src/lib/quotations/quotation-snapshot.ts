@@ -64,16 +64,23 @@ export type QuotationPersistenceSnapshot = Readonly<{
   lines: readonly QuotationSnapshotLine[];
 }>;
 
+export type QuotationStatus = "sent" | "accepted" | "rejected";
+
 export type HistoricalQuotation = QuotationPersistenceSnapshot &
   Readonly<{
     id: string;
+    quotationNumber: string;
+    status: QuotationStatus;
     createdAt: string;
     createdBy: string;
   }>;
 
 export type HistoricalQuotationSummary = Readonly<{
   id: string;
+  quotationNumber: string;
+  status: QuotationStatus;
   quotationDate: string;
+  validityDays: number;
   customerName: string | null;
   totalCop: number;
   createdAt: string;

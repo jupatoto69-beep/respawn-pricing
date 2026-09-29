@@ -56,7 +56,9 @@ export function QuotationPreview({
           >
             {preview.businessName}
           </p>
-          <h2 id={headingId}>Cotización</h2>
+          <h2 id={headingId}>
+            Cotización{preview.quotationNumber === undefined ? "" : ` ${preview.quotationNumber}`}
+          </h2>
         </div>
 
         <div className={styles.headerFields}>
