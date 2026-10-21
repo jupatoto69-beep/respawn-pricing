@@ -74,24 +74,33 @@ export function QuotationHistoryList({
   }
 
   return (
-    <ol className={styles.historyList}>
-      {quotations.map((quotation) => (
-        <li key={quotation.id} className={styles.historyItem}>
-          <div>
-            <strong>
-              {quotation.quotationNumber}
-            </strong>
-            <span>{quotation.customerName ?? "Cotización sin nombre de cliente"}</span>
-            <span>Fecha de cotización: {formatStoredDate(quotation.quotationDate)}</span>
-            <span>Guardada: {formatSavedAt(quotation.createdAt)}</span>
-            <span>Estado: {quotationDisplayStatus(quotation.status, quotation.quotationDate, quotation.validityDays)}</span>
-          </div>
-          <div className={styles.historyActions}>
-            <data value={quotation.totalCop}>
+    <div className={styles.listRegion}>
+      <div className={styles.columnHeadings} aria-hidden="true">
+        <span>Consecutivo y cliente</span>
+        <span>Fecha de cotización</span>
+        <span>Guardada</span>
+        <span>Total</span>
+        <span>Estado</span>
+        <span>Cambiar estado</span>
+        <span>Acción</span>
+      </div>
+      <ol className={styles.historyList}>
+        {quotations.map((quotation) => (
+          <li key={quotation.id} className={styles.historyItem}>
+            <div className={styles.identity}>
+              <strong>{quotation.quotationNumber}</strong>
+              <span>{quotation.customerName ?? "Cotización sin nombre de cliente"}</span>
+            </div>
+            <span className={styles.date}>Fecha de cotización: {formatStoredDate(quotation.quotationDate)}</span>
+            <span className={styles.savedAt}>Guardada: {formatSavedAt(quotation.createdAt)}</span>
+            <data className={styles.total} value={quotation.totalCop}>
               {formatQuotationCop(quotation.totalCop)}
             </data>
+            <span className={styles.displayStatus}>
+              Estado: {quotationDisplayStatus(quotation.status, quotation.quotationDate, quotation.validityDays)}
+            </span>
             <label className={styles.statusControl}>
-              Cambiar estado
+              <span className={styles.visuallyHidden}>Cambiar estado</span>
               <select
                 aria-label={`Cambiar estado de ${quotation.quotationNumber}`}
                 value={quotation.status}
@@ -105,6 +114,7 @@ export function QuotationHistoryList({
               </select>
             </label>
             <button
+              className={styles.openButton}
               type="button"
               disabled={openingQuotationId !== null}
               aria-busy={openingQuotationId === quotation.id}
@@ -112,10 +122,10 @@ export function QuotationHistoryList({
             >
               {openingQuotationId === quotation.id ? "Abriendo…" : "Ver cotización"}
             </button>
-          </div>
-        </li>
-      ))}
-    </ol>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -270,8 +280,8 @@ export function QuotationHistory({
     <section className={styles.history} aria-labelledby={titleId}>
       <div className={styles.heading}>
         <div>
-          <p>Archivo histórico</p>
-          <h2 id={titleId}>Cotizaciones guardadas</h2>
+          <p>Resultados</p>
+          <h2 id={titleId}>Últimas cotizaciones guardadas</h2>
         </div>
         <span>Últimas 50</span>
       </div>

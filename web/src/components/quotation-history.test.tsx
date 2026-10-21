@@ -169,6 +169,9 @@ describe("QuotationHistoryList", () => {
     expect(markup).toContain("Estado: Aceptada");
     expect(markup).toContain("Cambiar estado de DR-2026-0002");
     expect(markup).toContain("COP 616.700");
+    expect(markup).toContain("Guardada:");
+    expect(markup).toContain("Cambiar estado");
+    expect(markup).toContain("Consecutivo y cliente");
     expect(markup.match(/Ver cotización/g)).toHaveLength(2);
   });
 
