@@ -34,6 +34,10 @@ describe("PricingCalculator", () => {
     expect(markup).toContain("Aún no has agregado productos o servicios.");
     expect(markup).toContain("Ítem personalizado");
     expect(markup).toContain("Agregar a cotización");
+    expect(markup).toContain('href="/cotizaciones"');
+    expect(markup).toContain("Ver cotizaciones guardadas");
+    expect(markup).not.toContain("Últimas cotizaciones guardadas");
+    expect(markup).not.toContain("Cargando cotizaciones");
     expect(markup).not.toContain("Categoría, servicio y datos");
   });
 

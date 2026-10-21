@@ -3,17 +3,15 @@
   gap: 16px;
   min-width: 0;
   margin-top: 28px;
-  padding: clamp(18px, 3vw, 26px);
+  padding: clamp(16px, 2.5vw, 24px);
   border: 1px solid rgba(122, 170, 229, 0.38);
   border-radius: 16px;
   background: #071426;
 }
 
-.heading,
-.historyItem,
-.historyActions {
+.heading {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
   gap: 14px;
 }
@@ -41,16 +39,34 @@
 }
 
 .heading > span,
-.historyItem span,
 .status,
 .emptyState {
   color: #aeb9c7;
   font-size: 0.8rem;
 }
 
+.listRegion {
+  min-width: 0;
+}
+
+.columnHeadings,
+.historyItem {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.7fr) minmax(120px, 1fr) minmax(138px, 1.1fr) minmax(96px, 0.85fr) minmax(103px, 0.85fr) minmax(112px, 0.9fr) minmax(115px, 0.9fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.columnHeadings {
+  padding: 0 12px 8px;
+  color: #aeb9c7;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .historyList {
   display: grid;
-  gap: 10px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -58,39 +74,54 @@
 
 .historyItem {
   min-width: 0;
-  padding: 14px;
-  border: 1px solid rgba(122, 170, 229, 0.24);
-  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(122, 170, 229, 0.2);
+  border-radius: 8px;
   background: rgba(5, 15, 28, 0.72);
+  font-size: 0.78rem;
 }
 
-.historyItem > div:first-child {
+.identity {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 2px;
 }
 
-.historyItem strong {
+.identity strong {
   color: #f1f5fa;
   overflow-wrap: anywhere;
 }
 
-.historyActions data {
+.identity span,
+.date,
+.savedAt,
+.displayStatus {
+  color: #b8c5d5;
+  overflow-wrap: anywhere;
+}
+
+.total {
   color: #8bb8ff;
   font-weight: 800;
   white-space: nowrap;
 }
 
-.statusControl {
-  display: grid;
-  gap: 4px;
-  color: #aeb9c7;
-  font-size: 0.75rem;
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .statusControl select {
-  min-height: 42px;
-  padding: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px;
   border: 1px solid #8bb8ff;
   border-radius: 8px;
   background: #071426;
@@ -98,36 +129,27 @@
   font: inherit;
 }
 
-.statusControl select:disabled {
+.statusControl select:disabled,
+.openButton:disabled {
   opacity: 0.68;
 }
 
-.statusControl select:focus-visible {
+.statusControl select:focus-visible,
+.openButton:focus-visible {
   outline: 3px solid rgba(139, 184, 255, 0.6);
   outline-offset: 2px;
 }
 
-.historyActions button {
-  min-height: 42px;
-  padding: 9px 14px;
+.openButton {
+  min-height: 38px;
+  padding: 7px 9px;
   border: 1px solid #8bb8ff;
   border-radius: 8px;
   background: #2d75d5;
   color: #fff;
   font: inherit;
-  font-size: 0.8rem;
   font-weight: 760;
   cursor: pointer;
-}
-
-.historyActions button:disabled {
-  cursor: wait;
-  opacity: 0.68;
-}
-
-.historyActions button:focus-visible {
-  outline: 3px solid rgba(139, 184, 255, 0.6);
-  outline-offset: 2px;
 }
 
 .error {
@@ -135,14 +157,42 @@
   font-size: 0.8rem;
 }
 
-@media (max-width: 700px) {
-  .historyItem,
-  .historyActions {
-    align-items: stretch;
-    flex-direction: column;
+@media (max-width: 1050px) {
+  .columnHeadings {
+    display: none;
   }
 
-  .historyActions button {
-    width: 100%;
+  .historyItem {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 12px;
+  }
+
+  .identity {
+    grid-row: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .historyItem {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .identity {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .savedAt,
+  .displayStatus {
+    grid-column: 1 / -1;
+  }
+
+  .statusControl,
+  .openButton {
+    align-self: stretch;
+  }
+
+  .heading > span {
+    display: none;
   }
 }

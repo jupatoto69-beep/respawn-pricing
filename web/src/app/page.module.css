@@ -22,6 +22,41 @@
   gap: 12px;
 }
 
+.appNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(154, 164, 178, 0.18);
+}
+
+.appNav a {
+  padding: 9px 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #c2cad5;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.appNav a:hover,
+.appNav a:focus-visible {
+  color: #fff;
+  border-color: #8bb8ff;
+}
+
+.appNav a:focus-visible {
+  outline: 3px solid rgba(139, 184, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.appNav a[aria-current="page"] {
+  color: #fff;
+  border-color: #31557d;
+  background: var(--color-blue-dark);
+}
+
 .brand,
 .brandContext,
 .internalLabel,
