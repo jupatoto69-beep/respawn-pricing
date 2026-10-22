@@ -16,7 +16,11 @@ import {
 } from "@/lib/quotation/quotation-preview-view-model";
 import {
   createSupabaseQuotationRepository,
+  DEFAULT_QUOTATION_QUERY,
+  QUOTATION_PAGE_SIZE,
+  QUOTATION_DELETE_FAILURE_MESSAGE,
   QUOTATION_OPEN_FAILURE_MESSAGE,
+  type QuotationListQuery,
   type QuotationRepository,
 } from "@/lib/quotations/quotation-repository";
 import type {
@@ -28,6 +32,7 @@ import { quotationDisplayStatus } from "@/lib/quotations/quotation-status";
 import { createClient } from "@/lib/supabase/client";
 
 import { QuotationPreviewModal } from "./quotation-preview-modal";
+import { QuotationDeleteDialog } from "./quotation-delete-dialog";
 import styles from "./quotation-history.module.css";
 
 type QuotationHistoryProps = Readonly<{
@@ -40,6 +45,7 @@ type QuotationHistoryListProps = Readonly<{
   openingQuotationId: string | null;
   changingQuotationId: string | null;
   onChangeStatus: (quotationId: string, status: QuotationStatus) => void;
+  onDelete: (quotation: HistoricalQuotationSummary) => void;
   onOpen: (
     quotationId: string,
     event: MouseEvent<HTMLButtonElement>,
@@ -67,6 +73,7 @@ export function QuotationHistoryList({
   openingQuotationId,
   changingQuotationId,
   onChangeStatus,
+  onDelete,
   onOpen,
 }: QuotationHistoryListProps) {
   if (quotations.length === 0) {
@@ -82,7 +89,7 @@ export function QuotationHistoryList({
         <span>Total</span>
         <span>Estado</span>
         <span>Cambiar estado</span>
-        <span>Acción</span>
+        <span>Acciones</span>
       </div>
       <ol className={styles.historyList}>
         {quotations.map((quotation) => (
@@ -113,15 +120,22 @@ export function QuotationHistoryList({
                 <option value="rejected">Rechazada</option>
               </select>
             </label>
-            <button
-              className={styles.openButton}
-              type="button"
-              disabled={openingQuotationId !== null}
-              aria-busy={openingQuotationId === quotation.id}
-              onClick={(event) => onOpen(quotation.id, event)}
-            >
-              {openingQuotationId === quotation.id ? "Abriendo…" : "Ver cotización"}
-            </button>
+            <div className={styles.actions}>
+              <button
+                className={styles.openButton}
+                type="button"
+                disabled={openingQuotationId !== null}
+                aria-busy={openingQuotationId === quotation.id}
+                onClick={(event) => onOpen(quotation.id, event)}
+              >
+                {openingQuotationId === quotation.id ? "Abriendo…" : "Ver cotización"}
+              </button>
+              <button className={styles.deleteButton} type="button"
+                onClick={() => onDelete(quotation)}
+                aria-label={`Eliminar cotización ${quotation.quotationNumber}`}>
+                Eliminar
+              </button>
+            </div>
           </li>
         ))}
       </ol>
@@ -137,18 +151,47 @@ export function QuotationHistory({
   const repositoryRef = useRef<QuotationRepository | null>(repository ?? null);
   const openTriggerRef = useRef<HTMLButtonElement>(null);
   const statusChangeLockRef = useRef(false);
+  const deleteLockRef = useRef(false);
+  const [query, setQuery] = useState<QuotationListQuery>(DEFAULT_QUOTATION_QUERY);
+  const [searchInput, setSearchInput] = useState("");
+  const [reloadRevision, setReloadRevision] = useState(0);
+  const [loadedKey, setLoadedKey] = useState("");
+  const [total, setTotal] = useState(0);
+  const [deletingQuotation, setDeletingQuotation] = useState<HistoricalQuotationSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [quotations, setQuotations] = useState<
     readonly HistoricalQuotationSummary[]
   >([]);
   const [selectedQuotation, setSelectedQuotation] =
     useState<HistoricalQuotation | null>(null);
-  const [loadedRevision, setLoadedRevision] = useState<number | null>(null);
   const [openingQuotationId, setOpeningQuotationId] = useState<string | null>(
     null,
   );
   const [changingQuotationId, setChangingQuotationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const isLoading = loadedRevision !== refreshRevision;
+  const requestKey = JSON.stringify([query, refreshRevision, reloadRevision]);
+  const isLoading = loadedKey !== requestKey || searchInput !== query.search;
+
+  function updateQuery(patch: Partial<QuotationListQuery>) {
+    setQuery((current) => ({ ...current, ...patch, page: 1 }));
+    setSuccess(null);
+  }
+
+  function clearFilters() {
+    setSearchInput("");
+    setQuery(DEFAULT_QUOTATION_QUERY);
+    setSuccess(null);
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQuery((current) => current.search === searchInput
+        ? current : { ...current, search: searchInput, page: 1 });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   function getRepository(): QuotationRepository {
     repositoryRef.current ??= createSupabaseQuotationRepository(createClient());
@@ -160,7 +203,7 @@ export function QuotationHistory({
 
     async function loadHistory() {
       try {
-        const result = await getRepository().list();
+        const result = await getRepository().list(query);
 
         if (!isActive) {
           return;
@@ -168,20 +211,29 @@ export function QuotationHistory({
 
         if (!result.ok) {
           setError(result.message);
+          setQuotations([]);
+          setTotal(0);
           return;
         }
 
-        setQuotations(result.value);
+        if (query.page > 1 && result.value.quotations.length === 0) {
+          setQuery((current) => ({ ...current, page: Math.max(1, Math.ceil(result.value.total / QUOTATION_PAGE_SIZE)) }));
+          return;
+        }
+        setQuotations(result.value.quotations);
+        setTotal(result.value.total);
         setError(null);
       } catch {
         if (isActive) {
           setError(
             "No pudimos cargar el historial de cotizaciones. Inténtalo de nuevo.",
           );
+          setQuotations([]);
+          setTotal(0);
         }
       } finally {
         if (isActive) {
-          setLoadedRevision(refreshRevision);
+          setLoadedKey(requestKey);
         }
       }
     }
@@ -191,7 +243,7 @@ export function QuotationHistory({
     return () => {
       isActive = false;
     };
-  }, [refreshRevision]);
+  }, [query, requestKey]);
 
   async function handleOpen(
     quotationId: string,
@@ -247,11 +299,43 @@ export function QuotationHistory({
           ? Object.freeze({ ...current, status: result.value })
           : current,
       );
+      if (query.status !== "all") {
+        setReloadRevision((current) => current + 1);
+      }
     } catch {
       setError("No pudimos cambiar el estado de la cotización. Inténtalo de nuevo.");
     } finally {
       statusChangeLockRef.current = false;
       setChangingQuotationId(null);
+    }
+  }
+
+  async function handleDelete(expectedQuotationNumber: string) {
+    if (!deletingQuotation || expectedQuotationNumber !== deletingQuotation.quotationNumber || deleteLockRef.current) return;
+    deleteLockRef.current = true;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await getRepository().delete(deletingQuotation.id, expectedQuotationNumber);
+      if (!result.ok) {
+        setDeleteError(result.message);
+        return;
+      }
+      const number = deletingQuotation.quotationNumber;
+      setDeletingQuotation(null);
+      setQuotations((current) => current.filter((item) => item.id !== deletingQuotation.id));
+      setTotal((current) => Math.max(0, current - 1));
+      setSuccess(`Cotización ${number} eliminada permanentemente.`);
+      if (query.page > 1 && (query.page - 1) * QUOTATION_PAGE_SIZE >= total - 1) {
+        setQuery((current) => ({ ...current, page: current.page - 1 }));
+      } else {
+        setReloadRevision((current) => current + 1);
+      }
+    } catch {
+      setDeleteError(QUOTATION_DELETE_FAILURE_MESSAGE);
+    } finally {
+      deleteLockRef.current = false;
+      setIsDeleting(false);
     }
   }
 
@@ -281,10 +365,49 @@ export function QuotationHistory({
       <div className={styles.heading}>
         <div>
           <p>Resultados</p>
-          <h2 id={titleId}>Últimas cotizaciones guardadas</h2>
+          <h2 id={titleId}>Gestionar cotizaciones</h2>
         </div>
-        <span>Últimas 50</span>
       </div>
+
+      <div className={styles.toolbar}>
+        <label className={styles.searchField}>Buscar
+          <input type="search" value={searchInput} maxLength={120}
+            placeholder="Consecutivo, cliente, documento, teléfono, email o ciudad"
+            onChange={(event) => setSearchInput(event.currentTarget.value)} />
+        </label>
+        <label>Estado
+          <select value={query.status} onChange={(event) => updateQuery({ status: event.currentTarget.value as QuotationListQuery["status"] })}>
+            <option value="all">Todas</option><option value="sent">Enviadas</option>
+            <option value="accepted">Aceptadas</option><option value="rejected">Rechazadas</option>
+            <option value="expired">Vencidas</option>
+          </select>
+        </label>
+        <label>Desde
+          <input type="date" value={query.dateFrom} max={query.dateTo || undefined}
+            onChange={(event) => {
+              const dateFrom = event.currentTarget.value;
+              updateQuery({ dateFrom, dateTo: query.dateTo && dateFrom > query.dateTo ? "" : query.dateTo });
+            }} />
+        </label>
+        <label>Hasta
+          <input type="date" value={query.dateTo} min={query.dateFrom || undefined}
+            onChange={(event) => {
+              const dateTo = event.currentTarget.value;
+              updateQuery({ dateTo, dateFrom: query.dateFrom && dateTo && dateTo < query.dateFrom ? "" : query.dateFrom });
+            }} />
+        </label>
+        <label>Ordenar por
+          <select value={query.sort} onChange={(event) => updateQuery({ sort: event.currentTarget.value as QuotationListQuery["sort"] })}>
+            <option value="recent">Más recientes</option><option value="oldest">Más antiguas</option>
+            <option value="number_asc">Consecutivo ascendente</option><option value="number_desc">Consecutivo descendente</option>
+            <option value="customer_asc">Cliente A-Z</option><option value="customer_desc">Cliente Z-A</option>
+            <option value="total_desc">Mayor total</option><option value="total_asc">Menor total</option>
+          </select>
+        </label>
+        <button type="button" className={styles.clearButton} onClick={clearFilters}>Limpiar filtros</button>
+      </div>
+
+      {success && <p className={styles.success} role="status">{success}</p>}
 
       {error === null && selectedPreviewError === null ? null : (
         <p className={styles.error} role="alert">
@@ -295,14 +418,32 @@ export function QuotationHistory({
       {isLoading ? (
         <p className={styles.status}>Cargando cotizaciones…</p>
       ) : (
-        <QuotationHistoryList
+        <>
+        <p className={styles.count} aria-live="polite">{quotations.length} de {total} cotizaciones · Página {query.page}</p>
+        {quotations.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No encontramos cotizaciones con estos criterios.</p>
+            <button type="button" className={styles.clearButton} onClick={clearFilters}>Limpiar filtros</button>
+          </div>
+        ) : <QuotationHistoryList
           quotations={quotations}
           openingQuotationId={openingQuotationId}
           changingQuotationId={changingQuotationId}
           onChangeStatus={handleChangeStatus}
           onOpen={handleOpen}
-        />
+          onDelete={(quotation) => { setDeletingQuotation(quotation); setDeleteError(null); setSuccess(null); }}
+        />}
+        <nav className={styles.pagination} aria-label="Páginas de cotizaciones">
+          <button type="button" disabled={query.page <= 1} onClick={() => setQuery((current) => ({ ...current, page: current.page - 1 }))}>Anterior</button>
+          <span>Página {query.page} de {Math.max(1, Math.ceil(total / QUOTATION_PAGE_SIZE))}</span>
+          <button type="button" disabled={query.page >= Math.ceil(total / QUOTATION_PAGE_SIZE)} onClick={() => setQuery((current) => ({ ...current, page: current.page + 1 }))}>Siguiente</button>
+        </nav>
+        </>
       )}
+
+      {deletingQuotation && <QuotationDeleteDialog key={deletingQuotation.id}
+        quotation={deletingQuotation} deleting={isDeleting} error={deleteError}
+        onCancel={() => setDeletingQuotation(null)} onConfirm={(typedNumber) => { void handleDelete(typedNumber); }} />}
 
       {selectedPreview === null ? null : (
         <QuotationPreviewModal

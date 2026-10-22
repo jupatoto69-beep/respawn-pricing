@@ -14,7 +14,24 @@ import {
 } from "./quotation-snapshot";
 import { isQuotationNumber, isQuotationStatus } from "./quotation-status";
 
-export const QUOTATION_HISTORY_LIMIT = 50;
+export const QUOTATION_PAGE_SIZE = 20;
+export type QuotationListStatus = "all" | "sent" | "accepted" | "rejected" | "expired";
+export type QuotationSort = "recent" | "oldest" | "number_asc" | "number_desc" | "customer_asc" | "customer_desc" | "total_desc" | "total_asc";
+export type QuotationListQuery = Readonly<{
+  search: string;
+  status: QuotationListStatus;
+  dateFrom: string;
+  dateTo: string;
+  sort: QuotationSort;
+  page: number;
+}>;
+export type QuotationListPage = Readonly<{
+  quotations: readonly HistoricalQuotationSummary[];
+  total: number;
+}>;
+export const DEFAULT_QUOTATION_QUERY: QuotationListQuery = Object.freeze({
+  search: "", status: "all", dateFrom: "", dateTo: "", sort: "recent", page: 1,
+});
 export const QUOTATION_SAVE_FAILURE_MESSAGE =
   "No pudimos guardar la cotización. Inténtalo de nuevo.";
 export const QUOTATION_LOAD_FAILURE_MESSAGE =
@@ -25,11 +42,11 @@ export const QUOTATION_SESSION_FAILURE_MESSAGE =
   "Tu sesión venció o ya no es válida. Inicia sesión de nuevo.";
 export const QUOTATION_STATUS_FAILURE_MESSAGE =
   "No pudimos cambiar el estado de la cotización. Inténtalo de nuevo.";
+export const QUOTATION_DELETE_FAILURE_MESSAGE =
+  "No pudimos eliminar la cotización. Inténtalo de nuevo.";
 
 const QUOTATION_COLUMNS =
   "id,quotation_number,status,quotation_date,validity_days,customer_name,customer_document,customer_phone_country_iso2,customer_phone_number,customer_email,customer_city,notes,total_cop,created_at,created_by";
-const QUOTATION_SUMMARY_COLUMNS =
-  "id,quotation_number,status,quotation_date,validity_days,customer_name,total_cop,created_at";
 const QUOTATION_LINE_COLUMNS =
   "id,quotation_id,position,source,title,quantity,details,description,unit_price_cop,line_total_cop";
 
@@ -39,7 +56,8 @@ type QuotationFailureKind =
   | "save"
   | "list"
   | "load"
-  | "status";
+  | "status"
+  | "delete";
 
 export type QuotationRepositoryResult<T> =
   | Readonly<{ ok: true; value: T }>
@@ -53,9 +71,7 @@ export type QuotationRepository = Readonly<{
   save: (
     snapshot: QuotationPersistenceSnapshot,
   ) => Promise<QuotationRepositoryResult<string>>;
-  list: () => Promise<
-    QuotationRepositoryResult<readonly HistoricalQuotationSummary[]>
-  >;
+  list: (query: QuotationListQuery) => Promise<QuotationRepositoryResult<QuotationListPage>>;
   load: (
     quotationId: string,
   ) => Promise<QuotationRepositoryResult<HistoricalQuotation>>;
@@ -63,6 +79,7 @@ export type QuotationRepository = Readonly<{
     quotationId: string,
     status: QuotationStatus,
   ) => Promise<QuotationRepositoryResult<QuotationStatus>>;
+  delete: (quotationId: string, expectedQuotationNumber: string) => Promise<QuotationRepositoryResult<true>>;
 }>;
 
 type QuotationHeader = Readonly<{
@@ -370,6 +387,20 @@ function failure(
   return Object.freeze({ ok: false, kind, message });
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+const LIST_STATUSES: readonly string[] = ["all", "sent", "accepted", "rejected", "expired"];
+const LIST_SORTS: readonly string[] = ["recent", "oldest", "number_asc", "number_desc", "customer_asc", "customer_desc", "total_desc", "total_asc"];
+
+function validListQuery(query: QuotationListQuery): boolean {
+  return typeof query.search === "string" && query.search.trim().length <= 120 &&
+    LIST_STATUSES.includes(query.status) && LIST_SORTS.includes(query.sort) &&
+    Number.isSafeInteger(query.page) && query.page > 0 && query.page <= 1_000_000 &&
+    (query.dateFrom === "" || DATE_PATTERN.test(query.dateFrom)) &&
+    (query.dateTo === "" || DATE_PATTERN.test(query.dateTo)) &&
+    (query.dateFrom === "" || query.dateTo === "" || query.dateFrom <= query.dateTo);
+}
+
 export function createSupabaseQuotationRepository(
   supabase: Pick<SupabaseClient, "auth" | "from" | "rpc">,
 ): QuotationRepository {
@@ -408,25 +439,34 @@ export function createSupabaseQuotationRepository(
       }
     },
 
-    async list() {
+    async list(query) {
       if (!(await hasAuthenticatedSession())) {
         return failure("unauthenticated", QUOTATION_SESSION_FAILURE_MESSAGE);
       }
 
-      try {
-        const { data, error } = await supabase
-          .from("quotations")
-          .select(QUOTATION_SUMMARY_COLUMNS)
-          .order("created_at", { ascending: false })
-          .limit(QUOTATION_HISTORY_LIMIT);
+      if (!validListQuery(query)) {
+        return failure("invalid", QUOTATION_LOAD_FAILURE_MESSAGE);
+      }
 
-        if (error || !Array.isArray(data)) {
+      try {
+        const { data, error } = await supabase.rpc("list_quotations", {
+          search_term: query.search.trim(), status_filter: query.status,
+          date_from: query.dateFrom || null, date_to: query.dateTo || null,
+          sort_order: query.sort, page_number: query.page, page_size: QUOTATION_PAGE_SIZE,
+        });
+
+        if (error || !isRecord(data) || !Array.isArray(data.quotations) ||
+          !Number.isSafeInteger(data.total) || (data.total as number) < 0 ||
+          data.quotations.length > QUOTATION_PAGE_SIZE) {
           return failure("list", QUOTATION_LOAD_FAILURE_MESSAGE);
         }
 
         return Object.freeze({
           ok: true as const,
-          value: Object.freeze(data.map(mapHistoricalQuotationSummary)),
+          value: Object.freeze({
+            quotations: Object.freeze(data.quotations.map(mapHistoricalQuotationSummary)),
+            total: data.total as number,
+          }),
         });
       } catch {
         return failure("list", QUOTATION_LOAD_FAILURE_MESSAGE);
@@ -494,6 +534,27 @@ export function createSupabaseQuotationRepository(
         return Object.freeze({ ok: true as const, value: data });
       } catch {
         return failure("status", QUOTATION_STATUS_FAILURE_MESSAGE);
+      }
+    },
+
+    async delete(quotationId, expectedQuotationNumber) {
+      if (!(await hasAuthenticatedSession())) {
+        return failure("unauthenticated", QUOTATION_SESSION_FAILURE_MESSAGE);
+      }
+      if (!UUID_PATTERN.test(quotationId) || !isQuotationNumber(expectedQuotationNumber)) {
+        return failure("invalid", QUOTATION_DELETE_FAILURE_MESSAGE);
+      }
+      try {
+        const { data, error } = await supabase.rpc("delete_quotation", {
+          quotation_id: quotationId,
+          expected_quotation_number: expectedQuotationNumber,
+        });
+        if (error || data !== true) {
+          return failure("delete", QUOTATION_DELETE_FAILURE_MESSAGE);
+        }
+        return Object.freeze({ ok: true as const, value: true as const });
+      } catch {
+        return failure("delete", QUOTATION_DELETE_FAILURE_MESSAGE);
       }
     },
   });
