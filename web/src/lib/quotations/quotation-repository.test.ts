@@ -4,9 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createSupabaseQuotationRepository,
   mapHistoricalQuotationRows,
-  QUOTATION_HISTORY_LIMIT,
+  DEFAULT_QUOTATION_QUERY,
+  QUOTATION_PAGE_SIZE,
   QUOTATION_LOAD_FAILURE_MESSAGE,
   QUOTATION_OPEN_FAILURE_MESSAGE,
+  QUOTATION_DELETE_FAILURE_MESSAGE,
   QUOTATION_SAVE_FAILURE_MESSAGE,
   QUOTATION_SESSION_FAILURE_MESSAGE,
   QUOTATION_STATUS_FAILURE_MESSAGE,
@@ -169,7 +171,7 @@ describe("quotation repository", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("lists newest saved quotations first with a bounded request", async () => {
+  it("requests a filtered, sorted page and maps its count", async () => {
     const rows = [
       {
         id: QUOTATION_ID,
@@ -192,30 +194,34 @@ describe("quotation repository", () => {
         created_at: "2026-09-23T14:30:00.000Z",
       },
     ];
-    const limit = vi.fn(async () => ({ data: rows, error: null }));
-    const order = vi.fn(() => ({ limit }));
-    const select = vi.fn(() => ({ order }));
+    const rpc = vi.fn(async () => ({ data: { quotations: rows, total: 23 }, error: null }));
     const repository = createSupabaseQuotationRepository({
       auth: authenticatedAuth(),
-      rpc: vi.fn(),
-      from: vi.fn(() => ({ select })),
+      rpc,
+      from: vi.fn(),
     } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
 
-    const result = await repository.list();
+    const query = { ...DEFAULT_QUOTATION_QUERY, search: "empresa", status: "sent" as const,
+      dateFrom: "2026-01-01", dateTo: "2026-12-31", sort: "total_desc" as const, page: 2 };
+    const result = await repository.list(query);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.map((quotation) => quotation.id)).toEqual([
+      expect(result.value.quotations.map((quotation) => quotation.id)).toEqual([
         rows[0].id,
         rows[1].id,
       ]);
-      expect(result.value.map((quotation) => quotation.quotationNumber)).toEqual([
+      expect(result.value.quotations.map((quotation) => quotation.quotationNumber)).toEqual([
         "DR-2026-0002", "DR-2026-0001",
       ]);
-      expect(result.value[1].status).toBe("accepted");
+      expect(result.value.quotations[1].status).toBe("accepted");
+      expect(result.value.total).toBe(23);
     }
-    expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
-    expect(limit).toHaveBeenCalledWith(QUOTATION_HISTORY_LIMIT);
+    expect(rpc).toHaveBeenCalledWith("list_quotations", {
+      search_term: "empresa", status_filter: "sent", date_from: "2026-01-01",
+      date_to: "2026-12-31", sort_order: "total_desc", page_number: 2,
+      page_size: QUOTATION_PAGE_SIZE,
+    });
   });
 
   it("loads one header plus its ordered lines as an immutable historical snapshot", async () => {
@@ -262,23 +268,18 @@ describe("quotation repository", () => {
   });
 
   it("returns safe Spanish errors without provider details", async () => {
-    const limit = vi.fn(async () => ({
+    const rpc = vi.fn(async () => ({
       data: null,
       error: new Error("postgres-private-history-detail"),
     }));
-    const order = vi.fn(() => ({ limit }));
-    const select = vi.fn(() => ({ order }));
     const repository = createSupabaseQuotationRepository({
       auth: authenticatedAuth(),
-      rpc: vi.fn(async () => ({
-        data: null,
-        error: new Error("postgres-private-save-detail"),
-      })),
-      from: vi.fn(() => ({ select })),
+      rpc,
+      from: vi.fn(),
     } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
 
     const saveResult = await repository.save(SNAPSHOT);
-    const listResult = await repository.list();
+    const listResult = await repository.list(DEFAULT_QUOTATION_QUERY);
 
     expect(saveResult).toMatchObject({
       ok: false,
@@ -375,5 +376,97 @@ describe("quotation repository", () => {
     const failed = await repository.changeStatus(QUOTATION_ID, "rejected");
     expect(failed).toEqual({ ok: false, kind: "status", message: QUOTATION_STATUS_FAILURE_MESSAGE });
     expect(JSON.stringify(failed)).not.toContain("private-db-detail");
+  });
+
+  it.each(["sent", "accepted", "rejected", "expired"] as const)(
+    "passes the %s status filter to PostgreSQL", async (status) => {
+      const rpc = vi.fn(async () => ({ data: { quotations: [], total: 0 }, error: null }));
+      const repository = createSupabaseQuotationRepository({
+        auth: authenticatedAuth(), rpc, from: vi.fn(),
+      } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+      expect(await repository.list({ ...DEFAULT_QUOTATION_QUERY, status })).toEqual({
+        ok: true, value: { quotations: [], total: 0 },
+      });
+      expect(rpc).toHaveBeenCalledWith("list_quotations", expect.objectContaining({ status_filter: status }));
+    },
+  );
+
+  it.each(["recent", "oldest", "number_asc", "number_desc", "customer_asc", "customer_desc", "total_desc", "total_asc"] as const)(
+    "passes the %s sort to PostgreSQL", async (sort) => {
+      const rpc = vi.fn(async () => ({ data: { quotations: [], total: 0 }, error: null }));
+      const repository = createSupabaseQuotationRepository({
+        auth: authenticatedAuth(), rpc, from: vi.fn(),
+      } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+      await repository.list({ ...DEFAULT_QUOTATION_QUERY, sort });
+      expect(rpc).toHaveBeenCalledWith("list_quotations", expect.objectContaining({ sort_order: sort }));
+    },
+  );
+
+  it("rejects invalid page and date ranges before the read RPC", async () => {
+    const rpc = vi.fn();
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from: vi.fn(),
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+    expect((await repository.list({ ...DEFAULT_QUOTATION_QUERY, page: 0 })).ok).toBe(false);
+    expect((await repository.list({ ...DEFAULT_QUOTATION_QUERY, dateFrom: "2026-12-31", dateTo: "2026-01-01" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("deletes only through its authenticated RPC and hides failures", async () => {
+    const rpc = vi.fn().mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error("private-db-detail") });
+    const from = vi.fn();
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from,
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+    expect(await repository.delete(QUOTATION_ID, "DR-2026-0001")).toEqual({ ok: true, value: true });
+    expect(rpc).toHaveBeenCalledWith("delete_quotation", {
+      quotation_id: QUOTATION_ID, expected_quotation_number: "DR-2026-0001",
+    });
+    expect(await repository.delete(QUOTATION_ID, "DR-2026-9999")).toEqual({
+      ok: false, kind: "delete", message: QUOTATION_DELETE_FAILURE_MESSAGE,
+    });
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports the same safe failure for a mismatched number and a missing UUID", async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: new Error("private-db-detail") }));
+    const from = vi.fn();
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from,
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+    const missingId = "33333333-3333-4333-8333-333333333333";
+    expect(await repository.delete(QUOTATION_ID, "DR-2026-9999")).toEqual({
+      ok: false, kind: "delete", message: QUOTATION_DELETE_FAILURE_MESSAGE,
+    });
+    expect(await repository.delete(missingId, "DR-2026-0001")).toEqual({
+      ok: false, kind: "delete", message: QUOTATION_DELETE_FAILURE_MESSAGE,
+    });
+    expect(rpc).toHaveBeenNthCalledWith(2, "delete_quotation", {
+      quotation_id: missingId, expected_quotation_number: "DR-2026-0001",
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("does not call delete RPC without a session, valid UUID or valid exact-case number", async () => {
+    const rpc = vi.fn();
+    const repository = createSupabaseQuotationRepository({
+      auth: authenticatedAuth(), rpc, from: vi.fn(),
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+    expect((await repository.delete("bad-id", "DR-2026-0001")).ok).toBe(false);
+    for (const invalidNumber of ["dr-2026-0001", "DR-2026-1", "", null] as const) {
+      expect(await repository.delete(QUOTATION_ID, invalidNumber as string)).toEqual({
+        ok: false, kind: "invalid", message: QUOTATION_DELETE_FAILURE_MESSAGE,
+      });
+    }
+    const anonymous = createSupabaseQuotationRepository({
+      auth: { getClaims: vi.fn(async () => ({ data: { claims: null }, error: null })) },
+      rpc, from: vi.fn(),
+    } as unknown as Pick<SupabaseClient, "auth" | "rpc" | "from">);
+    expect(await anonymous.delete(QUOTATION_ID, "DR-2026-0001")).toEqual({
+      ok: false, kind: "unauthenticated", message: QUOTATION_SESSION_FAILURE_MESSAGE,
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

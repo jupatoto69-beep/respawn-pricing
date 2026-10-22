@@ -52,7 +52,7 @@
 .columnHeadings,
 .historyItem {
   display: grid;
-  grid-template-columns: minmax(160px, 1.7fr) minmax(120px, 1fr) minmax(138px, 1.1fr) minmax(96px, 0.85fr) minmax(103px, 0.85fr) minmax(112px, 0.9fr) minmax(115px, 0.9fr);
+  grid-template-columns: minmax(160px, 1.7fr) minmax(120px, 1fr) minmax(138px, 1.1fr) minmax(96px, 0.85fr) minmax(103px, 0.85fr) minmax(112px, 0.9fr) minmax(175px, 1.2fr);
   align-items: center;
   gap: 12px;
 }
@@ -152,12 +152,86 @@
   cursor: pointer;
 }
 
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.deleteButton {
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #ed7777;
+  border-radius: 8px;
+  background: #671c25;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.deleteButton:disabled { opacity: 0.5; cursor: not-allowed; }
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(125px, 1fr)) auto;
+  align-items: end;
+  gap: 10px;
+}
+.toolbar label, .confirmLabel {
+  display: grid;
+  gap: 5px;
+  color: #c8d4e4;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.toolbar input, .toolbar select, .confirmLabel input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #6484a8;
+  border-radius: 8px;
+  background: #071426;
+  color: #f1f5fa;
+  font: inherit;
+}
+.clearButton, .pagination button, .dialogActions button:not(.deleteButton) {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #8bb8ff;
+  border-radius: 8px;
+  background: transparent;
+  color: #e4efff;
+  font: inherit;
+  cursor: pointer;
+}
+.pagination button:disabled { opacity: 0.48; cursor: not-allowed; }
+.count, .success { margin: 0; color: #c8d4e4; font-size: 0.8rem; }
+.success { color: #a9e8bc; }
+.pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: #c8d4e4; font-size: 0.8rem; }
+.emptyState p { margin: 0 0 10px; }
+.deleteDialog {
+  width: min(100% - 32px, 480px);
+  padding: 24px;
+  border: 1px solid #ed7777;
+  border-radius: 14px;
+  background: #0c192b;
+  color: #f1f5fa;
+  box-shadow: 0 18px 60px #000a;
+}
+.deleteDialog::backdrop { background: #000b; }
+.deleteDialog h2 { margin: 0 0 12px; font-size: 1.35rem; }
+.deleteDialog p { line-height: 1.5; }
+.dialogActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.toolbar :is(input, select):focus-visible, .actions button:focus-visible,
+.deleteDialog button:focus-visible, .deleteDialog input:focus-visible,
+.pagination button:focus-visible, .clearButton:focus-visible {
+  outline: 3px solid #8bb8ff;
+  outline-offset: 2px;
+}
+
 .error {
   color: #ffb7b7;
   font-size: 0.8rem;
 }
 
 @media (max-width: 1050px) {
+  .toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .searchField { grid-column: 1 / -1; }
   .columnHeadings {
     display: none;
   }
@@ -173,6 +247,9 @@
 }
 
 @media (max-width: 640px) {
+  .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar label:last-of-type, .toolbar > button { grid-column: 1 / -1; }
+  .pagination { justify-content: space-between; }
   .historyItem {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

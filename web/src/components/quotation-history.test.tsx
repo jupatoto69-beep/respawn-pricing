@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DEFAULT_QUOTATION_QUERY,
   QUOTATION_OPEN_FAILURE_MESSAGE,
   type QuotationRepository,
 } from "@/lib/quotations/quotation-repository";
@@ -78,7 +79,7 @@ function createRepository(
     save: vi.fn(),
     list: vi.fn(async () => ({
       ok: true as const,
-      value: Object.freeze([
+      value: { quotations: Object.freeze([
         Object.freeze({
           id: LIVE_QA_QUOTATION.id,
           quotationNumber: LIVE_QA_QUOTATION.quotationNumber,
@@ -89,10 +90,11 @@ function createRepository(
           totalCop: LIVE_QA_QUOTATION.totalCop,
           createdAt: LIVE_QA_QUOTATION.createdAt,
         }),
-      ]),
+      ]), total: 1 },
     })),
     load: vi.fn(async () => loadResult),
     changeStatus: vi.fn(async (_quotationId, status) => ({ ok: true as const, value: status })),
+    delete: vi.fn(async () => ({ ok: true as const, value: true as const })),
   };
 }
 
@@ -157,6 +159,7 @@ describe("QuotationHistoryList", () => {
         openingQuotationId={null}
         changingQuotationId={null}
         onChangeStatus={() => undefined}
+        onDelete={() => undefined}
         onOpen={() => undefined}
       />,
     );
@@ -182,6 +185,7 @@ describe("QuotationHistoryList", () => {
         openingQuotationId={null}
         changingQuotationId={null}
         onChangeStatus={() => undefined}
+        onDelete={() => undefined}
         onOpen={() => undefined}
       />,
     );
@@ -201,6 +205,7 @@ describe("QuotationHistoryList", () => {
         openingQuotationId={null}
         changingQuotationId={null}
         onChangeStatus={() => undefined}
+        onDelete={() => undefined}
         onOpen={() => undefined}
       />,
     );
@@ -211,6 +216,161 @@ describe("QuotationHistoryList", () => {
 });
 
 describe("QuotationHistory", () => {
+  async function renderHistory(repository: QuotationRepository) {
+    root = createRoot(container!);
+    await act(async () => {
+      root?.render(<StrictMode><QuotationHistory refreshRevision={0} repository={repository} /></StrictMode>);
+    });
+    await waitFor(() => expect(container?.textContent).toContain("1 de 1 cotizaciones"));
+  }
+
+  async function click(label: string, within: Element = container!) {
+    const button = Array.from(within.querySelectorAll<HTMLButtonElement>("button"))
+      .find((item) => item.textContent?.trim() === label);
+    expect(button).toBeDefined();
+    await act(async () => button?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  }
+
+  async function type(input: HTMLInputElement, value: string) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  it("combines server-side search, status and sort and resets to page one", async () => {
+    const repository = createRepository();
+    await renderHistory(repository);
+    const search = container!.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await type(search, "DR-2026-00");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({ search: "DR-2026-00", page: 1 })));
+    const status = Array.from(container!.querySelectorAll<HTMLSelectElement>("select"))
+      .find((item) => item.value === "all")!;
+    await act(async () => {
+      status.value = "expired";
+      status.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({
+      search: "DR-2026-00", status: "expired", page: 1,
+    })));
+    const sort = Array.from(container!.querySelectorAll<HTMLSelectElement>("select"))
+      .find((item) => item.value === "recent")!;
+    await act(async () => {
+      sort.value = "customer_asc";
+      sort.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({
+      search: "DR-2026-00", status: "expired", sort: "customer_asc", page: 1,
+    })));
+    await click("Limpiar filtros");
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({
+      search: "", status: "all", sort: "recent", page: 1,
+    })));
+  });
+
+  it("passes the quotation date range to the repository and clears it", async () => {
+    const repository = createRepository();
+    await renderHistory(repository);
+    const [from, to] = Array.from(container!.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+    await type(from, "2026-01-01");
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({
+      dateFrom: "2026-01-01", dateTo: "",
+    })));
+    await type(to, "2026-12-31");
+    await waitFor(() => expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({
+      dateFrom: "2026-01-01", dateTo: "2026-12-31",
+    })));
+    await click("Limpiar filtros");
+    expect(from.value).toBe("");
+    expect(to.value).toBe("");
+  });
+
+  it("requires both delete steps and an exact consecutive number, with cancel at each step", async () => {
+    const repository = createRepository();
+    await renderHistory(repository);
+    await click("Eliminar");
+    let dialog = container!.querySelector("dialog")!;
+    expect(dialog.textContent).toContain("Eliminar cotización DR-2026-0003");
+    await click("Cancelar", dialog);
+    expect(container!.querySelector("dialog")).toBeNull();
+    expect(repository.delete).not.toHaveBeenCalled();
+    await click("Eliminar");
+    dialog = container!.querySelector("dialog")!;
+    await click("Eliminar cotización", dialog);
+    expect(dialog.textContent).toContain("Esta acción es irreversible");
+    const confirm = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"))
+      .find((item) => item.textContent === "Eliminar permanentemente")!;
+    expect(confirm.disabled).toBe(true);
+    await type(dialog.querySelector("input")!, "dr-2026-0003");
+    expect(confirm.disabled).toBe(true);
+    await type(dialog.querySelector("input")!, "DR-2026-0003");
+    expect(confirm.disabled).toBe(false);
+    await click("Cancelar", dialog);
+    expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it("keeps the quotation on delete failure, permits retry, and updates the count on success", async () => {
+    const repository = createRepository();
+    vi.mocked(repository.delete).mockResolvedValueOnce({
+      ok: false, kind: "delete", message: "No pudimos eliminar la cotización. Inténtalo de nuevo.",
+    });
+    await renderHistory(repository);
+    await click("Eliminar");
+    const dialog = container!.querySelector("dialog")!;
+    await click("Eliminar cotización", dialog);
+    await type(dialog.querySelector("input")!, "DR-2026-0003");
+    await click("Eliminar permanentemente", dialog);
+    expect(repository.delete).toHaveBeenCalledWith(LIVE_QA_QUOTATION.id, "DR-2026-0003");
+    await waitFor(() => expect(dialog.querySelector('[role="alert"]')?.textContent).toContain("No pudimos eliminar"));
+    expect(container?.textContent).toContain("DR-2026-0003");
+    await click("Eliminar permanentemente", dialog);
+    await waitFor(() => expect(repository.delete).toHaveBeenCalledTimes(2));
+    expect(container?.querySelector("dialog")).toBeNull();
+    expect(container?.textContent).toContain("eliminada permanentemente");
+  });
+
+  it("pages through the count and returns after deleting the last row on page two", async () => {
+    const repository = createRepository();
+    const initial = await repository.list(DEFAULT_QUOTATION_QUERY);
+    if (!initial.ok) throw new Error("Invalid fixture");
+    const row = initial.value.quotations[0];
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      ...row, id: `page-one-${index}`, quotationNumber: `DR-2026-${String(index + 1).padStart(4, "0")}`,
+    }));
+    let deleted = false;
+    vi.mocked(repository.list).mockImplementation(async (query) => ({
+      ok: true,
+      value: { quotations: query.page === 1 ? firstPage : deleted ? [] : [row], total: deleted ? 20 : 21 },
+    }));
+    vi.mocked(repository.delete).mockImplementation(async () => {
+      deleted = true;
+      return { ok: true, value: true };
+    });
+    root = createRoot(container!);
+    await act(async () => root?.render(<QuotationHistory refreshRevision={0} repository={repository} />));
+    await waitFor(() => expect(container?.textContent).toContain("20 de 21 cotizaciones"));
+    await click("Siguiente");
+    await waitFor(() => expect(container?.textContent).toContain("1 de 21 cotizaciones · Página 2"));
+    await click("Eliminar");
+    const dialog = container!.querySelector("dialog")!;
+    await click("Eliminar cotización", dialog);
+    await type(dialog.querySelector("input")!, row.quotationNumber);
+    await click("Eliminar permanentemente", dialog);
+    await waitFor(() => expect(container?.textContent).toContain("20 de 20 cotizaciones · Página 1"));
+    expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
+  it("shows an empty state with a clear action", async () => {
+    const repository = createRepository();
+    vi.mocked(repository.list).mockResolvedValue({ ok: true, value: { quotations: [], total: 0 } });
+    root = createRoot(container!);
+    await act(async () => root?.render(<QuotationHistory refreshRevision={0} repository={repository} />));
+    await waitFor(() => expect(container?.textContent).toContain("No encontramos cotizaciones con estos criterios."));
+    expect(container?.textContent).toContain("0 de 0 cotizaciones");
+    expect(Array.from(container!.querySelectorAll("button")).some((item) => item.textContent === "Limpiar filtros")).toBe(true);
+  });
+
   it("opens a complete historical quotation from the saved list", async () => {
     const repository = createRepository();
     root = createRoot(container!);
@@ -275,7 +435,7 @@ describe("QuotationHistory", () => {
     });
     await waitFor(() => expect(container?.querySelector("select")).not.toBeNull());
 
-    const select = container!.querySelector<HTMLSelectElement>("select")!;
+    const select = container!.querySelector<HTMLSelectElement>('select[aria-label^="Cambiar estado de"]')!;
     await act(async () => {
       select.value = "accepted";
       select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -302,7 +462,7 @@ describe("QuotationHistory", () => {
     });
     await waitFor(() => expect(container?.querySelector("select")).not.toBeNull());
 
-    const select = container!.querySelector<HTMLSelectElement>("select")!;
+    const select = container!.querySelector<HTMLSelectElement>('select[aria-label^="Cambiar estado de"]')!;
     await act(async () => {
       select.value = "rejected";
       select.dispatchEvent(new Event("change", { bubbles: true }));
